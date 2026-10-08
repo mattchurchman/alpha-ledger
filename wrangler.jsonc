@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "alpha-ledger",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-07",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "alpha-ledger-db",
+      // placeholder: run `wrangler d1 create alpha-ledger-db` and paste the real id here (task 06)
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ]
+}

@@ -23,4 +23,10 @@ If the task conflicts with the spec or reality (an API changed, a file is missin
 Vite + React + TypeScript, Tailwind, Vitest. Cloudflare Workers (static assets + API) with D1. Cloudflare Access in front of everything. Charts per `docs/DESIGN.md` once task 07 creates it.
 
 ## Commands
-Filled in by task 01.
+- `npm run dev` - Vite dev server for the front end (routed shell only, no worker/API).
+- `npm run build` - typecheck, then build the front end to `dist/`.
+- `npm run check` - typecheck + lint + test; run before every commit.
+- `npm run test` - Vitest once (engine tests).
+- `npm run typecheck` - `tsc -b` across app, node, and worker tsconfigs.
+- `npm run lint` / `npm run format` - ESLint / Prettier.
+- `npx wrangler dev` - run the Worker locally (serves `dist/`, answers `/api/*`, needs `npm run build` first).

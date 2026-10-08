@@ -1,0 +1,15 @@
+node_modules
+dist
+.wrangler
+*.tsbuildinfo
+.DS_Store
+
+# env / secrets
+.env
+.env.*
+.dev.vars
+
+# personal data: never commit real exports
+private/
+*.csv
+!**/__fixtures__/**/*.csv
