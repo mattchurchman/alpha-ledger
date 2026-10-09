@@ -20,7 +20,7 @@ Open issues: bugs, shortcuts, things the user must do by hand
 | 03 | Price worker and first deploy | Sonnet | done |
 | 04 | Engine: holdings reconstruction | Opus | done |
 | 05 | Engine: VOO shadow, returns, attribution | Opus | done |
-| 06 | Database, API, login | Opus | partial (code done; Cloudflare dashboard + remote migration + deploy are the user's to run) |
+| 06 | Database, API, login | Opus | partial (code + both databases done; Cloudflare Access dashboard setup and deploy are the user's to run) |
 | 07 | Design system and app shell | Opus | todo |
 | 08 | Import and reconciliation screens | Sonnet | todo |
 | 09 | Update Market Data flow | Sonnet | todo |
@@ -167,9 +167,9 @@ Open issues:
 - `src/engine/placeholder.test.ts` is still there, still redundant; tasks 02 and 04 both declined to delete it and so does this one.
 
 ## Task 06 - Database, API, login - 2026-10-08 - Opus
-Status: partial. Everything in the repository is done and verified. Three things need the user's own hands or approval and are NOT done: the remote D1 migration, the Cloudflare Access application, and the deploy. See Open issues - `docs/SETUP.md` is the click-by-click.
+Status: partial. Everything in the repository is done and verified, and both databases have the schema. Two things need the user's own hands and are NOT done: the Cloudflare Access application and the deploy. See Open issues - `docs/SETUP.md` is the click-by-click.
 Built:
-- `migrations/0001_init.sql`: the five SPEC 3 tables with CHECK constraints on `type`/`source`/`excluded`, `source_row_hash` UNIQUE, and two indexes. Applied to the **local** database (`wrangler d1 migrations apply --local`), verified by listing `sqlite_master`. `wrangler.jsonc` now declares `migrations_dir`.
+- `migrations/0001_init.sql`: the five SPEC 3 tables with CHECK constraints on `type`/`source`/`excluded`, `source_row_hash` UNIQUE, and three indexes. Applied to **both** databases (`wrangler d1 migrations apply --local` and `--remote`), each verified by listing `sqlite_master`. `wrangler.jsonc` now declares `migrations_dir`.
 - `worker/access.ts`: Access JWT verification with `jose` - RS256 pinned, issuer + audience + expiry checked, `email` matched against `OWNER_EMAIL` case-insensitively. Remote key set cached at module scope so the certs endpoint is not refetched per request (and so Cloudflare's six-weekly key rotation still works - `createRemoteJWKSet` refetches on an unknown `kid`).
 - `worker/index.ts`: gates **every** `/api/*` route, `/api/health` included; static assets pass straight to `ASSETS` since Access stops them at the edge.
 - `worker/api/`: `transactions.ts` (list with ticker/account/type filters, create, bulk upsert, patch, exclude, delete), `aliases.ts`, `fairValues.ts`, `priceHistory.ts`, `meta.ts`, `backup.ts` (full JSON export + restore). `worker/validate.ts` is the single place untrusted JSON becomes a typed row; `worker/http.ts` has the response helpers.
@@ -198,8 +198,8 @@ Verified:
 - End-to-end against `npx wrangler dev` on the real local D1: create, list, fair value, meta, export all correct; static assets 200.
 - **Fail-closed proved in the real runtime, not just in tests**: with `.dev.vars` removed, `wrangler dev` answered `403 access-not-configured` to `/api/health`, `/api/transactions`, `/api/export` and to a forged `Cf-Access-Jwt-Assertion` header, while `/` still served assets.
 - Acceptance check "the owner's email is not in the repository": `git grep` for the address, for `gmail`, and for `cloudflareaccess` outside placeholders - nothing. `.dev.vars` is untracked. Every fixture is synthetic (ACME/BETA/OLD/NEW, `example.test` emails, round numbers).
+- **Remote D1 schema confirmed after the fact**: `sqlite_master` on `--remote` lists all five tables plus `transactions_by_date`, `transactions_by_ticker`, `fair_value_by_ticker` and `d1_migrations`. The migration wrote no rows - the remote database is schema-only and empty, as it should be before the first import.
 Open issues:
-- **`npx wrangler d1 migrations apply alpha-ledger-db --remote` has not been run** - the sandbox classifier blocked it, same as task 03's deploy. The user must run it (or approve it). Until then the remote database is still empty and a deployed API will 500 on its first query.
 - **The Cloudflare Access application does not exist yet.** The task assigns this to the user; `docs/SETUP.md` section 2 is the click-by-click, section 3 the three `wrangler secret put` commands, section 4 the deploy. Dashboard labels drift and could not be clicked through from here, so the navigation paths are as documented in October 2026 - if a label has moved, the surrounding structure should still make it findable.
 - **Three acceptance checks therefore remain unrun**: signed-out site and `/api/health` redirecting to the Access login, a forged JWT hitting the live `/api/transactions`, and create-on-one-device-see-on-another. All three need the deploy. `/debug` exists to make the third one doable from a phone. The equivalents all pass locally.
 - `src/routes/Debug.tsx` and its nav link are temporary and should be deleted once the Activity screen can create and delete transactions. Both are commented as such.
