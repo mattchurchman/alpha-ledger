@@ -19,7 +19,7 @@ Open issues: bugs, shortcuts, things the user must do by hand
 | 02 | M1 format and parser | Opus | partial |
 | 03 | Price worker and first deploy | Sonnet | done |
 | 04 | Engine: holdings reconstruction | Opus | done |
-| 05 | Engine: VOO shadow, returns, attribution | Opus | todo |
+| 05 | Engine: VOO shadow, returns, attribution | Opus | done |
 | 06 | Database, API, login | Sonnet | todo |
 | 07 | Design system and app shell | Opus | todo |
 | 08 | Import and reconciliation screens | Sonnet | todo |
@@ -130,3 +130,38 @@ Open issues:
 - **The split cross-check could not be run against real data.** `private/m1/` is still empty (task 02's open issue), so there are no real M1 `split` rows to compare with Yahoo. `crossCheckSplits` is written and tested against synthetic rows; it needs one run once the real CSVs are in place. Note the M1 parser currently emits split rows as *unrecognized* rather than as `split` transactions, so feeding it real history is also what will reveal whether M1 exports split rows at all.
 - The engine does not yet know about VOO - no shadow buckets, no IRR, no daily history series. That is task 05, which `sharesByDay` and `calendar.ts` were shaped to feed.
 - Oversell (selling more shares than the ledger holds) produces a negative share count rather than an error. That is deliberate: `reconcileShares` is the designated place for bad data to surface, and a negative count there is unmissable.
+
+## Task 05 - Engine: VOO shadow, returns, attribution - 2026-10-08 - Opus
+Status: done
+Built:
+- `src/engine/shadow.ts`: the per-ticker VOO buckets. Flows are built from the cash side of each transaction (`buy` buys VOO, `sell` and `dividend` sell it, `split`/`adjust` do nothing), priced on the next benchmark trading day. `shadowBucketsOn`, `shadowTotalOn`, `shadowUnitsByDay`, `benchmarkGrowth`, plus `shadowCoverageWarnings` for flows the benchmark series does not reach.
+- `src/engine/returns.ts`: `annualizedIrr` by bisection, `irrWithFinalValue`, `shadowIrr`, `valueAdded`, `percentDifference`, `cashFlows`. Every "show a dash" rule in SPEC 6 is a `null` return.
+- `src/engine/series.ts`: `dailySeries(input, ticker?)` - `dates`, `value`, `shadow`, `gap` from the first transaction to `asOf`, portfolio-wide or for one ticker.
+- `src/engine/decisions.ts`: `buyDecisions(input, ticker)` - per-buy outcome vs VOO with FIFO sell matching, including per-exit detail.
+- `src/engine/index.ts`: `analyze(input)` returning `portfolio`, `byTicker`, `series`, `missingPrices`, `warnings` and a reusable `context`; `tickerSeries(result, ticker)` and `tickerDecisions(result, ticker)` serve the detail screen from that context. `docs/ENGINE_API.md` documents the whole return shape.
+- Tests: `shadow.test.ts` (24), `returns.test.ts` (18), `series.test.ts` (8), `decisions.test.ts` (10), `index.test.ts` (18, incl. two performance checks). Shared synthetic fixtures in `src/engine/__fixtures__/synthetic.ts`.
+Decisions:
+- **Buckets are carried as "units" (`amount / adj(pricingDate)`), recomputed on every call, never stored.** SPEC 5 forbids storing shadow share counts because Yahoo restates adjusted closes after each dividend. Bucket value is then `adj(d) * sum(units)`, which is SPEC's `f * adj(d) / adj(i)` summed, and makes a daily series one multiplication per day instead of a re-sum.
+- A flow's **pricing day**, not its trade date, decides which bucket days it counts toward. A weekend trade priced on Monday is simply not in Friday's bucket.
+- **IRR is computed in `number`, not `Decimal`** - the one place in the engine that is. The bisection needs fractional powers thousands of times; `Decimal.pow` would make the dashboard crawl, and float64 carries ~15 significant digits into a figure displayed to four. The cash flows themselves stay exact.
+- IRR brackets the root in `(-99.99%, 1e9]` and returns **null** if there is none, rather than reporting the bracket edge. Consequence worth knowing before task 10: a big gain over a few days annualizes to a genuine but absurd number (millions of percent), and anything past 1e9 reads as a dash. The display has to clamp or abbreviate; the engine will not lie about it.
+- **The per-buy view compares each part to its own end point** - a sold slice against VOO from the buy date to the *sell* date, the unsold remainder to `asOf`. Measuring a slice sold years ago against VOO held until today would compare two different bets.
+- **Dividends are deliberately absent from the per-buy view**, so per-buy value added does not sum to the ticker's figure for a ticker that paid one. Allocating dividends across lots is a policy SPEC does not define; inventing one would have been a redesign. Flagged in `docs/ENGINE_API.md` and at the top of `decisions.ts`.
+- FIFO lives only in `decisions.ts`; `holdings.ts` keeps average cost. Nothing from the decision view feeds a total, so the two never mix. `adjust`-in shares join the FIFO queue as zero-cost lots (or a later sell would match the wrong lot) but are never reported as buys.
+- Daily series values are **rounded to cents** - the one deliberate exception to CLAUDE.md's "round only at display". A chart point is a display artifact, six years is ~1,500 points per line, and `gap` is derived from the rounded lines so the three agree exactly on screen. Headline numbers never pass through here.
+- `analyze` includes the portfolio series by default (the dashboard needs it) and takes `includeSeries: false` for screens that do not; per-ticker series and decisions are on demand per SPEC 6, reusing `result.context` so no screen re-resolves aliases or rebuilds flows.
+- Adjusted closes are memoized per `PriceHistory` object in a `WeakMap` (`adjSeries`). Assumes a `PriceHistory` handed to the engine is not mutated afterwards.
+- `MissingBenchmarkError` uses a declared field rather than a constructor parameter property, matching `YahooUpstreamError`: node's strip-only TypeScript mode (what runs `scripts/*.ts`) rejects parameter properties outright. Found by trying it.
+- `benchmark` is a parameter defaulting to `VOO` rather than a hardcoded string, which is what let the "a pick that tracks the benchmark exactly" tests be written.
+Verified:
+- `npm run check` passes: typecheck + lint + **176 tests** (98 of them from earlier tasks, all still green).
+- Every case the task lists has a hand-computed test: single buy, buy-then-sell-everything (closed position still has value added), dividends paid out, negative bucket, non-trading-day trade, selling A to fund B netting to zero shadow flow, and the invariant that per-ticker value added sums to the portfolio figure (asserted to 10 dp, alongside the same for shadow value and current value).
+- Performance: `analyze` on 6 years x 60 tickers (1,566 trading days, 5,580 transactions) runs in **~410ms** in Node - ~125ms for `analyze` itself, the rest the portfolio daily series. One ticker's series plus decisions is ~13ms. The test asserts under 1,000ms.
+- Extra invariant proved by fixture design: `BETA` is exactly half the benchmark's price on every day, so every buy of it must come out at zero value added, at the ticker level and per buy. It does.
+- All fixtures synthetic (ACME/BETA/SYNnn, round numbers, invented dates). `git status` and the full diff reviewed: nothing from `private/`, no real ticker, amount or position anywhere.
+Open issues:
+- **The engine has never run on real data.** `private/m1/` is still empty (open since task 02), so the whole comparison is proved only against synthetic fixtures. Task 15 is where this gets settled.
+- ~410ms in Node means roughly 1-3s on a phone for a 60-ticker portfolio, almost all of it the daily series. Levers if task 10 finds the dashboard sluggish: `includeSeries: false` plus a lazily-loaded chart, or thinning the series to weekly points beyond the last year. Not optimized now - a real M1 account is likelier 10-30 tickers.
+- `shadowCoverageWarnings` returns one entry per flow, so a ledger that starts before the fetched VOO history will produce hundreds. Task 09 should fetch VOO from the first transaction date onward (which makes the warning rare), and task 10 should group these before showing them.
+- Oversell in `decisions.ts` silently drops the excess shares, matching the holdings engine's stance that `reconcileShares` is where bad share counts surface.
+- `src/engine/placeholder.test.ts` is still there, still redundant; tasks 02 and 04 both declined to delete it and so does this one.
