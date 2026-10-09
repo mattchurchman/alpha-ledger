@@ -1,18 +1,11 @@
 import Decimal from 'decimal.js'
+import type { Transaction, TransactionType } from '../types'
 
-export type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'adjust'
+export type { TransactionType }
 
-export interface NormalizedTransaction {
-  account_label: string
-  trade_date: string
-  ticker: string
-  type: TransactionType
-  shares: string | null
-  amount_usd: string
+/** A `Transaction` (see `src/engine/types.ts`) that came out of an M1 activity export. */
+export interface NormalizedTransaction extends Transaction {
   source: 'm1'
-  source_row_hash: string
-  note: string | null
-  excluded: boolean
 }
 
 export interface DroppedRow {
