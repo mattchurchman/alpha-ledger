@@ -11,8 +11,8 @@
     {
       "binding": "DB",
       "database_name": "alpha-ledger-db",
-      // placeholder: run `wrangler d1 create alpha-ledger-db` and paste the real id here (task 06)
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      // created early by task 03 to unblock deploy; schema/tables are still task 06's job
+      "database_id": "74aa5a86-bf9b-43ff-8450-bd8bbc97f755"
     }
   ]
 }

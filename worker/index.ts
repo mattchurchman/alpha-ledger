@@ -1,3 +1,5 @@
+import { handlePricesRequest } from './prices'
+
 export interface Env {
   ASSETS: Fetcher
   DB: D1Database
@@ -9,6 +11,10 @@ export default {
 
     if (url.pathname === '/api/health') {
       return Response.json({ status: 'ok' })
+    }
+
+    if (url.pathname.startsWith('/api/prices/')) {
+      return handlePricesRequest(url.pathname, url.searchParams)
     }
 
     if (url.pathname.startsWith('/api/')) {
