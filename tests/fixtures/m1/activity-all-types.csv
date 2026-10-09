@@ -1,0 +1,7 @@
+Date,Posted Date,Symbol,Description,Transaction Type,Amount,Units,Unit Type,Unit Price,Security Id,Security Id Type
+"Jan 8, 2024","Jan 8, 2024",ABCD,0.04213 shares of ABCD purchased.,PURCHASED,$10.00,0.04213,SHARES,$237.45,000000000,CUSIP
+"Jan 7, 2024","Jan 7, 2024",ABCD,2.5 shares of ABCD sold.,SOLD,-$500.00,-2.5,SHARES,$200.00,000000000,CUSIP
+"Jan 6, 2024","Jan 5, 2024",WXYZ,Dividend of 111111111 $12.34 received.,DIVIDEND,$12.34,--,CURRENCY,--,111111111,CUSIP
+"Jan 5, 2024","Jan 5, 2024",,ACH deposit of $1500 completed.,TRANSFER,"$1,500.00",--,CURRENCY,--,,
+"Jan 4, 2024","Jan 4, 2024",,Securities lending interest of $0.07 received.,OTHER,$0.07,--,CURRENCY,--,,
+"Jan 3, 2024","Jan 3, 2024",,DIV:WXYZ(Fee @0.015000):TAXCD:A,FEE,-$0.42,--,CURRENCY,--,,

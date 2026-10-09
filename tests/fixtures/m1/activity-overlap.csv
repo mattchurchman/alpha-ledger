@@ -1,0 +1,5 @@
+Date,Posted Date,Symbol,Description,Transaction Type,Amount,Units,Unit Type,Unit Price,Security Id,Security Id Type
+"Jan 9, 2024","Jan 9, 2024",QRST,1 share of QRST purchased.,PURCHASED,$50.00,1,SHARES,$50.00,333333333,CUSIP
+"Jan 8, 2024","Jan 8, 2024",ABCD,0.04213 shares of ABCD purchased.,PURCHASED,$10.00,0.04213,SHARES,$237.45,000000000,CUSIP
+"Jan 7, 2024","Jan 7, 2024",ABCD,2.5 shares of ABCD sold.,SOLD,-$500.00,-2.5,SHARES,$200.00,000000000,CUSIP
+"Jan 6, 2024","Jan 5, 2024",WXYZ,Dividend of 111111111 $12.34 received.,DIVIDEND,$12.34,--,CURRENCY,--,111111111,CUSIP

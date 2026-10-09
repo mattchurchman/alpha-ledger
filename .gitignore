@@ -12,4 +12,4 @@ dist
 # personal data: never commit real exports
 private/
 *.csv
-!**/__fixtures__/**/*.csv
+!tests/fixtures/**/*.csv

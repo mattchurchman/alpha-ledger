@@ -10,6 +10,7 @@
     "test": "vitest run",
     "typecheck": "tsc -b",
     "lint": "eslint .",
+    "m1:summary": "node scripts/m1-summary.ts",
     "format": "prettier --write .",
     "check": "npm run typecheck && npm run lint && npm run test"
   },

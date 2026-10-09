@@ -1,0 +1,4 @@
+Date,Posted Date,Symbol,Description,Transaction Type,Amount,Units,Unit Type,Unit Price,Security Id,Security Id Type
+"Mar 4, 2024","Mar 4, 2024",ABCD,0.05 shares of ABCD purchased.,PURCHASED,$10.00,0.05,SHARES,$200.00,000000000,CUSIP
+"Mar 4, 2024","Mar 4, 2024",ABCD,0.05 shares of ABCD purchased.,PURCHASED,$10.00,0.05,SHARES,$200.00,000000000,CUSIP
+"Mar 4, 2024","Mar 4, 2024",ABCD,0.05 shares of ABCD purchased.,PURCHASED,$10.00,0.05,SHARES,$200.00,000000000,CUSIP
