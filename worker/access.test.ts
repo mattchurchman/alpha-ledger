@@ -136,6 +136,29 @@ describe('verifyAccess', () => {
     expect(result).toEqual({ ok: false, status: 403, reason: 'not-the-owner' })
   })
 
+  // Secrets arrive by paste, and `echo` adds a newline. Without trimming, every one of
+  // these would reject a perfectly good token.
+  it('tolerates whitespace around each pasted secret', async () => {
+    const padded: AccessEnv = {
+      ACCESS_TEAM_DOMAIN: `${TEAM_DOMAIN}\n`,
+      ACCESS_AUD: ` ${AUD} `,
+      OWNER_EMAIL: `${OWNER}\n`,
+    }
+    expect(await verifyAccess(withHeader(await token()), padded, keys)).toEqual({
+      ok: true,
+      email: OWNER,
+    })
+  })
+
+  it('still fails closed when a secret is nothing but whitespace', async () => {
+    const blank = { ...ENV, ACCESS_AUD: '   ' }
+    expect(await verifyAccess(withHeader(await token()), blank, keys)).toEqual({
+      ok: false,
+      status: 403,
+      reason: 'access-not-configured',
+    })
+  })
+
   // The important one: a deploy that forgot a secret must lock the API, not open it.
   it.each(['ACCESS_TEAM_DOMAIN', 'ACCESS_AUD', 'OWNER_EMAIL'] as const)(
     'fails closed when %s is not set',

@@ -92,7 +92,13 @@ export async function verifyAccess(
     return { ok: true, email: 'dev@localhost' }
   }
 
-  const { ACCESS_TEAM_DOMAIN, ACCESS_AUD, OWNER_EMAIL } = env
+  // Trimmed because these arrive by paste. `jose` compares `iss` and `aud` exactly, so a
+  // trailing newline from `echo` or a stray space would reject every token with an opaque
+  // `invalid-access-token` - a miserable thing to diagnose from the outside.
+  const ACCESS_TEAM_DOMAIN = env.ACCESS_TEAM_DOMAIN?.trim()
+  const ACCESS_AUD = env.ACCESS_AUD?.trim()
+  const OWNER_EMAIL = env.OWNER_EMAIL?.trim()
+
   if (!ACCESS_TEAM_DOMAIN || !ACCESS_AUD || !OWNER_EMAIL) {
     // Deploying without the secrets must lock the API, not open it.
     return { ok: false, status: 403, reason: 'access-not-configured' }
