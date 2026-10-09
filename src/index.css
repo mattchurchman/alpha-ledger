@@ -1,1 +1,263 @@
+/*
+ * Alpha Ledger design tokens. The prose version of every decision here is docs/DESIGN.md;
+ * change that file first.
+ *
+ * Fonts are bundled (SIL OFL 1.1) and fingerprinted into dist/ by Vite. Nothing is fetched
+ * from a font CDN at runtime - SPEC 10. `wght.css` is the upright variable axis only; the
+ * italic file is deliberately not imported, since nothing in the app is italic.
+ */
+@import '@fontsource-variable/geist/wght.css';
+@import '@fontsource-variable/geist-mono/wght.css';
 @import 'tailwindcss';
+
+/*
+ * Three scopes, in this order: light is complete on bare :root, the media query covers the OS
+ * setting, and [data-theme] covers the in-app toggle so it wins in both directions. No color
+ * is ever defined only inside a media query.
+ */
+:root {
+  color-scheme: light;
+
+  /* Surfaces and ink */
+  --al-plane: #f3f1e9;
+  --al-surface: #fcfbf7;
+  --al-surface-sunken: #efece2;
+  --al-ink: #14140f;
+  --al-ink-secondary: #4f4e46;
+  --al-ink-muted: #837f73;
+  --al-rule: #ddd9cb;
+  --al-grid: #e6e3d8;
+  --al-axis: #c7c3b4;
+  --al-focus: #2a78d6;
+
+  /* The pair that matters: beat VOO vs trailed VOO. Blue ahead, red behind - never green/red. */
+  --al-viz-ahead: #2a78d6;
+  --al-viz-behind: #e34948;
+  --al-viz-neutral: #ece9e0;
+
+  /* Series identity */
+  --al-viz-you: #2a78d6;
+  --al-viz-voo: #78766d;
+  --al-viz-estimate: #008300;
+  --al-viz-dim: #86b6ef;
+
+  /* Status - reserved, never a series color, always shipped with an icon and a word */
+  --al-status-good: #0ca30c;
+  --al-status-warning: #fab219;
+  --al-status-serious: #ec835a;
+  --al-status-critical: #d03b3b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --al-plane: #0f100e;
+    --al-surface: #1a1b19;
+    --al-surface-sunken: #141512;
+    --al-ink: #f7f6f1;
+    --al-ink-secondary: #c0bfb4;
+    --al-ink-muted: #8b8a80;
+    --al-rule: #2a2b27;
+    --al-grid: #2a2b27;
+    --al-axis: #3a3b36;
+    --al-focus: #3987e5;
+
+    --al-viz-ahead: #3987e5;
+    --al-viz-behind: #e66767;
+    --al-viz-neutral: #2e2f2b;
+
+    --al-viz-you: #3987e5;
+    --al-viz-voo: #9b9a92;
+    --al-viz-estimate: #008300;
+    --al-viz-dim: #1c5cab;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --al-plane: #0f100e;
+  --al-surface: #1a1b19;
+  --al-surface-sunken: #141512;
+  --al-ink: #f7f6f1;
+  --al-ink-secondary: #c0bfb4;
+  --al-ink-muted: #8b8a80;
+  --al-rule: #2a2b27;
+  --al-grid: #2a2b27;
+  --al-axis: #3a3b36;
+  --al-focus: #3987e5;
+
+  --al-viz-ahead: #3987e5;
+  --al-viz-behind: #e66767;
+  --al-viz-neutral: #2e2f2b;
+
+  --al-viz-you: #3987e5;
+  --al-viz-voo: #9b9a92;
+  --al-viz-estimate: #008300;
+  --al-viz-dim: #1c5cab;
+}
+
+/*
+ * `inline` matters: these theme values are themselves var() references, so the utilities have
+ * to substitute them at the point of use rather than freezing a copy. That is what makes the
+ * whole app theme-aware without a single `dark:` variant in component code.
+ */
+@theme inline {
+  --color-plane: var(--al-plane);
+  --color-surface: var(--al-surface);
+  --color-sunken: var(--al-surface-sunken);
+  --color-ink: var(--al-ink);
+  --color-ink-secondary: var(--al-ink-secondary);
+  --color-ink-muted: var(--al-ink-muted);
+  --color-rule: var(--al-rule);
+  --color-grid: var(--al-grid);
+  --color-axis: var(--al-axis);
+  --color-focus: var(--al-focus);
+
+  --color-ahead: var(--al-viz-ahead);
+  --color-behind: var(--al-viz-behind);
+  --color-mid: var(--al-viz-neutral);
+  --color-you: var(--al-viz-you);
+  --color-voo: var(--al-viz-voo);
+  --color-estimate: var(--al-viz-estimate);
+  --color-dim: var(--al-viz-dim);
+
+  --color-good: var(--al-status-good);
+  --color-warning: var(--al-status-warning);
+  --color-serious: var(--al-status-serious);
+  --color-critical: var(--al-status-critical);
+
+  --font-sans: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Type scale. Hero steps up at >=768px via the .text-hero rule below. */
+  --text-hero: 2.75rem;
+  --text-hero--line-height: 1;
+  --text-hero--letter-spacing: -0.02em;
+  --text-figure: 1.75rem;
+  --text-figure--line-height: 1.1;
+  --text-figure--letter-spacing: -0.015em;
+  --text-h1: 1.5rem;
+  --text-h1--line-height: 1.2;
+  --text-h1--letter-spacing: -0.01em;
+  --text-h2: 1.1875rem;
+  --text-h2--line-height: 1.3;
+  --text-h3: 1rem;
+  --text-h3--line-height: 1.4;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5;
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.45;
+  --text-micro: 0.71875rem;
+  --text-micro--line-height: 1.3;
+  --text-micro--letter-spacing: 0.08em;
+
+  --radius-card: 12px;
+  --radius-control: 8px;
+}
+
+@layer base {
+  html {
+    background-color: var(--al-plane);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--al-plane);
+    color: var(--al-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* One focus treatment everywhere, and it is always visible. */
+  :focus-visible {
+    outline: 2px solid var(--al-focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--al-viz-you) 25%, transparent);
+  }
+
+  /* Reduced motion removes motion rather than shortening it. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility text-hero {
+  font-size: var(--text-hero);
+  line-height: 1;
+  letter-spacing: -0.02em;
+
+  @media (width >= 48rem) {
+    font-size: 3.5rem;
+  }
+}
+
+/*
+ * A halo for SVG text that sits over the plot. `paint-order: stroke` draws the surface-coloured
+ * stroke first and the fill over it, so a direct label stays readable where it crosses a line -
+ * which is the alternative to nudging labels away from the mark they belong to.
+ */
+@utility chart-label {
+  paint-order: stroke;
+  stroke: var(--al-surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+/* The ledger-book column heading: used for every label that is not itself data. */
+@utility label-micro {
+  font-size: var(--text-micro);
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--al-ink-muted);
+}
+
+/* Draw-in for chart lines, once per mount. Disabled by the reduced-motion block above. */
+@utility draw-in {
+  stroke-dasharray: var(--draw-length, 4000);
+  stroke-dashoffset: 0;
+  animation: al-draw 420ms ease-out;
+}
+
+@keyframes al-draw {
+  from {
+    stroke-dashoffset: var(--draw-length, 4000);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes al-rise {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes al-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

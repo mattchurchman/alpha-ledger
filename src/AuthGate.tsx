@@ -66,18 +66,19 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   if (status === 'checking') {
     return (
-      <main className="flex min-h-screen items-center justify-center p-6">
-        <p className="text-sm text-gray-500">Checking…</p>
+      <main className="flex min-h-screen items-center justify-center bg-plane p-6">
+        <p className="text-small text-ink-muted">Checking…</p>
       </main>
     )
   }
 
   if (status === 'locked') {
     return (
-      <main className="flex min-h-screen items-start justify-center p-6 sm:items-center">
+      <main className="flex min-h-screen items-start justify-center bg-plane p-6 sm:items-center">
         <form onSubmit={unlock} className="w-full max-w-sm">
-          <h1 className="text-xl font-semibold">Alpha Ledger</h1>
-          <label htmlFor="token" className="mt-6 block text-sm font-medium">
+          <h1 className="text-h1 font-semibold">Alpha Ledger</h1>
+          <p className="label-micro mt-1">vs VOO</p>
+          <label htmlFor="token" className="mt-6 block text-small font-medium">
             Access token
           </label>
           <input
@@ -89,21 +90,21 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             autoComplete="current-password"
             autoFocus
             spellCheck={false}
-            className="mt-1 w-full rounded border border-gray-300 px-3 py-2 font-mono text-base"
+            className="mt-1 min-h-11 w-full rounded-control border border-rule bg-surface px-3 font-mono text-base"
           />
           <button
             type="submit"
             disabled={busy || token.trim() === ''}
-            className="mt-4 w-full rounded bg-blue-600 px-3 py-2 text-white disabled:opacity-50"
+            className="mt-4 min-h-11 w-full rounded-control bg-you px-3 font-medium text-white transition-opacity duration-[120ms] hover:opacity-90 disabled:opacity-45"
           >
             {busy ? 'Unlocking…' : 'Unlock'}
           </button>
           {error && (
-            <p role="alert" className="mt-3 text-sm text-red-700">
+            <p role="alert" className="mt-3 text-small text-behind">
               {error}
             </p>
           )}
-          <p className="mt-6 text-xs text-gray-500">
+          <p className="mt-6 text-micro text-ink-muted">
             Unlocking stores a sign-in cookie on this device for a year. Nothing else is kept.
           </p>
         </form>

@@ -2,8 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover is what makes env(safe-area-inset-*) real, which the tab bar needs. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
     <title>Alpha Ledger</title>
+    <script>
+      // Stamps the stored theme before first paint, so an explicit light/dark choice never
+      // flashes the other palette. Must stay in step with src/ui/theme.ts.
+      try {
+        var stored = localStorage.getItem('al.theme')
+        if (stored === 'light' || stored === 'dark') {
+          document.documentElement.setAttribute('data-theme', stored)
+        }
+      } catch (error) {
+        /* A private window can throw on access; the system theme is a fine fallback. */
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

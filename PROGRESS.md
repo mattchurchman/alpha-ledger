@@ -21,7 +21,7 @@ Open issues: bugs, shortcuts, things the user must do by hand
 | 04 | Engine: holdings reconstruction | Opus | done |
 | 05 | Engine: VOO shadow, returns, attribution | Opus | done |
 | 06 | Database, API, login | Opus | done |
-| 07 | Design system and app shell | Opus | todo |
+| 07 | Design system and app shell | Opus | done |
 | 08 | Import and reconciliation screens | Sonnet | todo |
 | 09 | Update Market Data flow | Sonnet | todo |
 | 10 | Dashboard | Sonnet | todo |
@@ -208,3 +208,45 @@ Open issues:
 - `src/routes/Debug.tsx` and its nav link are temporary and should be deleted once the Activity screen can create and delete transactions. Both are commented as such.
 - No price caching or Update Market Data flow - the `/api/price-history` routes exist but nothing calls them yet. That is task 09.
 - `src/engine/placeholder.test.ts` is still there, still redundant. Tasks 02, 04 and 05 all declined to delete it; so does this one.
+
+
+## Task 07 - Design system and app shell - 2026-10-09 - Opus
+Status: done. `/kit` screenshotted at 390px and 1280px in both themes and reviewed; `npm run check` passes.
+Built:
+- `docs/DESIGN.md`: the whole system - direction, tokens, type scale, spacing, motion, number formatting, the chart kit, an accessibility checklist, and the validator runs behind every colour claim. It is the file later tasks should read instead of guessing.
+- `src/index.css`: three-scope token system (`:root` light, `prefers-color-scheme` guarded by `:not([data-theme='light'])`, `[data-theme='dark']`) exposed to Tailwind through `@theme inline`. **No `dark:` variant appears anywhere in component code** - that is what `inline` buys. Geist + Geist Mono bundled via `@fontsource-variable` (SIL OFL 1.1); nothing is fetched at runtime.
+- `src/ui/format.ts` (+34 tests): money, exact money, compact, axis, percent, signed, shares, dates, relative time. `null` renders `—`, never `$0`.
+- `src/ui/charts/geometry.ts` (+33 tests): scales, nice ticks, line/step/area builders, min-max decimation, binary-search nearest index, `gapRuns`, `thin`. No chart library - see Decisions.
+- The kit in `src/ui/`: `StatTile`, `SignedDelta`, `HistoryChart`, `DivergingBars`, `DiscountMeter`, `StepLineChart`, `Sparkline`, `DataTable`, `BottomSheet`, `Toast`, `ChartFrame`, `EmptyState`/`Skeleton`/`StatusBadge`/`PricesAsOfBadge`, `Card`/`Button`/`Legend`, hand-written `icons.tsx`. One barrel: screens import from `../ui`.
+- `src/ui/AppShell.tsx`: bottom tab bar on a phone, 232px side rail from 768px, safe-area insets (`viewport-fit=cover` added to `index.html`), the "prices as of" slot, and a system/light/dark toggle persisted in `localStorage` with a pre-paint stamp in `index.html`.
+- `src/routes/Kit.tsx` + `src/kit/synthetic.ts`: the `/kit` demo, 1,566 synthetic daily points from a seeded generator.
+- `scripts/screenshots.ts` + `npm run screenshots`: four full-page PNGs of `/kit` into gitignored `screenshots/`, failing on any console error or failed request.
+Decisions:
+- **No chart library.** Recharts is ~450 KB and one React element per point (1,500 points x 2 lines is the phone budget this task exists to protect); visx is d3-in-React, so over `geometry.ts` it only adds scales and shapes for ~40 KB and a second idiom; uPlot and Chart.js are canvas, which costs the DOM nodes that make the charts accessible and the CSS custom properties that make theming free. Hand-rolled SVG on a tested geometry module adds **0 KB of runtime dependencies** and made the gap-band split, the touch crosshair and the annotated step line ~20 lines each. Full comparison in DESIGN.md 5.1. Revisit past ~20k points; nothing on the roadmap goes there.
+- **Beat VOO is blue, trailed VOO is red - deliberately not green/red.** Measured at our surfaces with the dataviz validator: green↔red is ΔE 7.2 under protanopia (inside the 6-8 warn band), blue↔red is 21.6 light / 19.2 dark. Sign is additionally carried by a ▲/▼ glyph and an explicit `+`/`−`, so colour is never load-bearing alone.
+- **VOO is graphite, not a second hue.** It is the benchmark, so it is drawn as a reference mark. This knowingly departs from the chroma floor; the alternative was worse, because the obvious second hue is orange and orange↔red fails both floors (ΔE 5.6 CVD / 7.1 normal) - an orange VOO line would be confusable with the red "behind" fill it sits inside. Legend, direct end labels, the readout and the table view all carry the identity.
+- **The fair-value line is green**, the only remaining hue that clears every all-pairs gate in both modes beside blue and red. Its one warn (green↔red, light) is a pair that never shares a chart. Green is never used for a delta or a direction anywhere - if a later task needs "good green", that is a token to add, not this one to reuse.
+- **Engine values are decimal strings**, so every component takes `string | number | null | undefined` and coerces at the display edge. Charts parse once in a `useMemo`.
+- **1,500 points stay smooth** via min-max decimation to the pixel-column count (1,566 -> ~700 at 390px, extremes preserved exactly), memoised paths (a scrub re-renders only the crosshair), and one path per line rather than per point.
+- **The scrub readout lives at the top of the card, not in a floating tooltip** - on a phone a bubble lands under your thumb. Fixed min-height, so nothing reflows while dragging. `touch-action: pan-y` on the hit rect: a vertical drag still scrolls the page.
+- **`DataTable` collapses to cards by CSS, not a resize listener** - a measured width is wrong for one frame on every load, and a holdings table that reflows after paint looks broken.
+- **`/kit` sits outside the auth gate** so a headless browser can open it; it makes no API call and holds nothing real. SPEC 10 already accepts a public shell. **Task 14 should decide whether it ships in the production bundle.**
+- `src/ui/zones.ts` is SPEC 7's "thresholds are constants in one file". **Task 12 should import from there**, or move the file into the engine and update the import - not restate the numbers.
+- `Card` renders a `div`, not a `section`: a page of twelve unlabelled `<section>`s is worse for a screen reader than none.
+- `DivergingBars` is HTML rows, not SVG - each row is then natively focusable and selectable, and the 2px surface gap comes from row padding.
+- The gap band is filled at 15% rather than the spec's ~10%: at 10% it vanished against the warm surface, and this band *is* the headline number drawn to scale.
+- Task 06's `/debug` link is now a header link rather than a sixth tab, so it stays reachable on a phone (which is what it exists for) and still dies with one deletion.
+Verified:
+- `npm run check` passes: typecheck + lint + **346 tests** (276 from earlier tasks, all still green; 70 new across `format` and `geometry`).
+- `gapRuns` is tested on the cases that actually bite: no crossing, identical lines, a crossing interpolated to the exact fraction (0.75, not the midpoint), a touch that flips the sign, a touch that does not, six alternating crossings asserted to hand each run's last index to the next so the band has no gaps, and leading equality.
+- `decimate` is tested to keep a spike on index 137 that no uniform stride would land on.
+- Screenshots reviewed at 390px and 1280px in light and dark, plus per-section crops at 390px. Four real defects were found that way and fixed: colliding x-axis dates at 390px (the middle label is now dropped below a 320px plot), `$0.00` and `$250.00` axis ticks (new `moneyAxis`), end labels sitting on top of their own lines (a `paint-order` surface halo), and a dark-mode skeleton that was invisible against the surface.
+- Privacy: `git status` and the full diff reviewed. Every number in `src/kit/synthetic.ts` is invented (ACME/BRIK/CNDL…, a seeded LCG, round dates); `screenshots/` is gitignored; no personal data, no secrets, nothing from `private/`.
+- Build output: 324 KB JS (100 KB gzipped) and 31 KB CSS, plus 29 KB + 23 KB of latin-subset woff2. Fontsource ships one `@font-face` per unicode subset, so only latin is downloaded.
+Open issues:
+- **`npm run format` reformats the whole repo**, including documents and worker files earlier tasks wrote without it. It churned 19 unrelated files here and they were reverted. Either run Prettier on the paths you touched, or let one task reformat everything deliberately and commit that on its own.
+- `/favicon.ico` 404s - there is no icon set yet. That is **task 13**'s deliverable; the screenshot script ignores that one URL by name.
+- `/kit` and `src/kit/synthetic.ts` are in the production bundle. Harmless (no API calls, nothing real) but task 14 should decide.
+- No component tests: that would need jsdom and testing-library, and the task's acceptance is the screenshots. The pure modules under the components are covered.
+- The side rail is 232px and content caps at `max-w-4xl`; above ~1400px the page is mostly margin. Deliberate (it is a reading-width app), but task 10 may want a wider dashboard grid.
+- `src/engine/placeholder.test.ts` is still there, still redundant. Tasks 02, 04, 05 and 06 all declined to delete it; so does this one.

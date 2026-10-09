@@ -1,0 +1,147 @@
+import type { ReactNode } from 'react'
+import { Link, NavLink, useLocation } from 'react-router-dom'
+import { DESTINATIONS, titleFor } from './destinations'
+import { DarkThemeIcon, LightThemeIcon, SystemThemeIcon } from './icons'
+import { PricesAsOfBadge, type PricesAsOf } from './States'
+import { useTheme } from './theme'
+
+/**
+ * Bottom tab bar on a phone, side rail from 768px, one set of destinations (`destinations.ts`).
+ *
+ * The active state is a 2px accent edge **plus** an ink-weight change, never colour alone.
+ */
+const THEME_ICON = { system: SystemThemeIcon, light: LightThemeIcon, dark: DarkThemeIcon }
+const THEME_NEXT = { system: 'light', light: 'dark', dark: 'system' } as const
+
+function ThemeToggle() {
+  const { theme, cycle } = useTheme()
+  const Glyph = THEME_ICON[theme]
+  return (
+    <button
+      type="button"
+      onClick={cycle}
+      className="inline-flex size-11 items-center justify-center rounded-control text-ink-secondary transition-colors duration-[120ms] hover:bg-sunken"
+      aria-label={`Theme: ${theme}. Switch to ${THEME_NEXT[theme]}.`}
+    >
+      <Glyph />
+    </button>
+  )
+}
+
+export interface AppShellProps {
+  children: ReactNode
+  pricesAsOf?: PricesAsOf
+  /** Overrides the title derived from the route. */
+  title?: string
+  /**
+   * Task 06's temporary `/debug` page. It has to stay reachable on a phone - that is what it
+   * exists for - so it is a header link rather than a sixth tab, and it dies with one deletion.
+   */
+  showDebugLink?: boolean
+}
+
+export function AppShell({ children, pricesAsOf, title, showDebugLink = true }: AppShellProps) {
+  const { pathname } = useLocation()
+  const heading = title ?? titleFor(pathname)
+
+  return (
+    <div className="min-h-screen bg-plane md:flex">
+      {/* Desktop: side rail. */}
+      <nav
+        aria-label="Sections"
+        className="hidden shrink-0 border-r border-rule md:sticky md:top-0 md:block md:h-screen md:w-[232px]"
+      >
+        <div className="flex h-full flex-col p-4">
+          <Link to="/" className="mb-6 flex flex-col gap-0.5 rounded-control px-2 py-1">
+            <span className="text-h3 font-semibold">Alpha Ledger</span>
+            <span className="label-micro">vs VOO</span>
+          </Link>
+          <ul className="flex flex-col gap-0.5">
+            {DESTINATIONS.map(({ to, label, icon: Glyph }) => (
+              <li key={to}>
+                <NavLink
+                  to={to}
+                  end={to === '/'}
+                  className={({ isActive }) =>
+                    `flex min-h-11 items-center gap-2.5 rounded-control border-l-2 px-2.5 text-body transition-colors duration-[120ms] ${
+                      isActive
+                        ? 'border-you bg-sunken font-semibold text-ink'
+                        : 'border-transparent text-ink-secondary hover:bg-sunken'
+                    }`
+                  }
+                >
+                  <Glyph className="shrink-0" />
+                  {label}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-auto flex items-center justify-between pt-4">
+            <ThemeToggle />
+            {showDebugLink && (
+              <Link to="/debug" className="label-micro px-2 hover:text-ink">
+                Debug
+              </Link>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 border-b border-rule bg-plane/95 backdrop-blur-sm">
+          <div className="mx-auto flex w-full max-w-4xl items-center gap-3 px-4 py-2.5">
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-h1 font-semibold">{heading}</h1>
+              {/* SPEC section 8's indicator. Task 09 fills it; the shell owns the slot. */}
+              <PricesAsOfBadge value={pricesAsOf} />
+            </div>
+            {showDebugLink && (
+              <Link to="/debug" className="label-micro px-1 hover:text-ink md:hidden">
+                Debug
+              </Link>
+            )}
+            <div className="md:hidden">
+              <ThemeToggle />
+            </div>
+          </div>
+        </header>
+
+        <main
+          className="mx-auto w-full max-w-4xl flex-1 px-4 py-4"
+          // Clears the fixed tab bar and the home bar below it.
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
+        >
+          {children}
+        </main>
+      </div>
+
+      {/* Phone: bottom tab bar. */}
+      <nav
+        aria-label="Sections"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-surface md:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <ul className="mx-auto flex max-w-4xl">
+          {DESTINATIONS.map(({ to, label, icon: Glyph }) => (
+            <li key={to} className="flex-1">
+              <NavLink
+                to={to}
+                end={to === '/'}
+                className={({ isActive }) =>
+                  `flex min-h-14 flex-col items-center justify-center gap-0.5 border-t-2 px-1 pt-1 text-center transition-colors duration-[120ms] ${
+                    isActive
+                      ? 'border-you font-semibold text-ink'
+                      : 'border-transparent text-ink-muted'
+                  }`
+                }
+              >
+                <Glyph className="size-5 shrink-0" />
+                <span className="text-[0.6875rem] leading-tight">{label}</span>
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </div>
+  )
+}
