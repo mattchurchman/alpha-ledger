@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AccessExpiredError, ApiError, api } from '../api/client'
+import { NotAuthenticatedError, ApiError, api } from '../api/client'
 import type { TransactionRow } from '../api/types'
 
 /**
@@ -15,7 +15,7 @@ export default function Debug() {
   const [busy, setBusy] = useState(false)
 
   const report = useCallback((err: unknown) => {
-    if (err instanceof AccessExpiredError) setStatus(`${err.message} (reload)`)
+    if (err instanceof NotAuthenticatedError) setStatus(`${err.message} (reload)`)
     else if (err instanceof ApiError) setStatus(`API error ${err.status}: ${err.message}`)
     else setStatus(String(err))
   }, [])
@@ -82,7 +82,7 @@ export default function Debug() {
       <h1 className="text-lg font-semibold">Debug: API and sync</h1>
       <p className="mt-1 text-sm text-gray-600">
         Temporary page for the task 06 acceptance checks. Add a row here, then open this page
-        on another device signed in to the same account - the row should already be there.
+        on another unlocked device - the row should already be there.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">

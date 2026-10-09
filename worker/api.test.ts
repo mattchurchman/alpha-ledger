@@ -89,34 +89,37 @@ beforeEach(async () => {
   ])
 })
 
-describe('the Access gate', () => {
-  // The deployed secrets, with no dev bypass: what a real signed-out request meets.
+describe('the auth gate', () => {
+  // No dev bypass: what a real signed-out request meets.
   const signedOut: Partial<Env> = { DEV_AUTH_BYPASS: undefined }
+  const TOKEN = env.AUTH_TOKEN as string
 
-  it('401s an /api request with no JWT', async () => {
+  const bearer = (token: string) => ({ headers: { Authorization: `Bearer ${token}` } })
+
+  it('401s an /api request carrying no credentials', async () => {
     const response = await call('/api/transactions', {}, signedOut)
     expect(response.status).toBe(401)
-    expect(await response.json()).toEqual({ error: 'missing-access-token' })
+    expect(await response.json()).toEqual({ error: 'missing-credentials' })
   })
 
-  it('403s a forged JWT', async () => {
-    const response = await call(
-      '/api/transactions',
-      { headers: { 'Cf-Access-Jwt-Assertion': 'not.a.realtoken' } },
-      signedOut,
-    )
+  it('403s a wrong token', async () => {
+    const response = await call('/api/transactions', bearer('not-the-token'), signedOut)
     expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: 'invalid-token' })
   })
 
-  it('403s when the Access secrets are missing, rather than allowing the request', async () => {
-    const response = await call('/api/transactions', {}, {
+  it('lets the right token through', async () => {
+    const response = await call('/api/transactions', bearer(TOKEN), signedOut)
+    expect(response.status).toBe(200)
+  })
+
+  it('403s when no token is configured, rather than allowing the request', async () => {
+    const response = await call('/api/transactions', bearer(TOKEN), {
       DEV_AUTH_BYPASS: undefined,
-      ACCESS_TEAM_DOMAIN: undefined,
-      ACCESS_AUD: undefined,
-      OWNER_EMAIL: undefined,
+      AUTH_TOKEN: undefined,
     })
     expect(response.status).toBe(403)
-    expect(await response.json()).toEqual({ error: 'access-not-configured' })
+    expect(await response.json()).toEqual({ error: 'auth-not-configured' })
   })
 
   it('gates /api/health too, so an unauthenticated probe learns nothing', async () => {
@@ -124,7 +127,7 @@ describe('the Access gate', () => {
     expect((await call('/api/health')).status).toBe(200)
   })
 
-  it('gates every write route and the backup routes', async () => {
+  it('gates every data route', async () => {
     for (const [method, path] of [
       ['POST', '/api/transactions'],
       ['POST', '/api/transactions/bulk'],
@@ -134,16 +137,91 @@ describe('the Access gate', () => {
       ['GET', '/api/meta'],
       ['GET', '/api/export'],
       ['POST', '/api/restore'],
+      ['GET', '/api/session'],
+      ['GET', '/api/prices/VOO'],
     ] as const) {
       const response = await send(method, path, undefined, signedOut)
       expect([401, 403], `${method} ${path}`).toContain(response.status)
     }
   })
 
-  it('serves static assets without the gate, because Access already stopped them at the edge', async () => {
+  it('serves the app shell ungated - it is HTML and JS, with no data in it', async () => {
     // Reaching ASSETS at all is the assertion; what it returns is the asset handler's business.
-    const response = await call('/', {}, { DEV_AUTH_BYPASS: undefined })
+    const response = await call('/', {}, signedOut)
     expect(response.status).not.toBe(401)
+    expect(response.status).not.toBe(403)
+  })
+})
+
+describe('the unlock flow', () => {
+  const signedOut: Partial<Env> = { DEV_AUTH_BYPASS: undefined }
+  const TOKEN = env.AUTH_TOKEN as string
+
+  /** The `Set-Cookie` value reduced to what a browser would send back. */
+  function cookieFrom(response: Response): string {
+    const header = response.headers.get('Set-Cookie')
+    expect(header).toBeTruthy()
+    return (header as string).split(';')[0]
+  }
+
+  it('exchanges the token for a session cookie', async () => {
+    const response = await send('POST', '/api/session', { token: TOKEN }, signedOut)
+    expect(response.status).toBe(200)
+
+    const header = response.headers.get('Set-Cookie') ?? ''
+    expect(header).toContain('al_session=')
+    expect(header).toContain('HttpOnly')
+    expect(header).toContain('SameSite=Strict')
+
+    const body = (await response.json()) as { expires_at: number }
+    // A year, give or take the second this test takes to run.
+    expect(body.expires_at).toBeGreaterThan(Math.floor(Date.now() / 1000) + 364 * 24 * 3600)
+  })
+
+  it('the issued cookie then opens the data routes', async () => {
+    const login = await send('POST', '/api/session', { token: TOKEN }, signedOut)
+    const cookie = cookieFrom(login)
+
+    const response = await call('/api/transactions', { headers: { Cookie: cookie } }, signedOut)
+    expect(response.status).toBe(200)
+
+    const whoami = await call('/api/session', { headers: { Cookie: cookie } }, signedOut)
+    expect(await expectJson<{ authenticated: boolean }>(whoami, 200)).toEqual({
+      authenticated: true,
+    })
+  })
+
+  it('refuses the wrong token and issues no cookie', async () => {
+    const response = await send('POST', '/api/session', { token: 'wrong' }, signedOut)
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: 'invalid-token' })
+    expect(response.headers.get('Set-Cookie')).toBeNull()
+  })
+
+  it('400s a malformed unlock body without revealing whether a token would have worked', async () => {
+    expect((await send('POST', '/api/session', {}, signedOut)).status).toBe(400)
+    expect((await send('POST', '/api/session', { token: 42 }, signedOut)).status).toBe(400)
+  })
+
+  it('403s the unlock when no token is configured', async () => {
+    const response = await send('POST', '/api/session', { token: TOKEN }, {
+      DEV_AUTH_BYPASS: undefined,
+      AUTH_TOKEN: undefined,
+    })
+    expect(response.status).toBe(403)
+  })
+
+  it('signs out by expiring the cookie', async () => {
+    const response = await send('DELETE', '/api/session', undefined, signedOut)
+    expect(response.status).toBe(204)
+    expect(response.headers.get('Set-Cookie')).toContain('Max-Age=0')
+  })
+
+  it('only POST and DELETE are reachable unauthenticated; other methods meet the gate', async () => {
+    // Only unlock and sign-out sit outside the gate, so an unauthenticated PATCH gets 401
+    // rather than 405 - it does not get to learn which methods the route has.
+    expect((await send('PATCH', '/api/session', {}, signedOut)).status).toBe(401)
+    expect((await send('PATCH', '/api/session', {})).status).toBe(405)
   })
 })
 

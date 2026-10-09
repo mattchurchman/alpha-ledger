@@ -1,14 +1,15 @@
-import { verifyAccess, type AccessEnv } from './access'
+import { verifyAuth, type AuthEnv } from './auth'
 import { apiError, toErrorResponse } from './http'
 import { handleAliases } from './api/aliases'
 import { exportAll, restoreAll } from './api/backup'
 import { handleFairValues } from './api/fairValues'
 import { handleMeta } from './api/meta'
 import { handlePriceHistory } from './api/priceHistory'
+import { createSession, deleteSession, readSession } from './api/session'
 import { handleTransactions } from './api/transactions'
 import { handlePricesRequest } from './prices'
 
-export interface Env extends AccessEnv {
+export interface Env extends AuthEnv {
   ASSETS: Fetcher
   DB: D1Database
 }
@@ -27,6 +28,12 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   const { pathname } = url
   const params = url.searchParams
   const db = env.DB
+
+  if (pathname === '/api/session') {
+    // Reaching this behind the gate is itself the answer.
+    if (request.method === 'GET') return readSession()
+    return apiError('Method not allowed', 405)
+  }
 
   if (pathname === '/api/health') {
     return Response.json({ status: 'ok' })
@@ -71,19 +78,24 @@ export default {
     const url = new URL(request.url)
 
     if (!url.pathname.startsWith('/api/')) {
-      // Static assets. Access gates these at the edge for the whole hostname, so an
-      // unauthenticated browser never reaches the Worker at all (SPEC 10).
+      // The app shell: HTML and JS, no personal data. Unlike Cloudflare Access, which gated
+      // the whole hostname at the edge, this gate lives inside the Worker and so can only
+      // protect the API. Recorded in the SPEC 10 decision log.
       return env.ASSETS.fetch(request)
     }
 
-    // Every `/api/*` route is gated, `/api/health` included: a liveness probe that answers
-    // before the lock would tell an unauthenticated caller the app exists.
-    const access = await verifyAccess(request, env)
-    if (!access.ok) {
-      return apiError(access.reason, access.status)
-    }
-
     try {
+      // Unlock and sign-out must be reachable without a session - they are what create and
+      // destroy one. Everything else, `/api/health` included, is behind the gate: a liveness
+      // probe that answered first would tell an unauthenticated caller the app is here.
+      if (url.pathname === '/api/session') {
+        if (request.method === 'POST') return await createSession(request, env, url)
+        if (request.method === 'DELETE') return deleteSession(url)
+      }
+
+      const auth = await verifyAuth(request, env)
+      if (!auth.ok) return apiError(auth.reason, auth.status)
+
       return await route(request, env, url)
     } catch (err) {
       return toErrorResponse(err)

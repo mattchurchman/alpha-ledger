@@ -19,7 +19,7 @@ Out of scope forever: trading, brokerage connections, AI recommendations, comput
 | Front end | Vite + React + TypeScript + Tailwind, installable (PWA) | One codebase for desktop and iPhone home screen |
 | Hosting + API | One Cloudflare Worker serving static assets and `/api/*` | Free, runs only on request, no idle pausing |
 | Database | Cloudflare D1 (SQLite) | Free tier, same vendor, synced across devices |
-| Login | Cloudflare Access (Zero Trust) in front of the whole site, allow-list of one email | No auth code to get wrong; data and app both gated |
+| Login | One 256-bit access token held in a password manager, exchanged for a signed year-long HttpOnly cookie by the Worker | Free with no payment method, which Cloudflare Access is not (see Decision log) |
 | Prices | Yahoo Finance chart endpoint, called by the Worker only on user request | Free, no key, includes splits and dividends |
 | Math | Pure TypeScript in `src/engine/`, runs in the browser | Testable, no server cost |
 
@@ -28,7 +28,7 @@ Rejected: Supabase (free projects pause after 7 days idle and can be deleted if 
 Known risks, each with a required fallback:
 - Yahoo's endpoint is unofficial and may block or change. Fallback: manual price CSV upload per ticker and manual "current price" entry. Task 03 must prove the fetch works from a deployed Worker, not only locally.
 - Delisted or renamed tickers may have no data. Fallback: ticker alias table and manual prices.
-- Cloudflare Access free-tier terms must be confirmed in task 06 on Cloudflare's own pricing page. If it is not free for one user, stop and ask the user.
+- ~~Cloudflare Access free-tier terms must be confirmed in task 06 on Cloudflare's own pricing page. If it is not free for one user, stop and ask the user.~~ Resolved in task 06: the plan is free for one user but onboarding demands a payment method, so Access was dropped. See the Decision log.
 
 Free-tier limits to design around (Workers Free): 100,000 requests/day, 50 outbound fetches per request, about 10 ms CPU per request. D1 Free: about 100,000 row writes/day. Therefore:
 - The browser asks for one ticker per API call when updating prices.
@@ -118,7 +118,7 @@ Negative-bucket tooltip text: "This position has paid you back more cash than th
 ## 10. Privacy
 
 - The repository contains no personal data, no account identifiers, and no secrets. `.gitignore` covers `private/`, CSV files outside test fixtures, and env files.
-- Every route, static and API, sits behind Cloudflare Access. The Worker also verifies the Access JWT on `/api/*` and rejects any other email.
+- Every `/api/*` route requires a valid session: the Worker checks a signed HttpOnly cookie, or the access token as a bearer header. A missing or wrong credential is 401/403, and a Worker with no token configured refuses everything. **The app shell (`index.html` and its JS) is served without a check** - the gate lives inside the Worker, so it cannot gate the hostname the way Cloudflare Access did. The shell contains no personal data; all data goes through `/api/*`.
 - No analytics, no third-party scripts, no external fonts fetched at runtime.
 - The only outbound call is Worker to Yahoo, containing ticker symbols and dates, nothing else.
 
@@ -126,8 +126,12 @@ Negative-bucket tooltip text: "This position has paid you back more cash than th
 
 - 2026-10-07: Sales mirrored dollar-for-dollar in per-ticker VOO buckets. Dividends treated as cash out of the stock. IRR for percent returns. Accounts combined. Idle cash ignored. Hosted database behind login accepted. (User confirmed.)
 - 2026-10-07: M1's CSV column layout is not publicly documented. Task 02 derives it from the user's real export.
-- 2026-10-08: **Cloudflare Access free-tier condition in section 2 is satisfied** - Zero Trust Free covers up to 50 users, including Access for self-hosted apps and one-time PIN login. No stop-and-ask needed. Sources and exact wording in `docs/SETUP.md` section 0.
-- 2026-10-08: Access is applied to the `workers.dev` hostname with Cloudflare's one-click "Enable Cloudflare Access" for Workers, so **no custom domain is bought or configured**. The Preview URL needs the same treatment or it serves the same database unguarded.
-- 2026-10-08: `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` and `OWNER_EMAIL` are Worker **secrets**, not `vars` in `wrangler.jsonc`: the team domain names the account and the email is personal data, both of which section 10 keeps out of the repository. A missing secret makes `/api/*` answer 403 - the gate fails closed.
+- 2026-10-08: **Cloudflare Access is dropped. (User decided.)** Its price is genuinely $0 for one user, but Zero Trust onboarding requires a payment method on file before an application can be created, which the user ruled a breach of the free-only rule. Section 2's stop-and-ask condition therefore fired, one step later than written - the pricing page confirmed the price, and the signup flow revealed the card. Sources in `docs/SETUP.md` section 0.
+- 2026-10-08: Login is instead **one 256-bit random access token** (`AUTH_TOKEN`, a Worker secret), exchanged at `POST /api/session` for a signed, HttpOnly, `SameSite=Strict`, year-long cookie. Consequences worth knowing:
+  - **No password hashing, deliberately.** A slow KDF exists to make guessing a human-chosen password expensive, and at safe iteration counts it would exceed the free plan's ~10ms CPU per request. 256 random bits are not guessable at any request rate, so the token is compared as a fixed-length SHA-256 digest and no KDF is used. This is why the credential must stay a generated token and never become a memorable password.
+  - **The cookie key is derived from the token**, so rotating `AUTH_TOKEN` signs every device out. That is the revocation mechanism; there is no session table.
+  - **`SameSite=Strict` stands in for CSRF tokens** - the cookie never rides a cross-site request.
+  - **The app shell is public** (see section 10). This is the one real loss versus Access, which gated the hostname at Cloudflare's edge before any code ran.
+  - No rate limiting on the unlock route, and none needed at 256 bits; adding a counter would cost storage and CPU this tier has to spare for the engine.
 - 2026-10-08: Money and share counts are **TEXT** columns, not REAL. They stay exact decimal strings from the M1 parser through D1 to the engine; SQLite's REAL is a float64 and would round a fractional share or a cent.
 - 2026-10-08: Bulk import **inserts new `source_row_hash` values and leaves existing ones untouched** rather than overwriting them, so re-importing an overlapping export cannot undo an edit or an exclusion the user has made. A restore, by contrast, replaces all five tables - merging two ledgers is not something this app attempts.

@@ -1,6 +1,12 @@
-# Copy to `.dev.vars` (gitignored) to run the Worker locally without Cloudflare Access.
+# Copy to `.dev.vars` (gitignored) to run the Worker locally without a token.
 #
-# `.dev.vars` is read only by `wrangler dev` and the Vitest worker project. A deployed
-# Worker cannot see it, which is what makes this a safe local-only bypass - so never run
+# `.dev.vars` is read only by `wrangler dev` and the Vitest worker project. A deployed Worker
+# cannot see it, which is what makes this a safe local-only bypass - so never run
 # `wrangler secret put DEV_AUTH_BYPASS` or add it to `wrangler.jsonc`.
+#
+# Only the exact string `true` bypasses the gate.
 DEV_AUTH_BYPASS=true
+
+# To exercise the real unlock flow locally instead, comment out the line above and set a token
+# here. Any value works; it is only ever compared against what you type into the unlock screen.
+# AUTH_TOKEN=local-development-token-not-a-secret

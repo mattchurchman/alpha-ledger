@@ -32,15 +32,14 @@ export class ApiError extends Error {
 }
 
 /**
- * The Access session has run out. `fetch` cannot complete the login - it is a cross-origin
- * redirect to `cloudflareaccess.com` - so the only cure is a full page navigation, which is
- * what the UI should do when it sees this. Distinguishing it from `ApiError` is what keeps a
- * screen from showing "something went wrong" when the real answer is "sign in again".
+ * No valid session: either this device has never been unlocked, or its year-long cookie has
+ * expired, or the token was rotated. The cure is the unlock screen, not an error message -
+ * which is why this is a distinct type rather than an `ApiError` with status 401.
  */
-export class AccessExpiredError extends Error {
-  constructor() {
-    super('Your sign-in has expired. Reload the page to sign in again.')
-    this.name = 'AccessExpiredError'
+export class NotAuthenticatedError extends Error {
+  constructor(message = 'Enter your access token to unlock.') {
+    super(message)
+    this.name = 'NotAuthenticatedError'
   }
 }
 
@@ -72,7 +71,7 @@ export function createApiClient(options: ApiClientOptions = {}) {
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await doFetch(`${baseUrl}${path}`, {
       ...init,
-      // Carries the CF_Authorization cookie, which is what Access turns into the JWT header.
+      // Carries the signed `al_session` cookie, which is what the Worker checks.
       credentials: 'same-origin',
       headers: {
         Accept: 'application/json',
@@ -81,14 +80,12 @@ export function createApiClient(options: ApiClientOptions = {}) {
       },
     })
 
-    // An expired Access session answers with the login page, not JSON. Treat any non-JSON
-    // body as that rather than trying to parse it.
     const contentType = response.headers.get('Content-Type') ?? ''
     const isJson = contentType.includes('application/json')
+
+    // A safety net rather than an expected path: every `/api` answer is JSON or an empty 204.
     if (!isJson && response.status !== 204) {
-      if (response.status === 401 || response.status === 403 || response.redirected || response.ok) {
-        throw new AccessExpiredError()
-      }
+      if (response.status === 401) throw new NotAuthenticatedError()
       throw new ApiError(response.status, `Unexpected response (HTTP ${response.status})`)
     }
 
@@ -100,6 +97,11 @@ export function createApiClient(options: ApiClientOptions = {}) {
         typeof body === 'object' && body !== null && 'error' in body
           ? String((body as { error: unknown }).error)
           : `HTTP ${response.status}`
+      // 401 means "no session"; 403 on a data route means the session or token was rejected.
+      // Both land on the unlock screen, so both become the same error for the UI.
+      if (response.status === 401 || message === 'invalid-session') {
+        throw new NotAuthenticatedError()
+      }
       throw new ApiError(response.status, message)
     }
     return body as T
@@ -110,6 +112,15 @@ export function createApiClient(options: ApiClientOptions = {}) {
 
   return {
     health: () => request<{ status: string }>('/api/health'),
+
+    session: {
+      /** Exchanges the token for a year-long signed cookie. The token is not stored anywhere. */
+      unlock: (token: string) =>
+        send<{ expires_at: number }>('POST', '/api/session', { token }),
+      signOut: () => send<void>('DELETE', '/api/session'),
+      /** Throws `NotAuthenticatedError` when this device has no valid session. */
+      check: () => request<{ authenticated: true }>('/api/session'),
+    },
 
     transactions: {
       list: (filters: TransactionFilters = {}) =>

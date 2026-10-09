@@ -1,4 +1,5 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
+import AuthGate from './AuthGate.tsx'
 import Activity from './routes/Activity.tsx'
 import Dashboard from './routes/Dashboard.tsx'
 import Debug from './routes/Debug.tsx'
@@ -20,27 +21,29 @@ const navLinks = [
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <div className="min-h-screen bg-white">
-        <nav className="flex flex-wrap gap-3 border-b border-gray-200 p-3 text-sm">
-          {navLinks.map((link) => (
-            <Link key={link.to} to={link.to} className="text-blue-600 hover:underline">
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-        <main className="p-4">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/stocks/:ticker" element={<StockDetail />} />
-            <Route path="/fair-values" element={<FairValues />} />
-            <Route path="/activity" element={<Activity />} />
-            <Route path="/import" element={<Import />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/debug" element={<Debug />} />
-          </Routes>
-        </main>
-      </div>
-    </BrowserRouter>
+    <AuthGate>
+      <BrowserRouter>
+        <div className="min-h-screen bg-white">
+          <nav className="flex flex-wrap gap-3 border-b border-gray-200 p-3 text-sm">
+            {navLinks.map((link) => (
+              <Link key={link.to} to={link.to} className="text-blue-600 hover:underline">
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+          <main className="p-4">
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/stocks/:ticker" element={<StockDetail />} />
+              <Route path="/fair-values" element={<FairValues />} />
+              <Route path="/activity" element={<Activity />} />
+              <Route path="/import" element={<Import />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/debug" element={<Debug />} />
+            </Routes>
+          </main>
+        </div>
+      </BrowserRouter>
+    </AuthGate>
   )
 }

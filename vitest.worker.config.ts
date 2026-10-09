@@ -17,12 +17,10 @@ export default defineProject(async () => {
         miniflare: {
           bindings: {
             TEST_MIGRATIONS: migrations,
-            // Stand-ins for the three deployed secrets. The team domain is never contacted:
-            // `access.test.ts` verifies against a locally generated key set, and the route
-            // tests run with the dev bypass on, the same way `wrangler dev` does.
-            ACCESS_TEAM_DOMAIN: 'https://alpha-ledger-test.cloudflareaccess.com',
-            ACCESS_AUD: '0000000000000000000000000000000000000000000000000000000000000000',
-            OWNER_EMAIL: 'owner@example.test',
+            // A stand-in for the deployed `AUTH_TOKEN`. The route tests run with the dev
+            // bypass on (the same way `wrangler dev` does) and the gate tests switch it off
+            // per request, so both paths are exercised against this token.
+            AUTH_TOKEN: 'test-token-not-a-real-secret-0123456789abcdef',
             DEV_AUTH_BYPASS: 'true',
           },
         },

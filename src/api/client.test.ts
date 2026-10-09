@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { AccessExpiredError, ApiError, createApiClient } from './client'
+import { ApiError, NotAuthenticatedError, createApiClient } from './client'
 import type { TransactionRow } from './types'
 
 /**
- * The client's own logic, against a stub fetch: how it builds requests, and how it tells an
- * API error apart from an expired Access session. The routes themselves are covered by
- * `worker/api.test.ts` against a real D1.
+ * The client's own logic, against a stub fetch: how it builds requests, and how it tells a
+ * real API error apart from "this device has no session". The routes themselves are covered
+ * by `worker/api.test.ts` against a real D1.
  */
 
 interface Call {
@@ -91,23 +91,44 @@ describe('createApiClient', () => {
     await expect(client.transactions.list()).rejects.toThrow(/HTTP 500/)
   })
 
-  // The case that matters for a PWA left open on a phone overnight: Access has expired, so
-  // the request comes back as the login page's HTML, not as JSON.
-  it('reports an expired Access session when the response is not JSON', async () => {
-    const loginPage = () =>
-      new Response('<html>Sign in</html>', { status: 200, headers: { 'Content-Type': 'text/html' } })
-    const { client } = stub(loginPage)
-    await expect(client.transactions.list()).rejects.toBeInstanceOf(AccessExpiredError)
+  // The case that matters for the app left on a phone home screen: the cookie has lapsed, so
+  // the UI must show the unlock screen rather than an error.
+  it('reports no session on a 401, not a generic API error', async () => {
+    const { client } = stub(() => json({ error: 'missing-credentials' }, 401))
+    await expect(client.transactions.list()).rejects.toBeInstanceOf(NotAuthenticatedError)
   })
 
-  it('reports an expired session for a bare 401/403 with no JSON body', async () => {
+  it('reports no session when a rotated token invalidated the cookie', async () => {
+    const { client } = stub(() => json({ error: 'invalid-session' }, 403))
+    await expect(client.transactions.list()).rejects.toBeInstanceOf(NotAuthenticatedError)
+  })
+
+  it('reports no session for a bare 401 with no JSON body', async () => {
     const { client } = stub(() => new Response('Unauthorized', { status: 401 }))
-    await expect(client.transactions.list()).rejects.toBeInstanceOf(AccessExpiredError)
+    await expect(client.transactions.list()).rejects.toBeInstanceOf(NotAuthenticatedError)
+  })
+
+  it('keeps a misconfigured deploy as an ApiError, so the UI can say what is wrong', async () => {
+    const { client } = stub(() => json({ error: 'auth-not-configured' }, 403))
+    await expect(client.session.check()).rejects.toBeInstanceOf(ApiError)
   })
 
   it('still raises an ApiError for a non-JSON server failure', async () => {
     const { client } = stub(() => new Response('Bad gateway', { status: 502 }))
     await expect(client.transactions.list()).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('posts the token to unlock and keeps it nowhere else', async () => {
+    const { client, calls } = stub(() => json({ expires_at: 1800000000 }))
+    await client.session.unlock('the-token')
+    expect(calls[0]).toMatchObject({ url: '/api/session', method: 'POST' })
+    expect(JSON.parse(calls[0].body ?? 'null')).toEqual({ token: 'the-token' })
+  })
+
+  it('signs out with a DELETE', async () => {
+    const { client, calls } = stub(() => new Response(null, { status: 204 }))
+    await client.session.signOut()
+    expect(calls[0]).toMatchObject({ url: '/api/session', method: 'DELETE' })
   })
 
   it('honours a baseUrl for a local front end pointed at a remote API', async () => {

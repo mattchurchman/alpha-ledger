@@ -20,7 +20,7 @@ If the task conflicts with the spec or reality (an API changed, a file is missin
 - Keep context small: prefer Grep and targeted reads over opening whole directories.
 
 ## Stack (decided, see SPEC section 2)
-Vite + React + TypeScript, Tailwind, Vitest. Cloudflare Workers (static assets + API) with D1. Cloudflare Access in front of everything. Charts per `docs/DESIGN.md` once task 07 creates it.
+Vite + React + TypeScript, Tailwind, Vitest. Cloudflare Workers (static assets + API) with D1. Login is a 256-bit `AUTH_TOKEN` the Worker checks, exchanged for a signed year-long cookie - Cloudflare Access was dropped because its onboarding demands a payment method (see SPEC Decision log). Charts per `docs/DESIGN.md` once task 07 creates it.
 
 ## Commands
 - `npm run dev` - Vite dev server for the front end (routed shell only, no worker/API).
