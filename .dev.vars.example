@@ -1,0 +1,6 @@
+# Copy to `.dev.vars` (gitignored) to run the Worker locally without Cloudflare Access.
+#
+# `.dev.vars` is read only by `wrangler dev` and the Vitest worker project. A deployed
+# Worker cannot see it, which is what makes this a safe local-only bypass - so never run
+# `wrangler secret put DEV_AUTH_BYPASS` or add it to `wrangler.jsonc`.
+DEV_AUTH_BYPASS=true

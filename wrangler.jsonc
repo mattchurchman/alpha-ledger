@@ -11,8 +11,9 @@
     {
       "binding": "DB",
       "database_name": "alpha-ledger-db",
-      // created early by task 03 to unblock deploy; schema/tables are still task 06's job
-      "database_id": "74aa5a86-bf9b-43ff-8450-bd8bbc97f755"
+      // created early by task 03 to unblock deploy; schema lives in ./migrations (task 06)
+      "database_id": "74aa5a86-bf9b-43ff-8450-bd8bbc97f755",
+      "migrations_dir": "migrations"
     }
   ]
 }

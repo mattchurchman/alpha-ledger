@@ -1,6 +1,7 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 import Activity from './routes/Activity.tsx'
 import Dashboard from './routes/Dashboard.tsx'
+import Debug from './routes/Debug.tsx'
 import FairValues from './routes/FairValues.tsx'
 import Import from './routes/Import.tsx'
 import Settings from './routes/Settings.tsx'
@@ -13,6 +14,8 @@ const navLinks = [
   { to: '/activity', label: 'Activity' },
   { to: '/import', label: 'Import' },
   { to: '/settings', label: 'Settings' },
+  // Temporary, task 06 only. Goes away with src/routes/Debug.tsx.
+  { to: '/debug', label: 'Debug' },
 ]
 
 export default function App() {
@@ -34,6 +37,7 @@ export default function App() {
             <Route path="/activity" element={<Activity />} />
             <Route path="/import" element={<Import />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/debug" element={<Debug />} />
           </Routes>
         </main>
       </div>

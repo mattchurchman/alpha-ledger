@@ -29,4 +29,5 @@ Vite + React + TypeScript, Tailwind, Vitest. Cloudflare Workers (static assets +
 - `npm run test` - Vitest once (engine tests).
 - `npm run typecheck` - `tsc -b` across app, node, and worker tsconfigs.
 - `npm run lint` / `npm run format` - ESLint / Prettier.
-- `npx wrangler dev` - run the Worker locally (serves `dist/`, answers `/api/*`, needs `npm run build` first).
+- `npx wrangler dev` - run the Worker locally (serves `dist/`, answers `/api/*`, needs `npm run build` first, and `.dev.vars` for the auth bypass - see `docs/SETUP.md`).
+- `npx wrangler d1 migrations apply alpha-ledger-db --local` / `--remote` - apply `migrations/`.

@@ -4,8 +4,8 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Two projects: `src/` runs in node, `worker/` runs in workerd against a real local D1.
   test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    projects: ['./vitest.engine.config.ts', './vitest.worker.config.ts'],
   },
 })

@@ -20,7 +20,7 @@ Open issues: bugs, shortcuts, things the user must do by hand
 | 03 | Price worker and first deploy | Sonnet | done |
 | 04 | Engine: holdings reconstruction | Opus | done |
 | 05 | Engine: VOO shadow, returns, attribution | Opus | done |
-| 06 | Database, API, login | Sonnet | todo |
+| 06 | Database, API, login | Opus | partial (code done; Cloudflare dashboard + remote migration + deploy are the user's to run) |
 | 07 | Design system and app shell | Opus | todo |
 | 08 | Import and reconciliation screens | Sonnet | todo |
 | 09 | Update Market Data flow | Sonnet | todo |
@@ -165,3 +165,44 @@ Open issues:
 - `shadowCoverageWarnings` returns one entry per flow, so a ledger that starts before the fetched VOO history will produce hundreds. Task 09 should fetch VOO from the first transaction date onward (which makes the warning rare), and task 10 should group these before showing them.
 - Oversell in `decisions.ts` silently drops the excess shares, matching the holdings engine's stance that `reconcileShares` is where bad share counts surface.
 - `src/engine/placeholder.test.ts` is still there, still redundant; tasks 02 and 04 both declined to delete it and so does this one.
+
+## Task 06 - Database, API, login - 2026-10-08 - Opus
+Status: partial. Everything in the repository is done and verified. Three things need the user's own hands or approval and are NOT done: the remote D1 migration, the Cloudflare Access application, and the deploy. See Open issues - `docs/SETUP.md` is the click-by-click.
+Built:
+- `migrations/0001_init.sql`: the five SPEC 3 tables with CHECK constraints on `type`/`source`/`excluded`, `source_row_hash` UNIQUE, and two indexes. Applied to the **local** database (`wrangler d1 migrations apply --local`), verified by listing `sqlite_master`. `wrangler.jsonc` now declares `migrations_dir`.
+- `worker/access.ts`: Access JWT verification with `jose` - RS256 pinned, issuer + audience + expiry checked, `email` matched against `OWNER_EMAIL` case-insensitively. Remote key set cached at module scope so the certs endpoint is not refetched per request (and so Cloudflare's six-weekly key rotation still works - `createRemoteJWKSet` refetches on an unknown `kid`).
+- `worker/index.ts`: gates **every** `/api/*` route, `/api/health` included; static assets pass straight to `ASSETS` since Access stops them at the edge.
+- `worker/api/`: `transactions.ts` (list with ticker/account/type filters, create, bulk upsert, patch, exclude, delete), `aliases.ts`, `fairValues.ts`, `priceHistory.ts`, `meta.ts`, `backup.ts` (full JSON export + restore). `worker/validate.ts` is the single place untrusted JSON becomes a typed row; `worker/http.ts` has the response helpers.
+- `src/api/types.ts` + `src/api/client.ts`: one set of wire types imported by both the Worker and the browser, and a typed client with an `AccessExpiredError` distinct from `ApiError`.
+- `src/routes/Debug.tsx` at `/debug`: the one temporary page the task's "Out of scope" line allows. It exists so the two-device sync check can be done **on the phone** - running a `fetch` in a console on iOS needs a Mac and Web Inspector.
+- `docs/SETUP.md`: free-tier evidence, the dashboard clicks, the three `wrangler secret put` commands, the acceptance checks, local dev, and a symptom/cause table. No secrets in it.
+- Tests: `worker/api.test.ts` (57), `worker/access.test.ts` (15), `src/api/client.test.ts` (11).
+Decisions:
+- **Cloudflare Access is free for one user** - Zero Trust Free covers up to 50 users, Access for self-hosted apps and one-time PIN included. The task's stop-and-ask condition does not trigger. Sources quoted in `docs/SETUP.md` section 0 and logged in SPEC's Decision log.
+- **Access goes on the `workers.dev` hostname via Cloudflare's one-click "Enable Cloudflare Access" for Workers, so no custom domain is needed.** Access historically required a zone you own, which would have meant buying a domain; the one-click flow (shipped 2025-10-03) covers `workers.dev` and Preview URLs. The Preview URL needs it too - same Worker, same database.
+- **`ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` and `OWNER_EMAIL` are all secrets, not `wrangler.jsonc` vars.** The team domain names the user's Cloudflare account and the email is personal data; SPEC 10 keeps both out of the repo. A missing secret returns **403**, never an allow - there is a test per secret for that, because a fail-open here would expose the whole ledger.
+- **Money and shares are TEXT columns.** Exact decimal strings from parser to D1 to engine; REAL is a float64 and would round a fractional share or a cent. A test asserts `0.123456789` round-trips.
+- **Bulk import inserts new hashes and leaves existing rows untouched** (`ON CONFLICT DO NOTHING`), rather than overwriting. Re-importing an overlapping M1 export must not undo an edit or an exclusion the user has since made, and the hash already identifies the row. `skipped` is the dedupe count the Import screen shows. There is a test that an excluded, edited row survives re-import.
+- **Restore replaces all five tables**, inside one `db.batch()` (one D1 transaction), and validates the entire bundle **before** issuing any DELETE - so a malformed bundle cannot empty the database. Merging two ledgers is not attempted: ids would collide and hash dedupe would silently drop rows. Export carries row ids so a restore reproduces the database rather than renumbering it.
+- `price_history.series_json` stores `{dates, close, adjClose}` only. `asOf` is **derived** from the last date on read (that is how `parseYahooChart` computes it), so a stored copy could only ever disagree. A PUT replaces the row rather than merging, because Yahoo restates adjusted closes after every dividend and mixing two vintages would mix two scales.
+- The local dev bypass is `DEV_AUTH_BYPASS=true` in **`.dev.vars`**, which is gitignored and read only by `wrangler dev` and the test pool - a deployed Worker cannot see it. Checked against the exact string `'true'`, so a stray `1`/`yes`/`TRUE` is not a bypass. `.dev.vars.example` is committed and says never to publish it as a secret.
+- `verifyAccess` takes an optional key-set parameter so `access.test.ts` can verify locally signed tokens. Nothing else about the check moves: signature, issuer, audience, algorithm, expiry and the email match all run as they do in production.
+- Route tests call the Worker's default export **directly** with a spread-and-modified `env`, rather than through `SELF`. That is what makes the signed-out cases testable at all - each case can hand the handler a different set of secrets.
+- **The Workers test pool had to be swapped.** `@cloudflare/vitest-pool-workers` is deprecated, renamed, and its latest version peers on `vitest ^4.1.0` while this repo is on 5. The successor `@cloudflare/vitest-plugin@1.4.0` peers on `^4.1.0 || ^5.0.0`, so **vitest stays at 5** and the project uses the maintained package. Its API is a Vite plugin (`cloudflareTest(...)`), not `defineWorkersConfig`, and `fetchMock` no longer exists - which is the other reason the key set is injected rather than intercepted over the wire.
+- Vitest now runs **two projects** (`vitest.engine.config.ts` in node for `src/`, `vitest.worker.config.ts` in workerd for `worker/`), referenced from `vite.config.ts`. The engine project carries the React plugin already, so a later task's component tests need no config change.
+- Touched two task-03 lines: `worker/prices.ts` now imports the shared `TICKER_PATTERN` instead of redeclaring it, and its `TODO(task 06)` about the route being ungated is gone - it is gated now.
+Verified:
+- `npm run check` passes: typecheck + lint + **259 tests** (176 from earlier tasks, all still green).
+- Worker tests run **inside workerd against a real local D1**, so the CHECK constraints and the UNIQUE dedupe are exercised for real. Covered: the gate (401 no token, 403 forged, 403 per missing secret, `/api/health` gated, assets not gated), full CRUD on all five tables, decimal-string fidelity, every validation rejection, bulk upsert including a 250-row batch that spans chunks, and an export/restore round trip asserted equal field-for-field.
+- `npm run test` passes both **with and without** `.dev.vars` present, so a clean checkout behaves the same.
+- End-to-end against `npx wrangler dev` on the real local D1: create, list, fair value, meta, export all correct; static assets 200.
+- **Fail-closed proved in the real runtime, not just in tests**: with `.dev.vars` removed, `wrangler dev` answered `403 access-not-configured` to `/api/health`, `/api/transactions`, `/api/export` and to a forged `Cf-Access-Jwt-Assertion` header, while `/` still served assets.
+- Acceptance check "the owner's email is not in the repository": `git grep` for the address, for `gmail`, and for `cloudflareaccess` outside placeholders - nothing. `.dev.vars` is untracked. Every fixture is synthetic (ACME/BETA/OLD/NEW, `example.test` emails, round numbers).
+Open issues:
+- **`npx wrangler d1 migrations apply alpha-ledger-db --remote` has not been run** - the sandbox classifier blocked it, same as task 03's deploy. The user must run it (or approve it). Until then the remote database is still empty and a deployed API will 500 on its first query.
+- **The Cloudflare Access application does not exist yet.** The task assigns this to the user; `docs/SETUP.md` section 2 is the click-by-click, section 3 the three `wrangler secret put` commands, section 4 the deploy. Dashboard labels drift and could not be clicked through from here, so the navigation paths are as documented in October 2026 - if a label has moved, the surrounding structure should still make it findable.
+- **Three acceptance checks therefore remain unrun**: signed-out site and `/api/health` redirecting to the Access login, a forged JWT hitting the live `/api/transactions`, and create-on-one-device-see-on-another. All three need the deploy. `/debug` exists to make the third one doable from a phone. The equivalents all pass locally.
+- `src/routes/Debug.tsx` and its nav link are temporary and should be deleted once the Activity screen can create and delete transactions. Both are commented as such.
+- `npm audit` was clean after the package swap. The deprecated pool had 5 high-severity advisories in its own nested dev tree; swapping to `@cloudflare/vitest-plugin` removed them.
+- No price caching or Update Market Data flow - the `/api/price-history` routes exist but nothing calls them yet. That is task 09.
+- `src/engine/placeholder.test.ts` is still there, still redundant. Tasks 02, 04 and 05 all declined to delete it; so does this one.

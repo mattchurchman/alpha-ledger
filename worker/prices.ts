@@ -1,6 +1,6 @@
 import { parseYahooChart, YahooUpstreamError } from '../src/engine/prices/parseYahooChart'
+import { TICKER_PATTERN } from './validate'
 
-const TICKER_PATTERN = /^[A-Z][A-Z0-9.-]{0,9}$/
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 // Yahoo's edge rejects requests with no browser-like User-Agent (observed: 429 "Edge: Too
@@ -29,8 +29,6 @@ export async function handlePricesRequest(path: string, searchParams: URLSearchP
   }
   const period2 = Math.floor(Date.now() / 1000)
 
-  // TODO(task 06): this endpoint returns only public price data for now, but once Cloudflare
-  // Access is in front of the whole site it will be gated like everything else.
   const yahooUrl =
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}` +
     `?period1=${period1}&period2=${period2}&interval=1d&events=div,splits`
