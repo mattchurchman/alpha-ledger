@@ -20,7 +20,7 @@ Open issues: bugs, shortcuts, things the user must do by hand
 | 03 | Price worker and first deploy | Sonnet | done |
 | 04 | Engine: holdings reconstruction | Opus | done |
 | 05 | Engine: VOO shadow, returns, attribution | Opus | done |
-| 06 | Database, API, login | Opus | partial (code + both databases done; Cloudflare Access dashboard setup and deploy are the user's to run) |
+| 06 | Database, API, login | Opus | partial (code, both databases and the deploy done; the Cloudflare Access application is the user's to create) |
 | 07 | Design system and app shell | Opus | todo |
 | 08 | Import and reconciliation screens | Sonnet | todo |
 | 09 | Update Market Data flow | Sonnet | todo |
@@ -167,7 +167,7 @@ Open issues:
 - `src/engine/placeholder.test.ts` is still there, still redundant; tasks 02 and 04 both declined to delete it and so does this one.
 
 ## Task 06 - Database, API, login - 2026-10-08 - Opus
-Status: partial. Everything in the repository is done and verified, and both databases have the schema. Two things need the user's own hands and are NOT done: the Cloudflare Access application and the deploy. See Open issues - `docs/SETUP.md` is the click-by-click.
+Status: partial. The code is done and verified, both databases have the schema, and the new Worker is deployed with the API locked. One thing needs the user's own hands and is NOT done: creating the Cloudflare Access application (and the two secrets that only exist once it does). See Open issues - `docs/SETUP.md` section 2 is the click-by-click.
 Built:
 - `migrations/0001_init.sql`: the five SPEC 3 tables with CHECK constraints on `type`/`source`/`excluded`, `source_row_hash` UNIQUE, and three indexes. Applied to **both** databases (`wrangler d1 migrations apply --local` and `--remote`), each verified by listing `sqlite_master`. `wrangler.jsonc` now declares `migrations_dir`.
 - `worker/access.ts`: Access JWT verification with `jose` - RS256 pinned, issuer + audience + expiry checked, `email` matched against `OWNER_EMAIL` case-insensitively. Remote key set cached at module scope so the certs endpoint is not refetched per request (and so Cloudflare's six-weekly key rotation still works - `createRemoteJWKSet` refetches on an unknown `kid`).
@@ -199,9 +199,12 @@ Verified:
 - **Fail-closed proved in the real runtime, not just in tests**: with `.dev.vars` removed, `wrangler dev` answered `403 access-not-configured` to `/api/health`, `/api/transactions`, `/api/export` and to a forged `Cf-Access-Jwt-Assertion` header, while `/` still served assets.
 - Acceptance check "the owner's email is not in the repository": `git grep` for the address, for `gmail`, and for `cloudflareaccess` outside placeholders - nothing. `.dev.vars` is untracked. Every fixture is synthetic (ACME/BETA/OLD/NEW, `example.test` emails, round numbers).
 - **Remote D1 schema confirmed after the fact**: `sqlite_master` on `--remote` lists all five tables plus `transactions_by_date`, `transactions_by_ticker`, `fair_value_by_ticker` and `d1_migrations`. The migration wrote no rows - the remote database is schema-only and empty, as it should be before the first import.
+- **Deployed, and the live API is locked.** Version `c5e4f9eb`. Before this deploy the hostname served task 03's ungated code: `GET /api/health` returned `{"status":"ok"}` and `GET /api/prices/VOO` proxied Yahoo, both to anyone. After it, `/api/health`, `/api/prices/VOO`, `/api/transactions`, `/api/export` and a forged `Cf-Access-Jwt-Assertion` header all return **403 `access-not-configured`**, while `/` still serves the shell. **This settles the acceptance check "a request with no or forged JWT straight to `/api/transactions` gets 401/403" against the real deployment.**
+- `OWNER_EMAIL` is set as a Worker secret (the Cloudflare account email, per `wrangler whoami`). With one of three secrets present the API still answers 403, which proves in production that the gate needs all three rather than partially opening.
 Open issues:
-- **The Cloudflare Access application does not exist yet.** The task assigns this to the user; `docs/SETUP.md` section 2 is the click-by-click, section 3 the three `wrangler secret put` commands, section 4 the deploy. Dashboard labels drift and could not be clicked through from here, so the navigation paths are as documented in October 2026 - if a label has moved, the surrounding structure should still make it findable.
-- **Three acceptance checks therefore remain unrun**: signed-out site and `/api/health` redirecting to the Access login, a forged JWT hitting the live `/api/transactions`, and create-on-one-device-see-on-another. All three need the deploy. `/debug` exists to make the third one doable from a phone. The equivalents all pass locally.
+- **The Cloudflare Access application does not exist yet - this is the one remaining piece of task 06.** The task assigns it to the user, and it cannot be done from here two ways over: the wrangler OAuth token carries no Zero Trust/Access scope, and Zero Trust onboarding (picking the team name) is a dashboard flow. `docs/SETUP.md` section 2 is the click-by-click. **Until it exists the static shell at `/` is publicly readable** (placeholder screens plus `/debug`, whose API calls all 403), which SPEC 10 does not allow; the API itself is locked.
+- **`ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are not set**, because neither value exists until the Access application does. Both are in `docs/SETUP.md` section 3. The API answers 403 until all three secrets are present.
+- **Two acceptance checks remain unrun**, both needing Access: the signed-out site and `/api/health` redirecting to the Access login, and create-on-one-device-see-on-another. `/debug` exists to make the second doable from a phone. The other two checks pass - see Verified.
 - `src/routes/Debug.tsx` and its nav link are temporary and should be deleted once the Activity screen can create and delete transactions. Both are commented as such.
 - `npm audit` was clean after the package swap. The deprecated pool had 5 high-severity advisories in its own nested dev tree; swapping to `@cloudflare/vitest-plugin` removed them.
 - No price caching or Update Market Data flow - the `/api/price-history` routes exist but nothing calls them yet. That is task 09.
