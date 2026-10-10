@@ -348,6 +348,11 @@ All in `src/ui/`, all demoed at `/kit` against synthetic data from `src/kit/synt
 updated 2h ago`, in micro muted ink, with a `StaleBadge` (warning icon + the word "Stale")
   when the last close is more than 5 trading days old. Task 09 fills this from real metadata;
   the shell just owns the slot.
+- **Help** (`/help`) sits in the header rather than becoming a sixth destination: six tab-bar
+  items at 390px squeeze each one toward the 44px floor, and the five in `destinations.ts` are
+  the ones you move between all day. Below 640px the link is the icon alone, like the theme
+  toggle beside it (`aria-label` carries the name); from 640px it is icon + word. A screen that
+  needs to send someone to the guide links to `/help` directly - Settings does.
 - **Theme toggle** in the header cycles system → light → dark, persisted in `localStorage`
   under `al.theme` and applied as `data-theme` on `<html>`. It is the only thing in the app
   that writes to `localStorage`.

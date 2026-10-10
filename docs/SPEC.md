@@ -112,6 +112,7 @@ Taxes, fees and cash drag are ignored on both sides. State this once in the app'
 4. **Activity**: all transactions, filter by ticker/account/type, add, edit, exclude.
 5. **Import**: upload one or more M1 CSV files, preview, dedupe, confirm. Then reconciliation.
 6. **Settings**: update market data, last refreshed, aliases, manual prices, export all data as JSON, "How this is calculated".
+7. **Help**: the user guide. What each screen is for, the order to use them in, how to read the charts, what every number means, and what to do when something looks wrong. Reached from the header on every screen, not from a tab. It makes no API call, so it reads the same before the first import as after. The "How this is calculated" copy is shared with Settings, not duplicated.
 
 Negative-bucket tooltip text: "This position has paid you back more cash than the same money would be worth in VOO, so its VOO equivalent is below zero."
 
@@ -134,4 +135,5 @@ Negative-bucket tooltip text: "This position has paid you back more cash than th
   - **The app shell is public** (see section 10). This is the one real loss versus Access, which gated the hostname at Cloudflare's edge before any code ran.
   - No rate limiting on the unlock route, and none needed at 256 bits; adding a counter would cost storage and CPU this tier has to spare for the engine.
 - 2026-10-08: Money and share counts are **TEXT** columns, not REAL. They stay exact decimal strings from the M1 parser through D1 to the engine; SQLite's REAL is a float64 and would round a fractional share or a cent.
+- 2026-10-10: **A Help screen was added at `/help`** (section 9, screen 7), outside the 15-task plan and at the user's request. Two constraints came with it, because a guide that disagrees with the app is worse than none: it never restates a threshold or a label in prose (the fair-value zones render from `DEEP_DISCOUNT` / `WELL_ABOVE` and `zoneFor`), and the "How this is calculated" text moved to `src/routes/HowCalculated.tsx` so Settings and Help show one copy. It is not a tab-bar destination - see `docs/DESIGN.md` 5.6.
 - 2026-10-08: Bulk import **inserts new `source_row_hash` values and leaves existing ones untouched** rather than overwriting them, so re-importing an overlapping export cannot undo an edit or an exclusion the user has made. A restore, by contrast, replaces all five tables - merging two ledgers is not something this app attempts.

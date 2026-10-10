@@ -685,3 +685,48 @@ Open issues:
 - ~~Not deployed.~~ Deployed at the user's request after the commit: version
   `f9957d12`. Smoke-checked live - shell and `/settings` deep link both 200, a signed-out
   `/api/*` still 401, and the served bundle hash matches the local build.
+
+## Help screen - 2026-10-10 - Opus
+Status: done. Not one of the 15 tasks - the user asked for an in-app guide directly.
+Built:
+- `src/routes/Help.tsx`, a new screen at `/help`: what the app answers, a five-step setup in
+  order, the standing routine, one section per screen (Dashboard, Stock detail, Fair values,
+  Activity, Import/Reconcile, Settings), how to read and scrub the charts, a glossary of every
+  figure, iPhone/Android install, eight troubleshooting entries as `<details>`, and privacy and
+  scope. A "Jump to" nav of 13 anchors heads the page.
+- `src/routes/HowCalculated.tsx`: the SPEC 6 "How this is calculated" copy, lifted verbatim out
+  of `Settings.tsx`. Settings' bottom sheet and Help's "What each number means" both render it,
+  so the known-limitations list has one home.
+- Header link to the guide on every screen (`HelpLink` in `src/ui/AppShell.tsx`, `HelpIcon` in
+  `src/ui/icons.tsx`), plus a "How to use this app" card on Settings.
+- `docs/SPEC.md` section 9 gained screen 7 and a Decision log entry; `docs/DESIGN.md` 5.6
+  records the header link and why Help is not a sixth tab.
+Decisions:
+- **Help is not a tab-bar destination.** Six items at 390px pushes each toward DESIGN.md 3.3's
+  44px floor, and the five in `destinations.ts` are the ones you move between all day. The
+  header link is icon-only below 640px (`aria-label="Help"`, the same pattern as the theme
+  toggle) because the label made the phone header wrap onto a third line, costing that height
+  on every screen.
+- **The guide never restates a threshold or a label in prose.** The four fair-value zones are
+  rendered by calling `zoneFor` at a discount inside each zone and printing `DEEP_DISCOUNT` /
+  `WELL_ABOVE` through `percent`, so changing SPEC 7's thresholds cannot leave a wrong number
+  here. The first draft hard-coded the fourth zone's sample discount at exactly `WELL_ABOVE`
+  and so printed "Above fair value" for the "Well above" row - caught in the screenshots, which
+  is the argument for deriving it.
+- **It makes no API call**, so it reads identically before the first import. It is still inside
+  the auth gate, like every screen but `/kit`.
+Verified:
+- `npm run check`: typecheck + lint + 393 tests, all passing (no new tests - this screen is
+  static prose; its one piece of logic is `zoneFor`, already covered in `fairValue.test.ts`).
+- `/help` shot against `wrangler dev` at 390px and 1280px in light and dark: no console errors,
+  no failed requests, `scrollWidth === clientWidth` at every size (no horizontal scroll), and
+  all 13 "Jump to" anchors resolve to a section. `scroll-mt-32` clears the sticky header, which
+  is two or three lines tall depending on the "prices as of" string.
+Open issues:
+- The screenshot script only shoots `/kit`; the `/help` shots were taken with a scratchpad
+  script against `wrangler dev`. If another screen ever needs the same treatment, that script
+  is worth folding into `scripts/screenshots.ts` behind a route argument.
+- Two statements in the guide describe behaviour this repo has not proven on real data, the
+  same gap task 15 left open: that an M1 export imports cleanly, and that reconciliation comes
+  out clean. If task 15's real-data checks change either, the Import and Reconcile sections
+  need re-reading.

@@ -28,6 +28,7 @@ export const DESTINATIONS: Destination[] = [
 /** Titles for the screens that are not tabs. */
 export const EXTRA_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/stocks/', title: 'Stock detail' },
+  { prefix: '/help', title: 'Help' },
   { prefix: '/kit', title: 'Component kit' },
 ]
 

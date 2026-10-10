@@ -79,6 +79,17 @@ export function SettingsIcon(props: IconProps) {
   )
 }
 
+/** Help: a question mark in a circle. */
+export function HelpIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="10" cy="10" r="7" />
+      <path d="M8.1 7.9a2 2 0 1 1 2.9 1.85c-.6.35-1 .8-1 1.5v.25" />
+      <path d="M10 14.25h.01" />
+    </Icon>
+  )
+}
+
 /** Update market data: a refresh arrow. */
 export function RefreshIcon(props: IconProps) {
   return (

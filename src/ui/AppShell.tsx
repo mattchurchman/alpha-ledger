@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { DESTINATIONS, titleFor } from './destinations'
-import { DarkThemeIcon, LightThemeIcon, RefreshIcon, SystemThemeIcon } from './icons'
+import { DarkThemeIcon, HelpIcon, LightThemeIcon, RefreshIcon, SystemThemeIcon } from './icons'
 import { PricesAsOfBadge, type PricesAsOf } from './States'
 import { useTheme } from './theme'
 
@@ -25,6 +25,33 @@ function ThemeToggle() {
     >
       <Glyph />
     </button>
+  )
+}
+
+/**
+ * The guide at `/help`, reachable from every screen but deliberately **not** a tab: a sixth
+ * tab-bar item at 390px drops each one near the 44px floor, and the five destinations in
+ * `destinations.ts` are the ones you move between all day. Help is a place you go once and
+ * come back from, so it lives in the header, where it is also beside the Update control it
+ * explains.
+ */
+function HelpLink() {
+  return (
+    <NavLink
+      to="/help"
+      // The label is dropped below 640px: with it, the 390px header needed a third line for
+      // the "prices as of" row and every screen lost that height. `aria-label` keeps the
+      // accessible name identical either way, which is also how the theme toggle works.
+      aria-label="Help"
+      className={({ isActive }) =>
+        `inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-control px-2 text-small transition-colors duration-[120ms] max-sm:size-11 max-sm:px-0 ${
+          isActive ? 'bg-sunken font-semibold text-ink' : 'text-ink-secondary hover:bg-sunken'
+        }`
+      }
+    >
+      <HelpIcon className="size-5 shrink-0" />
+      <span className="max-sm:hidden">Help</span>
+    </NavLink>
   )
 }
 
@@ -109,6 +136,7 @@ export function AppShell({
                 )}
               </div>
             </div>
+            <HelpLink />
             <div className="md:hidden">
               <ThemeToggle />
             </div>

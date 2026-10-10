@@ -5,6 +5,7 @@ import { usePortfolioData } from './data/usePortfolioData.ts'
 import Activity from './routes/Activity.tsx'
 import Dashboard from './routes/Dashboard.tsx'
 import FairValues from './routes/FairValues.tsx'
+import Help from './routes/Help.tsx'
 import Import from './routes/Import.tsx'
 import Kit from './routes/Kit.tsx'
 import Settings from './routes/Settings.tsx'
@@ -70,6 +71,8 @@ function GatedShell() {
         <Route path="/activity" element={<Activity />} />
         <Route path="/import" element={<Import />} />
         <Route path="/settings" element={<Settings />} />
+        {/* The guide. It makes no API call, so it reads the same before the first import. */}
+        <Route path="/help" element={<Help />} />
       </Routes>
     </AppShell>
   )
