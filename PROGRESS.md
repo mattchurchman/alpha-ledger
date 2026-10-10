@@ -730,3 +730,8 @@ Open issues:
   same gap task 15 left open: that an M1 export imports cleanly, and that reconciliation comes
   out clean. If task 15's real-data checks change either, the Import and Reconcile sections
   need re-reading.
+- ~~Not deployed.~~ Deployed at the user's request right after the commit: version
+  `9812c3df`. Smoke-checked live - `/` and the `/help` deep link both 200, a signed-out
+  `/api/*` still 401 (403 on a wrong bearer), and the served bundle hash matches the local
+  build. `/help` itself could not be shot live: it sits inside the auth gate, so a signed-out
+  request gets the unlock screen. The 390px/1280px shots were taken against `wrangler dev`.
