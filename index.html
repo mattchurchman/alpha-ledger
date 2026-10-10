@@ -5,6 +5,15 @@
     <!-- viewport-fit=cover is what makes env(safe-area-inset-*) real, which the tab bar needs. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#14140f" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#f7f6f1" media="(prefers-color-scheme: dark)" />
+    <!-- Web app manifest for installability -->
+    <link rel="manifest" href="/manifest.json" />
+    <!-- iOS meta tags for home screen apps -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Ledger" />
+    <link rel="apple-touch-icon" href="/icons/app-192.png" />
     <title>Alpha Ledger</title>
     <script>
       // Stamps the stored theme before first paint, so an explicit light/dark choice never

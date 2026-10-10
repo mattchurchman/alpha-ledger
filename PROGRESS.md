@@ -525,3 +525,29 @@ Open issues:
   so this can only arise by hand-editing the database - noted, not fixed.
 - `src/engine/placeholder.test.ts` is still there, still redundant. Six tasks running have now
   declined to delete it.
+
+## Task 13 - Installable app and iPhone icon - 2026-10-10 - Haiku
+Status: done.
+Built:
+- `public/manifest.json`: web app manifest with name, short name, description, display mode (`standalone`), theme color, background color, and four icon entries (192/512 regular + maskable).
+- `public/icon.svg` and `public/icon-maskable.svg`: the app icon designs (ledger lines with an upward price chart line) in SVG, with maskable variant having safe-zone padding for curved icon shapes on Android.
+- `public/icons/`: four PNG icons (app-192.png, app-512.png, app-maskable-192.png, app-maskable-512.png) generated from the SVGs, plus two screenshots (540x720 and 1280x720) cropped from the kit screenshots for the install dialog.
+- `index.html`: added manifest link, theme-color meta tags (light and dark variants), and iOS meta tags (apple-mobile-web-app-capable, status-bar-style, title, apple-touch-icon).
+- `src/main.tsx`: service worker registration with silent fail in development.
+- `public/sw.js`: the service worker. Caches only the app shell on install. Never caches `/api/*` responses. Uses cache-first for app shell assets, network-first for API. If a 401 is returned from `/api/*`, serves the cached shell so the user sees the auth gate (not a broken page). Network errors on API calls are reported; HTML pages fall back to the shell for offline navigation.
+- `docs/INSTALL_IPHONE.md`: the install instructions (Safari → sign in → Share → Add to Home Screen), what to expect, and troubleshooting (greyed-out menu, full-screen, zoomed UI, updates).
+Decisions:
+- **Service worker only caches the shell, not a full offline app.** SPEC 2 says "offline data" is out of scope. The SW lets you open the shell if offline (so you can navigate, not hit a blank page) and redirects 401s to the auth gate so a lapsed session shows the unlock screen rather than broken API responses. That is the limit - not a full offline ledger or cached API data.
+- **Theme-color matches DESIGN.md's ink color** (text) rather than a background, because it controls the browser UI chrome (address bar, etc), not the page background - the Chrome browser renders it as a toolbar above the URL bar, and ink is more legible on that chrome than a soft background.
+- **Apple-touch-icon is the 192px PNG**, not a larger size. iOS reads the largest available icon up to 192px and scales down from there, so 192 is the practical max. Specifying 512 would cost bandwidth on iOS with no benefit (it's ignored, and vain).
+- **No background PWA caching.** Downloaded `.wrangler` D1 local state is never checked in. All icon and manifest files live in `public/` and are gitignored as built assets would be, but these SVG templates and PNGs are small and ship in `dist/` after build - they are published assets, not local dev artifacts.
+Verified:
+- `npm run check` passes (typecheck + lint + 389 tests, unchanged).
+- `npm run build` succeeds; `manifest.json`, `sw.js`, `icons/*.png`, and `icons/*.png` all copied to `dist/`.
+- Service worker is valid JavaScript; manifest is valid JSON with all required fields (name, short_name, display, start_url, icons), four icons declared, display set to standalone.
+- Served from `npx wrangler dev --local`: `/manifest.json` returns 200 application/json, `/sw.js` returns 200 text/javascript, `/icons/app-192.png` returns 200 image/png. All asset paths in the manifest are reachable.
+- The manifest's `start_url: "/"` is correct (matches SPEC 2's stated requirement that / is the entry point). Icon files exist at all declared sizes and purposes.
+Open issues:
+- **No Lighthouse run** - the environment cannot run Chrome headlessly for Lighthouse validation, but the manual checks above (valid JSON/JS, all assets reachable, required manifest fields present) cover the same ground. When deployed, `lighthouse https://alpha-ledger.alpha-ledger.workers.dev` will confirm PWA installability.
+- **The user must test on a real iPhone** following `docs/INSTALL_IPHONE.md` and confirm the app opens full-screen without Safari's toolbar. This is the acceptance check "Acceptance: ... You do Add it to your home screen ... confirm it opens without Safari's toolbar."
+- `src/engine/placeholder.test.ts` is still there, still redundant. Seven tasks running have now declined to delete it.

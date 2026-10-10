@@ -1,0 +1,15 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Light background -->
+  <rect width="512" height="512" fill="#f3f1e9"/>
+
+  <!-- Main content: chart/ledger symbol -->
+  <!-- Ledger lines -->
+  <line x1="80" y1="140" x2="432" y2="140" stroke="#14140f" stroke-width="12" stroke-linecap="round"/>
+  <line x1="80" y1="210" x2="432" y2="210" stroke="#14140f" stroke-width="12" stroke-linecap="round"/>
+  <line x1="80" y1="280" x2="432" y2="280" stroke="#14140f" stroke-width="12" stroke-linecap="round"/>
+  <line x1="80" y1="350" x2="432" y2="350" stroke="#14140f" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Chart line (rising, going up) -->
+  <polyline points="100,320 180,280 260,240 340,180 420,140"
+            stroke="#2a78d6" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
