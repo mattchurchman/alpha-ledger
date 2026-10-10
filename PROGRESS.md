@@ -682,5 +682,6 @@ Open issues:
 - **Reconciliation now depends on price history being loaded.** If the user reconciles before
   ever tapping Update, `prices` is empty and the split factors are all 1 again - the same
   behaviour as before this fix, but now silent rather than inherent. No UI warns about it.
-- Not deployed. This session changed `src/` and `npx wrangler deploy` has not run since task
-  14's `b17b28ad` - the same trap task 14 flagged.
+- ~~Not deployed.~~ Deployed at the user's request after the commit: version
+  `f9957d12`. Smoke-checked live - shell and `/settings` deep link both 200, a signed-out
+  `/api/*` still 401, and the served bundle hash matches the local build.
