@@ -4,6 +4,7 @@ import type { TickerAlias } from '../api/types'
 import { parseManualPriceCsv, withManualPrice } from '../data/marketData'
 import { usePortfolioData } from '../data/usePortfolioData'
 import {
+  BottomSheet,
   Button,
   Card,
   DataTable,
@@ -23,6 +24,7 @@ export default function Settings() {
   const [draft, setDraft] = useState<TickerAlias>(BLANK)
   const [formError, setFormError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [howSheetOpen, setHowSheetOpen] = useState(false)
 
   const report = useCallback(
     (err: unknown) => {
@@ -176,10 +178,61 @@ export default function Settings() {
       <MarketDataCard />
 
       <Card>
-        <p className="text-small text-ink-muted">
-          Export/restore and "how this is calculated" land in later tasks.
+        <h2 className="mb-1 text-h3 font-semibold">How this is calculated</h2>
+        <p className="mb-3 text-small text-ink-secondary">
+          What the VOO comparison means, and what it leaves out.
         </p>
+        <Button onClick={() => setHowSheetOpen(true)}>Read how this is calculated</Button>
+        <p className="mt-3 text-small text-ink-muted">Export/restore lands in a later task.</p>
       </Card>
+
+      <BottomSheet
+        open={howSheetOpen}
+        onClose={() => setHowSheetOpen(false)}
+        title="How this is calculated"
+      >
+        <div className="flex flex-col gap-4 text-small text-ink-secondary">
+          <section>
+            <h3 className="mb-1 text-small font-semibold text-ink">The VOO comparison</h3>
+            <p>
+              Every ticker gets its own shadow bucket of VOO. Whenever you buy, sell, or get paid a
+              dividend in a stock, the same dollars are imagined going into or out of VOO on the
+              same day. Because both sides see the same cash flows, the gap between them - what your
+              shares are worth today versus what that VOO bucket is worth today - is the result of
+              your stock picking, nothing else. VOO's bucket uses its adjusted close, which already
+              includes VOO's own reinvested dividends.
+            </p>
+          </section>
+          <section>
+            <h3 className="mb-1 text-small font-semibold text-ink">A bucket can go negative</h3>
+            <p>
+              If a stock has paid you back more cash than the same money would be worth in VOO, its
+              shadow bucket shows as negative. That is shown as-is, not floored at zero - it means
+              the position has already returned more than a VOO equivalent would be worth.
+            </p>
+          </section>
+          <section>
+            <h3 className="mb-1 text-small font-semibold text-ink">The numbers on each screen</h3>
+            <p>
+              Invested and returned are the sum of your buys and of your sells plus dividends. Total
+              return splits into realized gain (from shares you have sold), unrealized gain (from
+              shares you still hold), and dividends. Value added is current value minus the VOO
+              bucket, and it stays meaningful for a closed position, where current value is zero.
+              IRR is a money-weighted, annualized return solved from your actual cash flows - when
+              there is no sign change among them, or the VOO bucket is not positive, it shows a dash
+              rather than a guess.
+            </p>
+          </section>
+          <section>
+            <h3 className="mb-1 text-small font-semibold text-ink">What is ignored</h3>
+            <p>
+              Taxes, brokerage fees, and cash sitting idle between trades are ignored on both sides
+              of every comparison. This app answers one question - did the picks beat VOO - not what
+              you would have kept after taxes or fees.
+            </p>
+          </section>
+        </div>
+      </BottomSheet>
     </div>
   )
 }

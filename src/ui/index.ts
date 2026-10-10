@@ -32,13 +32,18 @@ export {
   type SelectOption,
 } from './primitives'
 export { useElementWidth } from './useElementWidth'
+export { BackIcon } from './icons'
 export { applyTheme, readStoredTheme, useTheme, THEME_STORAGE_KEY, type Theme } from './theme'
 export { DEEP_DISCOUNT, WELL_ABOVE, zoneFor, type Zone, type ZoneId } from './zones'
 
 export { ChartFrame, Readout, type ChartFrameProps } from './charts/ChartFrame'
 export { DiscountMeter, type DiscountMeterProps } from './charts/DiscountMeter'
 export { DivergingBars, type DivergingBarsProps } from './charts/DivergingBars'
-export { HistoryChart, type HistoryChartProps } from './charts/HistoryChart'
+export {
+  HistoryChart,
+  type HistoryChartMarker,
+  type HistoryChartProps,
+} from './charts/HistoryChart'
 export { Sparkline, type SparklineProps } from './charts/Sparkline'
 export { StepLineChart, type EstimateChange, type StepLineChartProps } from './charts/StepLineChart'
 

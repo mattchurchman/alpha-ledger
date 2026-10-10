@@ -121,6 +121,14 @@ export function CriticalIcon(props: IconProps) {
   )
 }
 
+export function BackIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12.5 4.5 6.5 10l6 5.5" />
+    </Icon>
+  )
+}
+
 export function CloseIcon(props: IconProps) {
   return (
     <Icon {...props}>

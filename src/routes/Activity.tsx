@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, ApiError, NotAuthenticatedError } from '../api/client'
 import type { TransactionRow, TransactionType } from '../api/types'
 import {
@@ -192,7 +193,14 @@ export default function Activity() {
       sort: (r) => r.ticker,
       render: (r) => (
         <span className={r.excluded ? 'text-ink-muted line-through' : ''}>
-          {r.ticker} <span className="text-ink-muted">· {r.type}</span>
+          <Link
+            to={`/stocks/${r.ticker}`}
+            onClick={(e) => e.stopPropagation()}
+            className="hover:underline"
+          >
+            {r.ticker}
+          </Link>{' '}
+          <span className="text-ink-muted">· {r.type}</span>
         </span>
       ),
     },

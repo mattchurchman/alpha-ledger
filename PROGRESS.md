@@ -25,7 +25,7 @@ Open issues: bugs, shortcuts, things the user must do by hand
 | 08 | Import and reconciliation screens | Sonnet | done |
 | 09 | Update Market Data flow | Sonnet | done |
 | 10 | Dashboard | Sonnet | done |
-| 11 | Stock detail and decisions | Sonnet | todo |
+| 11 | Stock detail and decisions | Sonnet | done |
 | 12 | Fair value and history | Sonnet | todo |
 | 13 | Installable app and iPhone icon | Haiku | todo |
 | 14 | Privacy and cost audit | Sonnet | todo |
@@ -324,3 +324,103 @@ Open issues:
 - **No component tests**, same gap every UI task has noted since task 07.
 - **`npm run screenshots` (the committed script) still only shoots `/kit`.** It builds a static `dist/` and serves it with `vite preview`, which has no `/api/*` - shooting a real screen needs the Worker and a session, which is why this task's screenshots came from a throwaway script instead. Worth a real decision later: either `/kit` grows a Dashboard section fed by `src/kit/synthetic.ts`, or the screenshot script learns to run against `wrangler dev` with seeded D1 data. Not done here - out of scope for "do only that task".
 - Confirmed resize_window does not control the interactive browser extension's viewport in this environment - worth knowing for any future task that reaches for it expecting a true desktop-width screenshot.
+
+## Task 11 - Stock detail and decisions - 2026-10-09 - Sonnet
+Status: done.
+Built:
+- `src/routes/StockDetail.tsx`: the `/stocks/:ticker` screen (built on it, task 10's route - see
+  Decisions). Headline card (hero `StatTile` for value added vs VOO, a 4-tile row for current
+  value, VOO equivalent, your IRR, VOO IRR), a "Your money" card (invested, returned, total
+  return with a realized/unrealized/dividends footnote breakdown), the position-versus-VOO
+  `HistoryChart` with buy/sell markers, a `DataTable` decision list (date, dollars, outcome, VOO
+  outcome, difference - SPEC section 6's "decision-level view"), and a placeholder card for
+  task 12's fair-value chart. A "Back" control (`navigate(-1)`) since this is a pushed screen
+  with no tab of its own. All measures come from `usePortfolioData().result.byTicker` plus the
+  two on-demand helpers `docs/ENGINE_API.md` describes, `tickerSeries` and `tickerDecisions` -
+  nothing is recomputed here.
+- `src/ui/charts/HistoryChart.tsx`: added an optional `markers` prop (buy/sell events on the
+  "you" line). Shape carries the meaning, not colour - an upward triangle for a buy, downward
+  for a sell, both neutral ink - so nothing competes with the ahead/behind palette. Each marker
+  snaps forward to the next trading day the same way a shadow flow does (SPEC section 5), gets
+  a 24px hit target, and a fixed-height note strip under the chart shows the tapped one's date,
+  kind and amount - the same pattern `StepLineChart`'s estimate markers already use. Markers
+  default to `[]`, so the dashboard's existing `HistoryChart` call is unaffected.
+- `src/ui/charts/DivergingBars.tsx`: added an optional `onSelect` prop that turns each row into
+  a real `<button>` (keyboard-reachable, unlike a `div`'s `onClick`). Needed because the
+  dashboard's value-creators chart is the only place a **closed** position is listed at all -
+  without this, "reachable from every ticker in the app, for current and closed positions"
+  (this task's own deliverable) would have no path to a closed ticker's detail screen.
+- `src/routes/Dashboard.tsx` wires that prop to `navigate('/stocks/' + ticker)`.
+- `src/routes/Activity.tsx`: the ticker cell is now a `Link` to the stock detail screen
+  (`stopPropagation` so it won't fight a future `onRowSelect`, which this screen doesn't use
+  today). Reachable from Activity was the other gap in "every ticker in the app".
+- `src/routes/Settings.tsx`: the "How this is calculated" `BottomSheet` this task's deliverable
+  asks for, covering SPEC sections 5 (the VOO shadow, including the negative-bucket case) and 6
+  (invested/returned/gain breakdown, value added, IRR and its dash case) in plain language, plus
+  SPEC 6's "state once" line that taxes, fees and cash drag are ignored on both sides.
+- `src/ui/icons.tsx` / `src/ui/index.ts`: added `BackIcon`, exported it plus
+  `HistoryChartMarker`.
+Decisions:
+- **Kept the route `/stocks/:ticker` (plural) rather than switching to this task's literal
+  `/stock/:ticker`.** Task 10 already built the route, the nav links, and `destinations.ts`'s
+  title mapping against the plural form; the task file's singular spelling reads as descriptive
+  shorthand, not a instruction to rename a working route out from under the dashboard that
+  already links to it.
+- **The negative-bucket tooltip text (SPEC section 9) is not a hover tooltip.** It renders as
+  `StatTile`'s own `footnote`, always visible under "VOO equivalent" whenever that value is
+  negative. A hover-only tooltip has no touch equivalent, and `docs/DESIGN.md` section 5.4's
+  "tooltips enhance, never gate" argues for a channel that works without a pointer.
+  `StepLineChart`'s tap-to-reveal note pattern was the other option on the table, but that is
+  for one of many markers; here there is exactly one fact to state about exactly one number, so
+  a permanent footnote is the simpler, more legible fix for the cost of 1-2 lines of card
+  height.
+- **Buy/sell markers come from `tickerDecisions`, not a second trade-date scan.** Every buy is
+  already one `BuyDecision`; every sell is already one of its `exits`. Re-deriving the same
+  dates from raw transactions would risk disagreeing with the decision list sitting right below
+  the chart over something like alias resolution or split adjustment, which `tickerDecisions`
+  has already handled.
+- **Decision list columns are exactly SPEC section 6's five** (date, dollars, outcome, VOO
+  outcome, difference) - no shares or status column added, even though both were easy, because
+  the task names these five and CLAUDE.md's "do only that task" cuts the other way more often
+  than it does not.
+- **The fair-value placeholder is a one-line `Card`**, matching the wording style Settings
+  already uses for its own deferred sections, rather than a skeleton or an `EmptyState` - there
+  is nothing to load or be empty, just a feature that does not exist yet.
+Verified:
+- `npm run check` passes: typecheck + lint + **377 tests** (unchanged - this task added no
+  engine code, only UI; see Open issues on why the count still reads 377 rather than something
+  higher).
+- Manual pass against `npx wrangler dev`, reusing task 10's seeded synthetic fixtures (no real
+  data touched): `/stocks/SOLD` (closed, and its shadow bucket happens to also be negative -
+  one screen exercised both required cases) and `/stocks/NEGB` (open, negative bucket while
+  still held, 1 of 20 shares remaining) both rendered correctly - headline, footnote, chart with
+  both a buy and a sell triangle visible and distinguishable, decision list, "Fair value"
+  placeholder. `/stocks/NOPE` (never held) showed the "No activity" empty state instead of
+  crashing. Chrome extension pass: clicking a `DivergingBars` row on the dashboard navigated to
+  that ticker's detail screen; clicking a ticker in Activity navigated there too, without
+  opening the edit form; Settings' "Read how this is calculated" opened the sheet with the
+  expected sections.
+- Screenshots via an ad-hoc Playwright script (task 10's pattern, pointed at `:8787` instead of
+  `vite preview` - this screen needs the gated API and seeded D1 data) at 390px and 1280px, in
+  light and dark where the change touched colour-bearing chart code: zero console errors, zero
+  failed requests on any shot. A cropped shot of the chart alone confirmed both marker shapes
+  render legibly against the line and each other.
+- Privacy: `git status` and the full diff reviewed before committing - every file touched is
+  `src/`, nothing from `private/` or the database. The ad-hoc screenshot script and its PNGs
+  were scratch files outside the repo and were deleted after use, never staged.
+Open issues:
+- **Test count is unchanged at 377** because this task added no engine code and the project has
+  no component-test infra (the same gap every UI task since 07 has noted) - `HistoryChart`'s new
+  `markers` prop and `DivergingBars`'s new `onSelect` prop were verified by hand and by
+  screenshot, not by a unit test.
+- **`DataTable`'s desktop `<tr onClick>` (when `onRowSelect` is passed) has no `tabIndex` or
+  `onKeyDown`**, so a mouse can select a row but a keyboard cannot, on desktop specifically (the
+  phone card layout already renders a real `<button>`). Pre-existing since task 10 first passed
+  `onRowSelect`; noticed here because this task leaned on the same prop again for
+  Dashboard's holdings table. Not fixed - out of scope for this task's own screen.
+- **The decision list has no table/card breakpoint tuning beyond what `DataTable` already does**
+  - fine at both widths in the screenshots, but a ticker with many dozens of buys was not tested
+  (the synthetic fixtures have at most one or two per ticker).
+- Task 12 should replace the "Fair value" placeholder card with the real chart and editor, and
+  should decide whether this screen's `StatTile` grid needs a sixth "Discount" figure once fair
+  value exists here.

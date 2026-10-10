@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import {
   dateFull,
   dateShort,
@@ -39,6 +39,14 @@ import { useScrub } from './useScrub'
  * Section 2.3 of DESIGN.md records the measurements behind that, including why orange - the
  * obvious alternative - fails against the red fill it would sit inside.
  */
+/** A buy or sell event on the "you" line - the stock detail screen's own trades. */
+export interface HistoryChartMarker {
+  /** `YYYY-MM-DD`. Snaps to the next trading day in `dates`, same as a shadow flow. */
+  date: string
+  kind: 'buy' | 'sell'
+  amount: Numeric
+}
+
 export interface HistoryChartProps {
   /** `YYYY-MM-DD`, one per trading day. */
   dates: readonly string[]
@@ -50,6 +58,8 @@ export interface HistoryChartProps {
   subtitle?: string
   height?: number
   busy?: boolean
+  /** Triangles on the "you" line: up for a buy, down for a sell. Shape carries the meaning, not colour. */
+  markers?: readonly HistoryChartMarker[]
 }
 
 const MARGIN = { top: 18, right: 14, bottom: 20, left: 46 }
@@ -80,8 +90,10 @@ export function HistoryChart({
   subtitle,
   height = 220,
   busy = false,
+  markers = [],
 }: HistoryChartProps) {
   const [wrapperRef, width] = useElementWidth<HTMLDivElement>(340)
+  const [openMarker, setOpenMarker] = useState<number | null>(null)
 
   const series = useMemo(() => {
     const length = Math.min(dates.length, you.length, benchmark.length)
@@ -129,6 +141,21 @@ export function HistoryChart({
       return { key: `${run.sign}-${index}`, sign: run.sign, d: areaBetweenPath(edgeYou, edgeVoo) }
     })
 
+    // Each marker lands on the first trading day at or after its own date - the same
+    // forward-snap SPEC section 5 uses for a flow dated on a non-trading day.
+    const markerPoints = markers
+      .map((marker) => ({ ...marker, number: toNumber(marker.amount) }))
+      .map((marker) => {
+        const found = series.days.findIndex((day) => day >= marker.date)
+        return found === -1 ? null : { ...marker, index: found }
+      })
+      .filter((marker): marker is NonNullable<typeof marker> => marker !== null)
+      .map((marker) => ({
+        ...marker,
+        cx: x(marker.index),
+        cy: y(valueAt(real, marker.index)),
+      }))
+
     return {
       left,
       right,
@@ -143,8 +170,9 @@ export function HistoryChart({
       vooPath: linePath(vooThin),
       drawLength: Math.max(pathLength(youThin), pathLength(vooThin)),
       bands,
+      markerPoints,
     }
-  }, [series, width, height])
+  }, [series, width, height, markers])
 
   const yTicks = useMemo(() => {
     const [low, high] = plot.y.domain
@@ -218,6 +246,7 @@ export function HistoryChart({
   const youEnd = plot.youPoints[plot.youPoints.length - 1]
   const vooEnd = plot.vooPoints[plot.vooPoints.length - 1]
   const youAbove = youEnd.y <= vooEnd.y
+  const openNote = openMarker === null ? null : (plot.markerPoints[openMarker] ?? null)
 
   return (
     <ChartFrame
@@ -342,6 +371,41 @@ export function HistoryChart({
             {benchmarkLabel}
           </text>
 
+          {/*
+            Buy/sell markers on the "you" line. Shape, not colour, carries which: an upward
+            triangle for a buy, downward for a sell - both the same neutral ink so they never
+            compete with the ahead/behind palette. Each gets the StepLineChart marker's 24px
+            hit target, well past the mark spec's minimum for an 8px-ish visible shape.
+          */}
+          {plot.markerPoints.map((marker, i) => (
+            <g key={`${marker.date}-${marker.kind}-${i}`}>
+              <polygon
+                points={
+                  marker.kind === 'buy'
+                    ? `${marker.cx},${marker.cy - 5} ${marker.cx - 5},${marker.cy + 5} ${marker.cx + 5},${marker.cy + 5}`
+                    : `${marker.cx},${marker.cy + 5} ${marker.cx - 5},${marker.cy - 5} ${marker.cx + 5},${marker.cy - 5}`
+                }
+                className="fill-ink-secondary stroke-surface"
+                strokeWidth={2}
+              />
+              <circle
+                cx={marker.cx}
+                cy={marker.cy}
+                r={12}
+                fill="transparent"
+                tabIndex={0}
+                role="button"
+                aria-label={`${marker.kind === 'buy' ? 'Bought' : 'Sold'} ${money(marker.number)} on ${dateFull(marker.date)}`}
+                className="cursor-pointer"
+                onPointerEnter={() => setOpenMarker(i)}
+                onPointerLeave={() => setOpenMarker(null)}
+                onFocus={() => setOpenMarker(i)}
+                onBlur={() => setOpenMarker(null)}
+                onClick={() => setOpenMarker(i)}
+              />
+            </g>
+          ))}
+
           {/* Y labels sit in the left gutter, in mono so they align with each other. */}
           {yTicks.map((tick) => (
             <text
@@ -427,6 +491,22 @@ export function HistoryChart({
           />
         </svg>
       </div>
+
+      {markers.length > 0 && (
+        <p className="mt-1 min-h-9 text-small text-ink-secondary">
+          {openNote ? (
+            <>
+              <span className="tabular-nums">{dateShort(openNote.date)}</span> ·{' '}
+              {openNote.kind === 'buy' ? 'bought' : 'sold'}{' '}
+              <span className="tabular-nums">{money(openNote.number)}</span>
+            </>
+          ) : (
+            <span className="text-ink-muted">
+              △ marks a buy, ▽ a sell - tap one for the date and amount.
+            </span>
+          )}
+        </p>
+      )}
     </ChartFrame>
   )
 }

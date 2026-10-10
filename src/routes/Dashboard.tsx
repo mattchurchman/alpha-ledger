@@ -388,6 +388,7 @@ export default function Dashboard() {
         <DivergingBars
           items={creators}
           subtitle="Every ticker ever held, closed positions marked."
+          onSelect={(ticker) => navigate(`/stocks/${ticker}`)}
         />
       </section>
     </div>

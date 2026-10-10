@@ -24,6 +24,8 @@ export interface DivergingBarsProps {
   /** How many rows before "Show all". Phone-sized by default. */
   initialVisible?: number
   busy?: boolean
+  /** Makes every row a button, e.g. to push the stock detail screen. Omit to leave them inert. */
+  onSelect?: (label: string) => void
 }
 
 export function DivergingBars({
@@ -32,6 +34,7 @@ export function DivergingBars({
   subtitle,
   initialVisible = 8,
   busy = false,
+  onSelect,
 }: DivergingBarsProps) {
   const [expanded, setExpanded] = useState(false)
 
@@ -106,49 +109,57 @@ export function DivergingBars({
         {visible.map((item) => {
           const ahead = item.number >= 0
           const share = largest === 0 ? 0 : (Math.abs(item.number) / largest) * 50
+          const rowClassName =
+            'group grid min-h-11 w-full grid-cols-[4.5rem_1fr] items-center gap-2 rounded-[6px] py-1 text-left transition-colors duration-[120ms] hover:bg-sunken sm:grid-cols-[5.5rem_1fr_6rem]'
+          const rowBody = (
+            <>
+              <span className="flex flex-col leading-tight">
+                <span className="truncate font-mono text-small font-medium">{item.label}</span>
+                {item.note && (
+                  <span className="truncate text-[0.625rem] text-ink-muted">{item.note}</span>
+                )}
+              </span>
+
+              <div className="relative h-2.5" aria-hidden="true">
+                {/* The zero rule: a hairline, not a bar. */}
+                <span className="absolute inset-y-[-3px] left-1/2 w-px -translate-x-1/2 bg-axis" />
+                <span
+                  className={`absolute top-0 h-2.5 ${
+                    ahead
+                      ? 'left-1/2 rounded-r-[4px] bg-ahead'
+                      : 'right-1/2 rounded-l-[4px] bg-behind'
+                  }`}
+                  style={{ width: `${share}%` }}
+                />
+              </div>
+
+              <span className="col-span-2 text-right text-small tabular-nums sm:col-span-1">
+                <span className={ahead ? 'text-ahead' : 'text-behind'}>
+                  <span className="sr-only">
+                    {item.label} {ahead ? 'beat VOO by' : 'trailed VOO by'}{' '}
+                  </span>
+                  <span aria-hidden="true">{ahead ? '▲ +' : '▼ −'}</span>
+                  <span className="group-hover:hidden">{moneyCompact(Math.abs(item.number))}</span>
+                  <span className="hidden group-hover:inline">{money(Math.abs(item.number))}</span>
+                </span>
+              </span>
+            </>
+          )
           return (
             <li key={item.label}>
               {/*
                 The row is the hit target, well past the 24px minimum, and the value is printed
                 either way - the hover state sharpens it from compact to exact rather than being
-                the only way to read it.
+                the only way to read it. A `button` when `onSelect` is given, so it is reachable
+                and activatable from the keyboard - a plain `div`'s `onClick` would not be.
               */}
-              <div className="group grid min-h-11 grid-cols-[4.5rem_1fr] items-center gap-2 rounded-[6px] py-1 transition-colors duration-[120ms] hover:bg-sunken sm:grid-cols-[5.5rem_1fr_6rem]">
-                <span className="flex flex-col leading-tight">
-                  <span className="truncate font-mono text-small font-medium">{item.label}</span>
-                  {item.note && (
-                    <span className="truncate text-[0.625rem] text-ink-muted">{item.note}</span>
-                  )}
-                </span>
-
-                <div className="relative h-2.5" aria-hidden="true">
-                  {/* The zero rule: a hairline, not a bar. */}
-                  <span className="absolute inset-y-[-3px] left-1/2 w-px -translate-x-1/2 bg-axis" />
-                  <span
-                    className={`absolute top-0 h-2.5 ${
-                      ahead
-                        ? 'left-1/2 rounded-r-[4px] bg-ahead'
-                        : 'right-1/2 rounded-l-[4px] bg-behind'
-                    }`}
-                    style={{ width: `${share}%` }}
-                  />
-                </div>
-
-                <span className="col-span-2 text-right text-small tabular-nums sm:col-span-1">
-                  <span className={ahead ? 'text-ahead' : 'text-behind'}>
-                    <span className="sr-only">
-                      {item.label} {ahead ? 'beat VOO by' : 'trailed VOO by'}{' '}
-                    </span>
-                    <span aria-hidden="true">{ahead ? '▲ +' : '▼ −'}</span>
-                    <span className="group-hover:hidden">
-                      {moneyCompact(Math.abs(item.number))}
-                    </span>
-                    <span className="hidden group-hover:inline">
-                      {money(Math.abs(item.number))}
-                    </span>
-                  </span>
-                </span>
-              </div>
+              {onSelect ? (
+                <button type="button" onClick={() => onSelect(item.label)} className={rowClassName}>
+                  {rowBody}
+                </button>
+              ) : (
+                <div className={rowClassName}>{rowBody}</div>
+              )}
             </li>
           )
         })}
