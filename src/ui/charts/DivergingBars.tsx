@@ -81,6 +81,7 @@ export function DivergingBars({
             <tr key={item.label} className="border-b border-rule/60 last:border-0">
               <th scope="row" className="py-1.5 pr-3 text-left font-normal">
                 {item.label}
+                {item.note && <span className="text-ink-muted"> ({item.note})</span>}
               </th>
               <td className="py-1.5 text-right">{signedMoney(item.number)}</td>
             </tr>
@@ -113,7 +114,12 @@ export function DivergingBars({
                 the only way to read it.
               */}
               <div className="group grid min-h-11 grid-cols-[4.5rem_1fr] items-center gap-2 rounded-[6px] py-1 transition-colors duration-[120ms] hover:bg-sunken sm:grid-cols-[5.5rem_1fr_6rem]">
-                <span className="truncate font-mono text-small font-medium">{item.label}</span>
+                <span className="flex flex-col leading-tight">
+                  <span className="truncate font-mono text-small font-medium">{item.label}</span>
+                  {item.note && (
+                    <span className="truncate text-[0.625rem] text-ink-muted">{item.note}</span>
+                  )}
+                </span>
 
                 <div className="relative h-2.5" aria-hidden="true">
                   {/* The zero rule: a hairline, not a bar. */}
