@@ -556,6 +556,14 @@ export default function Help() {
             line and why. Anything the parser has not been taught is reported rather than guessed
             at, and the fix is a transaction entered by hand on Activity.
           </Faq>
+          <Faq q="A row was skipped because its symbol is &ldquo;not a ticker&rdquo;.">
+            M1 books some corporate actions against a placeholder rather than the real symbol -
+            something like <code className="font-mono">PRESPLITCEIX</code> for a position as it
+            stood before a split. Nothing can price that, so it is skipped on purpose. For a split,
+            no action is needed: ratios come from the price history, not from a transaction row. For
+            anything else that moved real shares, reconcile that ticker and let the mismatch row add
+            the adjustment.
+          </Faq>
           <Faq q="The date beside the screen title is days old.">
             Nothing fetches prices on its own - that is deliberate, so the app costs nothing to
             leave alone. Tap Update.

@@ -7,10 +7,17 @@
  * the app shows, and the engine has no way to tell a typo from a real trade.
  */
 
+/**
+ * Shared with `prices.ts`, and defined in the engine so the M1 parser rejects exactly what
+ * this does - otherwise a symbol M1 invents (`PRESPLITCEIX`) passes the import preview and
+ * then fails the whole batch here.
+ */
+import { TICKER_PATTERN } from '../src/engine/types'
+
+export { TICKER_PATTERN }
+
 export class BadRequest extends Error {}
 
-/** Shared with `prices.ts`. Allows the dash in `BRK-B`-style symbols. */
-export const TICKER_PATTERN = /^[A-Z][A-Z0-9.-]{0,9}$/
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const DECIMAL_PATTERN = /^-?\d+(\.\d+)?$/
 

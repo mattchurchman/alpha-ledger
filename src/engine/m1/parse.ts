@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import type { Transaction, TransactionType } from '../types'
+import { TICKER_PATTERN, type Transaction, type TransactionType } from '../types'
 
 export type { TransactionType }
 
@@ -178,6 +178,20 @@ function classifyRow(
   }
 }
 
+/**
+ * M1 books some corporate actions against a placeholder security rather than the ticker -
+ * `PRESPLITCEIX` for a position as it stood before a split, for instance. Those are not
+ * symbols: nothing can price them, and storing one would put a phantom holding in the ledger
+ * that the engine values at zero. SPEC section 4 also makes them redundant, because split
+ * ratios come from the price history, never from a transaction row.
+ *
+ * So the row is reported rather than guessed at, which is this parser's rule everywhere else
+ * too. The reason names the symbol, since what to do about it depends on which action it was.
+ */
+function notATicker(symbol: string): string {
+  return `Symbol "${symbol}" is not a ticker - probably a placeholder M1 uses for a corporate action. Skipped: splits come from the price history, and anything else needs an adjust transaction entered by hand.`
+}
+
 function buildSecurityTransaction(
   get: (name: string) => string,
   type: 'buy' | 'sell',
@@ -188,6 +202,7 @@ function buildSecurityTransaction(
 ): NormalizedTransaction | string {
   const ticker = get('Symbol').toUpperCase()
   if (ticker === '') return `${type} row has no Symbol`
+  if (!TICKER_PATTERN.test(ticker)) return notATicker(ticker)
 
   const tradeDate = parseDate(get('Date'))
   if (tradeDate === null) return `unparseable Date "${get('Date')}"`
@@ -222,6 +237,7 @@ function buildDividendTransaction(
 ): NormalizedTransaction | string {
   const ticker = get('Symbol').toUpperCase()
   if (ticker === '') return 'DIVIDEND row has no Symbol, so it cannot be attributed'
+  if (!TICKER_PATTERN.test(ticker)) return notATicker(ticker)
 
   const tradeDate = parseDate(get('Date'))
   if (tradeDate === null) return `unparseable Date "${get('Date')}"`

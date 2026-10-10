@@ -194,6 +194,52 @@ describe('parseM1Activity', () => {
       expect(parseM1Activity(bad, 'taxable').unrecognized[0].reason).toMatch(/unparseable Units/)
     })
 
+    /**
+     * Found in the wild: M1 books a split against a placeholder security, and the symbol it
+     * invents is not a ticker. Before this, the parser built a transaction out of it, the
+     * preview counted it as new, and the Worker then rejected the **whole batch** with
+     * `400 "ticker" is not a valid ticker: PRESPLITCEIX` - so one such row blocked the import
+     * of every other row in the file.
+     */
+    it('reports a placeholder symbol rather than building a transaction the API will reject', () => {
+      const presplit = [
+        'Date,Symbol,Description,Transaction Type,Amount,Units,Unit Type',
+        '"Apr 8, 2024",PRESPLITCEIX,pre-split position,SOLD,-$500.00,-10,SHARES',
+        '"Apr 8, 2024",CEIX,bought,PURCHASED,$500.00,20,SHARES',
+      ].join('\n')
+
+      const result = parseM1Activity(presplit, 'taxable')
+
+      // The good row still imports: one bad symbol must not cost the rest of the file.
+      expect(result.transactions.map((t) => t.ticker)).toEqual(['CEIX'])
+      expect(result.unrecognized).toHaveLength(1)
+      expect(result.unrecognized[0].reason).toMatch(/not a ticker/)
+      expect(result.unrecognized[0].reason).toContain('PRESPLITCEIX')
+    })
+
+    it('reports a dividend paid under a placeholder symbol too', () => {
+      const dividend = [
+        'Date,Symbol,Description,Transaction Type,Amount,Units,Unit Type',
+        '"Apr 9, 2024",PRESPLITCEIX,dividend,DIVIDEND,$12.00,--,CURRENCY',
+      ].join('\n')
+
+      const result = parseM1Activity(dividend, 'taxable')
+      expect(result.transactions).toEqual([])
+      expect(result.unrecognized[0].reason).toMatch(/not a ticker/)
+    })
+
+    it('still accepts the symbol shapes that are real, dash and dot included', () => {
+      const real = [
+        'Date,Symbol,Description,Transaction Type,Amount,Units,Unit Type',
+        '"Apr 8, 2024",BRK-B,bought,PURCHASED,$100.00,1,SHARES',
+        '"Apr 8, 2024",BF.B,bought,PURCHASED,$100.00,1,SHARES',
+      ].join('\n')
+
+      const result = parseM1Activity(real, 'taxable')
+      expect(result.transactions.map((t) => t.ticker)).toEqual(['BRK-B', 'BF.B'])
+      expect(result.unrecognized).toEqual([])
+    })
+
     it('strips thousands separators rather than truncating at the comma', () => {
       const big = [
         'Date,Symbol,Description,Transaction Type,Amount,Units,Unit Type',
@@ -207,7 +253,9 @@ describe('parseM1Activity', () => {
   describe('multi-account imports', () => {
     it('stamps each row with the account label it was given', () => {
       const result = parseM1Activity(fixture('activity-all-types.csv'), 'roth ira')
-      expect(new Set(result.transactions.map((t) => t.account_label))).toEqual(new Set(['roth ira']))
+      expect(new Set(result.transactions.map((t) => t.account_label))).toEqual(
+        new Set(['roth ira']),
+      )
       expect(byTicker(result.transactions, 'ABCD')).toHaveLength(2)
     })
   })

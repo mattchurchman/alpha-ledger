@@ -3,6 +3,17 @@
 export type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'adjust'
 
 /**
+ * What a `ticker` may look like: an uppercase symbol of up to 10 characters, allowing the dot
+ * and the dash that `BRK-B`-style symbols use.
+ *
+ * It lives here, not in `worker/validate.ts`, because both ends must agree: the Worker refuses
+ * anything else (a stored non-symbol would mean a phantom holding the engine would then price
+ * at zero), so the M1 parser has to refuse it first and report the row, rather than building a
+ * transaction the import will be rejected for. `worker/validate.ts` re-exports this.
+ */
+export const TICKER_PATTERN = /^[A-Z][A-Z0-9.-]{0,9}$/
+
+/**
  * One `transactions` row. `shares` and `amount_usd` are exact decimal strings so no
  * precision is lost before the engine wraps them in `Decimal`.
  *

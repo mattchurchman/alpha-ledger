@@ -735,3 +735,36 @@ Open issues:
   `/api/*` still 401 (403 on a wrong bearer), and the served bundle hash matches the local
   build. `/help` itself could not be shot live: it sits inside the auth gate, so a signed-out
   request gets the unlock screen. The 390px/1280px shots were taken against `wrangler dev`.
+
+## Import fix: placeholder symbols - 2026-10-10 - Opus
+Status: done. Reported by the user: a real import failed with
+`400: "ticker" is not a valid ticker: PRESPLITCEIX`.
+Built:
+- `TICKER_PATTERN` moved from `worker/validate.ts` into `src/engine/types.ts`; the Worker
+  imports and re-exports it, so the M1 parser and the API now refuse exactly the same shapes.
+- `src/engine/m1/parse.ts` checks `Symbol` against it on both the buy/sell and the dividend
+  path, and reports a failing row as unrecognized naming the symbol, instead of building a
+  transaction the API is bound to reject.
+- Three tests in `parse.test.ts`: the PRESPLIT row is reported while the real row in the same
+  file still imports, a dividend under a placeholder is reported too, and `BRK-B` / `BF.B`
+  still parse.
+- `docs/M1_FORMAT.md`'s splits section rewritten around what the real export actually carries;
+  a Help troubleshooting entry explains the skip in the app.
+Decisions:
+- **The Worker stays strict; the parser got stricter.** Letting `bulkUpsert` skip bad rows
+  would have fixed the symptom and left the real defect - a preview that promises rows the API
+  will refuse. A phantom `PRESPLITCEIX` holding would also price at zero and quietly shorten
+  every total.
+- **The placeholder rows are skipped, not mapped.** SPEC 4 takes split ratios from the price
+  history, so M1's pre-split bookkeeping is redundant by design. The check tests the *shape*,
+  not the word `PRESPLIT`, so other corporate-action placeholders surface the same way.
+Verified:
+- `npm run check`: typecheck + lint + 396 tests (393 before).
+- Not reproduced against the user's real file - `private/m1/` is still empty. The reproduction
+  is the error message plus a fixture built to match it.
+Open issues:
+- **Unverified against the real export.** If those rows carry a real share movement rather
+  than split bookkeeping, CEIX's share count will be off until an `adjust` is entered.
+  Reconcile is the check - run it for CEIX after importing.
+- The user has not reported what the other unrecognized rows in their file are. Worth reading
+  that list on the Import preview before trusting any number.
