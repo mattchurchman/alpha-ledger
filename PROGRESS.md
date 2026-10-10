@@ -768,3 +768,44 @@ Open issues:
   Reconcile is the check - run it for CEIX after importing.
 - The user has not reported what the other unrecognized rows in their file are. Worth reading
   that list on the Import preview before trusting any number.
+
+## Deploy the import fix, and stop the service worker pinning old builds - 2026-10-10 - Opus
+Status: done. The user hit `400: "ticker" is not a valid ticker: PRESPLITCEIX` again, after
+the previous entry's fix was already committed.
+Diagnosis:
+- The fix was never deployed. Live served `assets/index-GRDA7fnI.js`, which contains no
+  occurrence of the parser's placeholder message; the local build `index-CL0RfVQ8.js` does.
+  Import parses in the browser (`src/routes/Import.tsx:138`), so a stale bundle reproduces the
+  old behaviour exactly: it builds a `PRESPLITCEIX` transaction and `worker/validate.ts:87`
+  rejects the batch.
+- `public/sw.js` would have hidden the deploy anyway. It was cache-first for `/` and
+  `/index.html` under a hard-coded `alpha-ledger-v1`, and `activate` only deletes caches whose
+  name differs from the current one - so the name never changed, the shell never expired, and
+  an already-visited browser stayed on whatever build it first cached.
+Built:
+- `public/sw.js` rewritten: the shell (`/`, `/index.html`, `/manifest.json`, any navigation) is
+  network-first with the cached copy as the offline fallback; everything else same-origin stays
+  cache-first, which is safe because `/assets/` filenames carry a content hash. `CACHE_NAME`
+  bumped to `alpha-ledger-v2` so the stale v1 shell is dropped on activate.
+- The `/api/` branch now passes its response through untouched. It used to answer a 401 with
+  the cached `/` document, which reaches `src/api/client.ts` as a 200 full of HTML - a JSON
+  parse failure instead of `NotAuthenticatedError`, i.e. a generic error instead of the auth
+  gate. It also returned `undefined` to `respondWith` whenever `/` was not in the cache.
+Decisions:
+- **Shell network-first, assets cache-first.** The shell is the only file whose content changes
+  without its URL changing, so it is the only one a cache can make stale. Making everything
+  network-first would have cost the offline behaviour for no gain.
+Verified:
+- `npm run check`: typecheck + lint + 396 tests. `npm run build` clean.
+- `npx wrangler deploy` - version `6328afdc-9f23-466a-b7b8-cbce5fa7dde3`. Live now serves
+  `index-CL0RfVQ8.js`, that bundle does contain the placeholder message, `/sw.js` reports
+  `alpha-ledger-v2`, and a signed-out `/api/transactions` still 401s.
+Open issues:
+- **The import itself is still unverified against the real export.** The previous entry's open
+  issues stand: read the unrecognized list on the Import preview, and run Reconcile for CEIX
+  once the two files are in.
+- An already-open tab needs one reload to pick up the new worker and a second to land on the
+  fresh shell; the first reload is still served by the old cache-first worker. Only this once.
+- Cached `/assets/` entries are never pruned, so each future deploy leaves its predecessor's
+  bundle in Cache Storage (~460 KB). Bumping `CACHE_NAME` clears them; worth revisiting only if
+  it ever matters.
