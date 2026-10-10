@@ -231,6 +231,72 @@ export default function Settings() {
               you would have kept after taxes or fees.
             </p>
           </section>
+          {/*
+           * Task 15's deliverable. Every item here is a limitation of the shipped code, not a
+           * caveat in general - each one was checked against the module that causes it. Add to
+           * this list when a task knowingly leaves a gap the numbers depend on; take an item
+           * out when the gap closes.
+           */}
+          <section>
+            <h3 className="mb-1 text-small font-semibold text-ink">Known limitations</h3>
+            <ul className="flex list-disc flex-col gap-2 pl-4">
+              <li>
+                <strong className="font-medium text-ink">
+                  The math has not been checked against a real export yet.
+                </strong>{' '}
+                It is covered by tests on made-up portfolios, which proves it is self-consistent,
+                not that it matches what your broker says you hold. Reconcile on the Import screen
+                is the check that settles that, and it has not been run on real history.
+              </li>
+              <li>
+                <strong className="font-medium text-ink">
+                  Shares moved in or out of the account are not imported.
+                </strong>{' '}
+                A cash deposit or withdrawal is correctly ignored, but a transfer of shares in kind
+                is reported as an unrecognized row on import and needs an adjustment entered by
+                hand. Until it is, that ticker&rsquo;s share count - and so its value - is wrong.
+              </li>
+              <li>
+                <strong className="font-medium text-ink">
+                  A holding with no stored price counts as zero.
+                </strong>{' '}
+                It is listed on the dashboard under the headline rather than hidden, so you can see
+                which totals are short, but the totals themselves are still short until that price
+                is fetched or entered.
+              </li>
+              <li>
+                <strong className="font-medium text-ink">
+                  Prices move only when you tap Update market data.
+                </strong>{' '}
+                Everything is valued at the last close that was stored, which is also what the date
+                at the top of every screen means. Nothing refreshes on its own.
+              </li>
+              <li>
+                <strong className="font-medium text-ink">
+                  A price history you upload by hand carries no split events.
+                </strong>{' '}
+                Splits come from the market-data fetch, so a hand-uploaded CSV leaves that
+                ticker&rsquo;s share counts unadjusted for any split until the next real update
+                replaces the series.
+              </li>
+              <li>
+                <strong className="font-medium text-ink">
+                  Cost basis is average cost, not tax lots.
+                </strong>{' '}
+                Realized and unrealized gain use one average cost per ticker across all accounts.
+                That is for reading on a screen, not for a tax return.
+              </li>
+              <li>
+                <strong className="font-medium text-ink">
+                  On a stock that paid dividends, the per-purchase figures do not add up to the
+                  ticker&rsquo;s total.
+                </strong>{' '}
+                Dividends are not attributed to individual purchases. The ticker-level value added
+                is the honest number; the purchase list answers the narrower question of whether
+                that particular buy was a good idea.
+              </li>
+            </ul>
+          </section>
         </div>
       </BottomSheet>
     </div>

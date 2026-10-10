@@ -21,6 +21,7 @@ import {
   SectionHeading,
   SignedDelta,
   StatTile,
+  StatusBadge,
   toNumber,
   useToast,
   type Column,
@@ -296,6 +297,37 @@ export default function Dashboard() {
             />
             <StatTile label="VOO IRR" value={percent(portfolio.shadowIrr, { sign: false })} />
           </div>
+          {/*
+           * `analyze` reports still-held tickers it could not price (ENGINE_API: "they read as
+           * value 0"), and until this block nothing showed them - every total above was quietly
+           * short by whatever they are worth. SPEC section 8 lists per-ticker fetch failures on
+           * the Update screen; this is the same fact where the affected numbers actually are.
+           */}
+          {result.missingPrices.length > 0 && (
+            <div className="mt-4 border-t border-rule pt-4">
+              <StatusBadge status="warning">
+                {result.missingPrices.length} holding
+                {result.missingPrices.length === 1 ? '' : 's'} with no stored price, counted as $0
+              </StatusBadge>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {/* Plain pills, matching "No estimate yet" below - a tappable 24px pill would
+                    be under DESIGN.md 3.3's 44px floor, and the Holdings table already links
+                    every one of these tickers to its own screen. */}
+                {result.missingPrices.map((ticker) => (
+                  <span
+                    key={ticker}
+                    className="rounded-full border border-rule px-2 py-0.5 font-mono text-small"
+                  >
+                    {ticker}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-2 max-w-prose text-small text-ink-secondary">
+                Portfolio value, total return and value added are all short by what these are worth.
+                Run Update market data, or set a price by hand, in Settings.
+              </p>
+            </div>
+          )}
         </Card>
       </section>
 

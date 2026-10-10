@@ -29,7 +29,7 @@ Open issues: bugs, shortcuts, things the user must do by hand
 | 12 | Fair value and history | Sonnet | done |
 | 13 | Installable app and iPhone icon | Haiku | done |
 | 14 | Privacy and cost audit | Sonnet | done |
-| 15 | Real-data validation | Opus | todo |
+| 15 | Real-data validation | Opus | partial (data-independent prep only; `private/m1/` still empty) |
 
 ## Entries
 
@@ -607,3 +607,80 @@ Open issues:
   nothing prompts an agent to run them at the end of a UI task.
 - `src/engine/placeholder.test.ts` is still there, still redundant. Eight tasks running have now
   declined to delete it.
+
+## Task 15 - Real-data validation - 2026-10-10 - Opus
+Status: **partial, and blocked on the user.** Every one of the task's six steps compares the
+app against the real portfolio, and `private/m1/` is still empty (task 02's open issue, now
+three tasks old). The user chose to have the data-independent half done now: the scratch
+recompute harness, the "Known limitations" sheet section, and the two gaps found while
+reading the code for them. None of the six checks has been run on real data.
+Built:
+- `private/recompute.check.ts` + `private/vitest.config.ts` (both gitignored; `private/README.md`
+  documents them, and that file *is* committed). Recomputes a ticker's shares, invested,
+  returned, current value, shadow value and value added from scratch - fresh arithmetic read
+  off SPEC 4-6, importing nothing from `src/engine/` but `analyze` itself - and diffs the two
+  readings figure by figure. `BUNDLE=private/export.json TICKERS=AAPL,KO npx vitest run
+  --config private/vitest.config.ts`; omit `TICKERS` for the whole ledger.
+- Dashboard now renders `result.missingPrices` under the headline: a warning badge, the ticker
+  pills, and a line saying which totals are short. The engine has reported this list since task
+  04 and **no screen had ever shown it** - step 5's "listed, not silently valued at zero" was
+  simply not true before this.
+- Reconcile now passes the stored prices and aliases into `splitAdjustTransactions`
+  (`src/routes/Import.tsx`), which task 08 had to stub as `{}` because no price history existed
+  yet. Four regression tests in `src/engine/reconcile.test.ts` cover the composition the screen
+  performs, both ways round: clean across a split and across a rename, flagged when the prices
+  or aliases are withheld.
+- `docs/SPEC.md` 6's "How this is calculated" sheet (`src/routes/Settings.tsx`) grew a **Known
+  limitations** section: seven items, each checked against the module that causes it.
+Decisions:
+- **The recompute harness runs under Vitest, not `node`.** Plain `node private/foo.ts` cannot
+  load the engine - `src/engine/index.ts` imports extensionless specifiers that Vite resolves
+  and Node does not (this is also why `scripts/m1-summary.ts` only ever imports the parser,
+  which has no such import). Vitest is already a devDependency and resolves them the same way
+  the app does, so the harness costs no new package; it needs its own config only because
+  `vitest.engine.config.ts` includes `src/**` alone.
+- **Four conventions in the harness are copied from the engine on purpose**, and the file says
+  so: the `asOf` rule, valuing at the last close on or before it, pricing a shadow flow on the
+  first benchmark day on or after the trade, and splits applying strictly after the trade date.
+  They are spec decisions rather than arithmetic; re-deriving them differently would only
+  manufacture false alarms. Everything else is written fresh, which is what makes agreement
+  mean something.
+- **The missing-price pills are not links.** A 24px pill is under DESIGN.md 3.3's 44px floor,
+  and the Holdings table a screen-length below already links every one of those tickers.
+- **"Known limitations" is a list of things this code does, not general investing caveats.**
+  Each item names a behaviour verified this session: the transfer-in-kind gap (`docs/M1_FORMAT.md`),
+  unpriced holdings counting as zero (`holdings.ts`), prices only moving on Update (SPEC 8), a
+  hand-uploaded CSV carrying `splits: []` (`src/data/marketData.ts:172`), average-cost basis
+  (SPEC 4), and per-buy figures not summing on a dividend payer (`docs/ENGINE_API.md`). The
+  fair-value-under-an-old-ticker issue from task 12 was deliberately left out: it needs a
+  hand-edited database to reach, so it is a note for an agent, not for the user.
+Verified:
+- `npm run check`: typecheck + lint + **393 tests** (up from 389; the four new ones are the
+  reconciliation composition).
+- The harness end to end against a synthetic export bundle built in the scratchpad - a plain
+  holding, a dividend payer sold down, a fully closed position, a 2-for-1 split, and a rename.
+  All six figures agree exactly on all five, as does the per-ticker-sums-to-portfolio invariant.
+  That is the harness proving itself, not the real-data check the task asks for.
+- Both UI changes shot at 390px in light and dark against `wrangler dev` with that same bundle
+  restored into the local scratch D1: the missing-price block reads correctly with one unpriced
+  holding, and the limitations list wraps cleanly inside the sheet.
+- The split fix on the real screen, not just in a test: with a ticker that split 2-for-1 after
+  its only buy, typing M1's post-split count into Reconcile now reports a clean match. Before
+  the fix it reported the ticker as off by the pre-split difference.
+- The local scratch D1 was exported first and restored afterwards; it is back to the 8
+  transactions, 9 price histories and 6 fair values it held before this session.
+Open issues:
+- **The six real-data checks are all still outstanding** - reconciliation against M1's share
+  counts, portfolio value against M1's total, the three hand-recomputed tickers, dividends
+  against the tax documents, and the missing-price sanity pass. The user must drop the real
+  activity CSVs into `private/m1/` (one per account, filename = account label) and run
+  `npm run m1:summary` first. Expect unrecognized rows - transfers in kind, corporate actions,
+  possibly splits - each needing a mapping decision before any number can be trusted.
+- **The first item in "Known limitations" is written to be deleted.** It says the math has not
+  been checked against a real export. Whoever finishes task 15 should remove it, not leave it
+  standing.
+- **Reconciliation now depends on price history being loaded.** If the user reconciles before
+  ever tapping Update, `prices` is empty and the split factors are all 1 again - the same
+  behaviour as before this fix, but now silent rather than inherent. No UI warns about it.
+- Not deployed. This session changed `src/` and `npx wrangler deploy` has not run since task
+  14's `b17b28ad` - the same trap task 14 flagged.

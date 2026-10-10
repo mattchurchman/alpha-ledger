@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { reconcileShares } from './reconcile'
+import { reconcileShares, type ShareCount } from './reconcile'
+import { sharesOn, splitAdjustTransactions } from './holdings'
+import { buy, history, LAST_DAY } from './__fixtures__/synthetic'
+import type { TickerAlias } from './types'
+import type { PriceHistory } from './prices/types'
 
 describe('reconcileShares', () => {
   it('says nothing when the two sides agree', () => {
@@ -128,5 +132,75 @@ describe('reconcileShares', () => {
     )
 
     expect(mismatches).toEqual([])
+  })
+})
+
+/**
+ * The Reconcile screen does not call `reconcileShares` on raw rows: it reconstructs today's
+ * share count first (`splitAdjustTransactions` then `sharesOn`) and reconciles that. Both
+ * halves are tested on their own elsewhere; what these cover is the composition, because
+ * task 08 shipped it passing `{}` for prices and nothing for aliases, which makes every
+ * split and every rename read as a share mismatch against counts that are actually right.
+ */
+describe('reconciling a reconstructed share count', () => {
+  const SPLIT_DAY = '2025-01-06'
+  const RENAME_DAY = '2025-01-07'
+
+  function reconstruct(
+    transactions: Parameters<typeof splitAdjustTransactions>[0],
+    prices: Record<string, PriceHistory>,
+    aliases: TickerAlias[] = [],
+  ): ShareCount[] {
+    const held = sharesOn(splitAdjustTransactions(transactions, prices, aliases), LAST_DAY)
+    return [...held].map(([ticker, qty]) => ({ ticker, shares: qty.toFixed() }))
+  }
+
+  const splitPrices = {
+    ACME: history(['100', '110', '60', '75', '100', '125', '150'], {
+      splits: [{ date: SPLIT_DAY, numerator: 2, denominator: 1 }],
+    }),
+  }
+
+  it('agrees with the broker across a split', () => {
+    // Four shares bought before a 2-for-1 are eight shares today, which is what M1 reports.
+    const transactions = [buy('2025-01-02', 'ACME', '4', '400')]
+
+    expect(
+      reconcileShares(reconstruct(transactions, splitPrices), [{ ticker: 'ACME', shares: '8' }]),
+    ).toEqual([])
+  })
+
+  it('reports a split as a mismatch when the price history is withheld', () => {
+    // The regression this guards: with no splits in hand the ledger reconstructs 4 shares
+    // against M1's 8 and asks the user to "fix" a count that was never wrong.
+    const transactions = [buy('2025-01-02', 'ACME', '4', '400')]
+    const [found] = reconcileShares(reconstruct(transactions, {}), [
+      { ticker: 'ACME', shares: '8' },
+    ])
+
+    expect(found).toMatchObject({ ticker: 'ACME', reconstructed: '4', difference: '4' })
+  })
+
+  it('agrees with the broker across a rename', () => {
+    const transactions = [buy('2025-01-02', 'OLDX', '4', '400')]
+    const aliases: TickerAlias[] = [
+      { from_ticker: 'OLDX', to_ticker: 'NEWX', effective_date: RENAME_DAY },
+    ]
+
+    expect(
+      reconcileShares(reconstruct(transactions, {}, aliases), [{ ticker: 'NEWX', shares: '4' }]),
+    ).toEqual([])
+  })
+
+  it('reports a rename as two mismatches when the aliases are withheld', () => {
+    const transactions = [buy('2025-01-02', 'OLDX', '4', '400')]
+    const mismatches = reconcileShares(reconstruct(transactions, {}), [
+      { ticker: 'NEWX', shares: '4' },
+    ])
+
+    expect(mismatches.map((m) => [m.ticker, m.reason])).toEqual([
+      ['NEWX', 'missing-from-ledger'],
+      ['OLDX', 'missing-from-actual'],
+    ])
   })
 })

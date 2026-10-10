@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import { api, ApiError, NotAuthenticatedError } from '../api/client'
 import type { TransactionInput, TransactionRow } from '../api/types'
 import { parseM1Activity, type ParseResult } from '../engine/m1/parse'
+import { usePortfolioData } from '../data/usePortfolioData'
 import { splitAdjustTransactions, sharesOn } from '../engine/holdings'
 import { reconcileShares, type ShareCount, type ShareMismatch } from '../engine/reconcile'
 import {
@@ -399,6 +400,13 @@ function ReconcileTab({
   report: (err: unknown) => void
   toast: Toast
 }) {
+  /**
+   * Prices and aliases come from the shared cache rather than a fetch of their own: a
+   * reconstructed share count is only comparable with M1's if it is in the same (post-split)
+   * terms and under the same ticker (SPEC section 4). Task 08 passed `{}` for both because no
+   * stored price history existed yet; task 09 added it.
+   */
+  const { prices, aliases } = usePortfolioData()
   const [rows, setRows] = useState<ActualRow[]>([blankActualRow()])
   const [actualIsComplete, setActualIsComplete] = useState(true)
   const [mismatches, setMismatches] = useState<ShareMismatch[] | null>(null)
@@ -424,7 +432,7 @@ function ReconcileTab({
 
   function runReconciliation() {
     if (!transactions) return
-    const adjusted = splitAdjustTransactions(transactions, {})
+    const adjusted = splitAdjustTransactions(transactions, prices, aliases)
     const today = new Date().toISOString().slice(0, 10)
     const held = sharesOn(adjusted, today)
     const reconstructed: ShareCount[] = [...held].map(([ticker, qty]) => ({
