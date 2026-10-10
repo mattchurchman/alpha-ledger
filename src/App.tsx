@@ -1,5 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import AuthGate from './AuthGate.tsx'
+import { PortfolioDataProvider } from './data/PortfolioData.tsx'
+import { usePortfolioData } from './data/usePortfolioData.ts'
 import Activity from './routes/Activity.tsx'
 import Dashboard from './routes/Dashboard.tsx'
 import FairValues from './routes/FairValues.tsx'
@@ -45,16 +47,30 @@ export default function App() {
 function GatedApp() {
   return (
     <AuthGate>
-      <AppShell>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/stocks/:ticker" element={<StockDetail />} />
-          <Route path="/fair-values" element={<FairValues />} />
-          <Route path="/activity" element={<Activity />} />
-          <Route path="/import" element={<Import />} />
-          <Route path="/settings" element={<Settings />} />
-        </Routes>
-      </AppShell>
+      <PortfolioDataProvider>
+        <GatedShell />
+      </PortfolioDataProvider>
     </AuthGate>
+  )
+}
+
+/** Reads the data hook to feed the shell's "prices as of" slot and its Update control. */
+function GatedShell() {
+  const { pricesAsOf, update, runUpdate } = usePortfolioData()
+  return (
+    <AppShell
+      pricesAsOf={pricesAsOf}
+      onUpdatePrices={() => void runUpdate()}
+      updatingPrices={update.running}
+    >
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/stocks/:ticker" element={<StockDetail />} />
+        <Route path="/fair-values" element={<FairValues />} />
+        <Route path="/activity" element={<Activity />} />
+        <Route path="/import" element={<Import />} />
+        <Route path="/settings" element={<Settings />} />
+      </Routes>
+    </AppShell>
   )
 }

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { DESTINATIONS, titleFor } from './destinations'
-import { DarkThemeIcon, LightThemeIcon, SystemThemeIcon } from './icons'
+import { DarkThemeIcon, LightThemeIcon, RefreshIcon, SystemThemeIcon } from './icons'
 import { PricesAsOfBadge, type PricesAsOf } from './States'
 import { useTheme } from './theme'
 
@@ -33,9 +33,18 @@ export interface AppShellProps {
   pricesAsOf?: PricesAsOf
   /** Overrides the title derived from the route. */
   title?: string
+  /** SPEC 8's action, also reachable from the shell - task 09. Omit to hide the control. */
+  onUpdatePrices?: () => void
+  updatingPrices?: boolean
 }
 
-export function AppShell({ children, pricesAsOf, title }: AppShellProps) {
+export function AppShell({
+  children,
+  pricesAsOf,
+  title,
+  onUpdatePrices,
+  updatingPrices,
+}: AppShellProps) {
   const { pathname } = useLocation()
   const heading = title ?? titleFor(pathname)
 
@@ -82,8 +91,23 @@ export function AppShell({ children, pricesAsOf, title }: AppShellProps) {
           <div className="mx-auto flex w-full max-w-4xl items-center gap-3 px-4 py-2.5">
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-h1 font-semibold">{heading}</h1>
-              {/* SPEC section 8's indicator. Task 09 fills it; the shell owns the slot. */}
-              <PricesAsOfBadge value={pricesAsOf} />
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                {/* SPEC section 8's indicator. */}
+                <PricesAsOfBadge value={pricesAsOf} />
+                {onUpdatePrices && (
+                  <button
+                    type="button"
+                    onClick={onUpdatePrices}
+                    disabled={updatingPrices}
+                    className="inline-flex items-center gap-1 rounded-control px-1 text-micro font-medium text-ink-secondary transition-colors duration-[120ms] hover:bg-sunken disabled:opacity-45"
+                  >
+                    <RefreshIcon
+                      className={`size-3 shrink-0 ${updatingPrices ? 'animate-spin' : ''}`}
+                    />
+                    {updatingPrices ? 'Updating…' : 'Update'}
+                  </button>
+                )}
+              </div>
             </div>
             <div className="md:hidden">
               <ThemeToggle />

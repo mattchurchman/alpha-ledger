@@ -79,6 +79,18 @@ export function SettingsIcon(props: IconProps) {
   )
 }
 
+/** Update market data: a refresh arrow. */
+export function RefreshIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M16 10a6 6 0 0 1-10.5 4" />
+      <path d="M4 10a6 6 0 0 1 10.5-4" />
+      <path d="M4.3 16v-3.2h3.2" />
+      <path d="M15.7 4v3.2h-3.2" />
+    </Icon>
+  )
+}
+
 /** Status: warning / stale. Always beside the word. */
 export function WarningIcon(props: IconProps) {
   return (

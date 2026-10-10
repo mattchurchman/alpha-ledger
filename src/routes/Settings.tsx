@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, ApiError, NotAuthenticatedError } from '../api/client'
 import type { TickerAlias } from '../api/types'
+import { parseManualPriceCsv, withManualPrice } from '../data/marketData'
+import { usePortfolioData } from '../data/usePortfolioData'
 import {
   Button,
   Card,
   DataTable,
   EmptyState,
+  PricesAsOfBadge,
   SectionHeading,
   TextField,
   useToast,
@@ -170,12 +173,169 @@ export default function Settings() {
         </Button>
       </Card>
 
+      <MarketDataCard />
+
       <Card>
         <p className="text-small text-ink-muted">
-          Market data, manual prices, export/restore, and "how this is calculated" land in later
-          tasks.
+          Export/restore and "how this is calculated" land in later tasks.
         </p>
       </Card>
     </div>
+  )
+}
+
+function MarketDataCard() {
+  const toast = useToast()
+  const { priceHistory, pricesAsOf, update, runUpdate, putPriceHistory } = usePortfolioData()
+  const [csvTicker, setCsvTicker] = useState('')
+  const [csvBusy, setCsvBusy] = useState(false)
+  const [spotTicker, setSpotTicker] = useState('')
+  const [spotPrice, setSpotPrice] = useState('')
+  const [spotBusy, setSpotBusy] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const report = useCallback(
+    (err: unknown) => {
+      if (err instanceof NotAuthenticatedError) toast.show(err.message, { status: 'critical' })
+      else if (err instanceof ApiError)
+        toast.show(`${err.status}: ${err.message}`, { status: 'critical' })
+      else toast.show(err instanceof Error ? err.message : String(err), { status: 'critical' })
+    },
+    [toast],
+  )
+
+  async function handleUpdate() {
+    try {
+      const outcome = await runUpdate()
+      toast.show(
+        outcome.failed.length === 0
+          ? 'Prices updated.'
+          : `Updated with ${outcome.failed.length} failure(s).`,
+        { status: outcome.failed.length === 0 ? 'good' : 'warning' },
+      )
+    } catch (err) {
+      report(err)
+    }
+  }
+
+  async function handleCsvFile(file: File) {
+    const ticker = csvTicker.trim().toUpperCase()
+    if (ticker === '') {
+      toast.show('Enter a ticker before choosing a file.', { status: 'critical' })
+      return
+    }
+    setCsvBusy(true)
+    try {
+      const history = parseManualPriceCsv(await file.text())
+      await putPriceHistory(ticker, history)
+      toast.show(`${ticker}: stored ${history.dates.length} day(s) from the CSV.`, {
+        status: 'good',
+      })
+      setCsvTicker('')
+    } catch (err) {
+      report(err)
+    } finally {
+      setCsvBusy(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  async function handleSetSpotPrice() {
+    const ticker = spotTicker.trim().toUpperCase()
+    const price = spotPrice.trim()
+    if (ticker === '' || price === '' || Number.isNaN(Number(price))) {
+      toast.show('Enter a ticker and a numeric price.', { status: 'critical' })
+      return
+    }
+    setSpotBusy(true)
+    try {
+      const existing = priceHistory.find((p) => p.ticker === ticker)?.history ?? null
+      const today = new Date().toISOString().slice(0, 10)
+      const history = withManualPrice(existing, today, price)
+      await putPriceHistory(ticker, history)
+      toast.show(`${ticker}: set today's price to ${price}.`, { status: 'good' })
+      setSpotTicker('')
+      setSpotPrice('')
+    } catch (err) {
+      report(err)
+    } finally {
+      setSpotBusy(false)
+    }
+  }
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <div>
+        <h2 className="mb-1 text-h3 font-semibold">Market data</h2>
+        <PricesAsOfBadge value={pricesAsOf} />
+      </div>
+
+      <div>
+        <Button variant="primary" disabled={update.running} onClick={() => void handleUpdate()}>
+          {update.running ? `Updating… ${update.done} of ${update.total}` : 'Update market data'}
+        </Button>
+        {!update.running && update.failures.length > 0 && (
+          <ul className="mt-3 flex flex-col gap-1">
+            {update.failures.map((f) => (
+              <li key={f.ticker} className="text-small text-critical">
+                {f.ticker}: {f.error}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="border-t border-rule pt-4">
+        <h3 className="mb-1 text-small font-semibold">Manual fallback</h3>
+        <p className="mb-3 text-small text-ink-secondary">
+          If Yahoo is unreachable, upload a price CSV for one ticker or set its current price by
+          hand. Either is marked manual and merges into whatever history is already stored.
+        </p>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <TextField
+            label="Ticker"
+            value={csvTicker}
+            onChange={(e) => setCsvTicker(e.target.value.toUpperCase())}
+            placeholder="ACME"
+            className="sm:w-32"
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) void handleCsvFile(file)
+            }}
+          />
+          <Button disabled={csvBusy} onClick={() => fileInputRef.current?.click()}>
+            {csvBusy ? 'Uploading…' : 'Upload price CSV…'}
+          </Button>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <TextField
+            label="Ticker"
+            value={spotTicker}
+            onChange={(e) => setSpotTicker(e.target.value.toUpperCase())}
+            placeholder="ACME"
+            className="sm:w-32"
+          />
+          <TextField
+            label="Current price"
+            inputMode="decimal"
+            value={spotPrice}
+            onChange={(e) => setSpotPrice(e.target.value)}
+            placeholder="150.00"
+            className="sm:w-32"
+          />
+          <Button disabled={spotBusy} onClick={() => void handleSetSpotPrice()}>
+            {spotBusy ? 'Saving…' : 'Set current price'}
+          </Button>
+        </div>
+      </div>
+    </Card>
   )
 }
