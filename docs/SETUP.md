@@ -155,10 +155,10 @@ in for a CSRF token.
 
 1. Open `$URL` on your laptop. You should get the unlock screen, not the app.
 2. Paste the token, click Unlock. The app appears.
-3. Go to `/debug`, click **Add a test row**.
-4. Open `$URL` on your phone, unlock it the same way, go to `/debug`. **The row should already
-   be there.** That is the sync check.
-5. Click **Delete debug rows** so nothing fake reaches a real calculation.
+3. Go to **Activity**, click **Add transaction**, and save a test row (any account/ticker).
+4. Open `$URL` on your phone, unlock it the same way, go to **Activity**. **The row should
+   already be there.** That is the sync check.
+5. Delete the test row from Activity so nothing fake reaches a real calculation.
 
 ---
 
@@ -183,13 +183,13 @@ tests in workerd against a throwaway local D1, applying `migrations/` itself.
 
 ## 6. Things that will go wrong
 
-| Symptom | Cause |
-|---|---|
-| `403 auth-not-configured` on the live site | `AUTH_TOKEN` is not set. `npx wrangler secret list`. |
-| `401 missing-credentials` | No session cookie and no bearer header - normal when signed out. |
-| `403 invalid-token` | Wrong token. Check for a stray space or a truncated paste. |
-| `403 invalid-session` | The cookie was signed with a previous token. Unlock again; this is what rotation looks like. |
-| `401 session-expired` | The year is up. Unlock again. |
-| Unlock screen loops, cookie never sticks | Browser is blocking cookies for the site, or you are on plain HTTP where `Secure` applies. |
-| Lost the token | There is no recovery. Run the step 2 command again to set a new one; the data in D1 is untouched. |
-| `wrangler deploy` fails on `database_id` | `wrangler.jsonc` has a placeholder. Run step 1 and paste the real id. |
+| Symptom                                    | Cause                                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `403 auth-not-configured` on the live site | `AUTH_TOKEN` is not set. `npx wrangler secret list`.                                              |
+| `401 missing-credentials`                  | No session cookie and no bearer header - normal when signed out.                                  |
+| `403 invalid-token`                        | Wrong token. Check for a stray space or a truncated paste.                                        |
+| `403 invalid-session`                      | The cookie was signed with a previous token. Unlock again; this is what rotation looks like.      |
+| `401 session-expired`                      | The year is up. Unlock again.                                                                     |
+| Unlock screen loops, cookie never sticks   | Browser is blocking cookies for the site, or you are on plain HTTP where `Secure` applies.        |
+| Lost the token                             | There is no recovery. Run the step 2 command again to set a new one; the data in D1 is untouched. |
+| `wrangler deploy` fails on `database_id`   | `wrangler.jsonc` has a placeholder. Run step 1 and paste the real id.                             |

@@ -168,7 +168,7 @@ export function DataTable<T>({
                         : 'none'
                       : undefined
                   }
-                  className={`py-2 ${column.align === 'right' ? 'text-right' : 'text-left'}`}
+                  className={`px-1.5 py-2 first:pl-0 last:pr-0 ${column.align === 'right' ? 'text-right' : 'text-left'}`}
                 >
                   {column.sort ? (
                     <button
@@ -200,8 +200,8 @@ export function DataTable<T>({
                 {columns.map((column) => (
                   <td
                     key={column.key}
-                    className={`py-2 tabular-nums ${
-                      column.align === 'right' ? 'pl-3 text-right' : 'pr-3 text-left'
+                    className={`px-1.5 py-2 tabular-nums first:pl-0 last:pr-0 ${
+                      column.align === 'right' ? 'text-right' : 'text-left'
                     }`}
                   >
                     {column.render(row)}

@@ -2,7 +2,6 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import AuthGate from './AuthGate.tsx'
 import Activity from './routes/Activity.tsx'
 import Dashboard from './routes/Dashboard.tsx'
-import Debug from './routes/Debug.tsx'
 import FairValues from './routes/FairValues.tsx'
 import Import from './routes/Import.tsx'
 import Kit from './routes/Kit.tsx'
@@ -54,8 +53,6 @@ function GatedApp() {
           <Route path="/activity" element={<Activity />} />
           <Route path="/import" element={<Import />} />
           <Route path="/settings" element={<Settings />} />
-          {/* Temporary, task 06 only. Goes away with src/routes/Debug.tsx. */}
-          <Route path="/debug" element={<Debug />} />
         </Routes>
       </AppShell>
     </AuthGate>

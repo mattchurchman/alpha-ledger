@@ -33,14 +33,9 @@ export interface AppShellProps {
   pricesAsOf?: PricesAsOf
   /** Overrides the title derived from the route. */
   title?: string
-  /**
-   * Task 06's temporary `/debug` page. It has to stay reachable on a phone - that is what it
-   * exists for - so it is a header link rather than a sixth tab, and it dies with one deletion.
-   */
-  showDebugLink?: boolean
 }
 
-export function AppShell({ children, pricesAsOf, title, showDebugLink = true }: AppShellProps) {
+export function AppShell({ children, pricesAsOf, title }: AppShellProps) {
   const { pathname } = useLocation()
   const heading = title ?? titleFor(pathname)
 
@@ -76,13 +71,8 @@ export function AppShell({ children, pricesAsOf, title, showDebugLink = true }: 
               </li>
             ))}
           </ul>
-          <div className="mt-auto flex items-center justify-between pt-4">
+          <div className="mt-auto flex items-center pt-4">
             <ThemeToggle />
-            {showDebugLink && (
-              <Link to="/debug" className="label-micro px-2 hover:text-ink">
-                Debug
-              </Link>
-            )}
           </div>
         </div>
       </nav>
@@ -95,11 +85,6 @@ export function AppShell({ children, pricesAsOf, title, showDebugLink = true }: 
               {/* SPEC section 8's indicator. Task 09 fills it; the shell owns the slot. */}
               <PricesAsOfBadge value={pricesAsOf} />
             </div>
-            {showDebugLink && (
-              <Link to="/debug" className="label-micro px-1 hover:text-ink md:hidden">
-                Debug
-              </Link>
-            )}
             <div className="md:hidden">
               <ThemeToggle />
             </div>

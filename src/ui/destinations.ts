@@ -29,7 +29,6 @@ export const DESTINATIONS: Destination[] = [
 export const EXTRA_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/stocks/', title: 'Stock detail' },
   { prefix: '/kit', title: 'Component kit' },
-  { prefix: '/debug', title: 'Debug' },
 ]
 
 export function titleFor(pathname: string): string {

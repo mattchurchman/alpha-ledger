@@ -5,7 +5,11 @@
   "compatibility_date": "2026-10-07",
   "assets": {
     "directory": "./dist",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    // The app is a client-side-routed SPA (react-router's BrowserRouter). Without this, a
+    // direct load or refresh on any route but "/" (e.g. "/activity") 404s instead of serving
+    // the shell, which then mounts the right screen itself.
+    "not_found_handling": "single-page-application",
   },
   "d1_databases": [
     {
@@ -13,7 +17,7 @@
       "database_name": "alpha-ledger-db",
       // created early by task 03 to unblock deploy; schema lives in ./migrations (task 06)
       "database_id": "74aa5a86-bf9b-43ff-8450-bd8bbc97f755",
-      "migrations_dir": "migrations"
-    }
-  ]
+      "migrations_dir": "migrations",
+    },
+  ],
 }

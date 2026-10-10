@@ -1,4 +1,10 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import {
+  useId,
+  type InputHTMLAttributes,
+  type ButtonHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+} from 'react'
 
 /**
  * The surfaces and controls everything else is built from. Hairlines and warm paper, no
@@ -116,6 +122,83 @@ export function SeriesKey({
       aria-hidden="true"
       className={`inline-block h-2.5 w-2.5 rounded-[2px] opacity-30 ${background}`}
     />
+  )
+}
+
+const FIELD_STYLES =
+  'min-h-11 w-full rounded-control border border-rule bg-surface px-2.5 text-small text-ink placeholder:text-ink-muted disabled:opacity-45'
+
+/** A labelled text/date/number input. `hint` and `error` are mutually exclusive - an error wins. */
+export function TextField({
+  label,
+  hint,
+  error,
+  className = '',
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: string; error?: string }) {
+  const id = useId()
+  return (
+    <div className={`flex flex-col gap-1 ${className}`.trimEnd()}>
+      <label htmlFor={id} className="label-micro">
+        {label}
+      </label>
+      <input id={id} className={FIELD_STYLES} {...props} />
+      {error ? (
+        <span className="text-micro text-critical">{error}</span>
+      ) : hint ? (
+        <span className="text-micro text-ink-muted">{hint}</span>
+      ) : null}
+    </div>
+  )
+}
+
+export interface SelectOption {
+  value: string
+  label: string
+}
+
+export function Select({
+  label,
+  options,
+  className = '',
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement> & { label: string; options: readonly SelectOption[] }) {
+  const id = useId()
+  return (
+    <div className={`flex flex-col gap-1 ${className}`.trimEnd()}>
+      <label htmlFor={id} className="label-micro">
+        {label}
+      </label>
+      <select id={id} className={FIELD_STYLES} {...props}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+export function Checkbox({
+  label,
+  className = '',
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & { label: ReactNode }) {
+  const id = useId()
+  return (
+    <label
+      htmlFor={id}
+      className={`flex min-h-11 items-center gap-2.5 text-small text-ink ${className}`.trimEnd()}
+    >
+      <input
+        id={id}
+        type="checkbox"
+        className="size-4 shrink-0 rounded-[4px] border border-rule accent-you"
+        {...props}
+      />
+      {label}
+    </label>
   )
 }
 
