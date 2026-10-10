@@ -26,7 +26,7 @@ Open issues: bugs, shortcuts, things the user must do by hand
 | 09 | Update Market Data flow | Sonnet | done |
 | 10 | Dashboard | Sonnet | done |
 | 11 | Stock detail and decisions | Sonnet | done |
-| 12 | Fair value and history | Sonnet | todo |
+| 12 | Fair value and history | Sonnet | done |
 | 13 | Installable app and iPhone icon | Haiku | todo |
 | 14 | Privacy and cost audit | Sonnet | todo |
 | 15 | Real-data validation | Opus | todo |
@@ -424,3 +424,104 @@ Open issues:
 - Task 12 should replace the "Fair value" placeholder card with the real chart and editor, and
   should decide whether this screen's `StatTile` grid needs a sixth "Discount" figure once fair
   value exists here.
+
+## Task 12 - Fair value and history - 2026-10-09 - Sonnet
+Status: done. `npm run check` passes; manually exercised end to end against `wrangler dev`,
+including a synthetic ticker with a real split event to verify the acceptance criterion.
+Built:
+- `src/engine/fairValue.ts` (+19 tests): `latestFairValues` and `discountFrom`, moved here from
+  task 10's `src/data/fairValue.ts` (now deleted) per this task's explicit deliverable location;
+  `zoneFor` (the number-to-`ZoneId` classification, also moved - see Decisions) and its
+  `DEEP_DISCOUNT`/`WELL_ABOVE` constants; `splitAdjustedValue` and `splitAdjustedHistory`, the
+  new split-adjustment this task asks for. Split adjustment reuses `holdings.ts`'s own
+  `splitFactorAfter` rather than re-deriving it - a fair value is a per-share dollar figure, so
+  it divides by the same factor a share count would be multiplied by.
+- `src/engine/types.ts`: added `FairValueEstimate` (the `fair_value` row shape) and
+  `FairValueRecord` (plus `id`, needed only to break a same-day tie), matching the
+  `Transaction`/`TransactionRow` pattern already in this file. `src/api/types.ts`'s
+  `FairValueRow`/`FairValueInput` now extend/derive from these instead of restating the fields.
+- `src/routes/FairValues.tsx`: the real screen (SPEC 9's third one), replacing the one-line
+  stub. Every currently-open holding in a `DataTable` (ticker, price, current split-adjusted
+  fair value, discount with its zone, a "Set value" action), backed by its own
+  `api.fairValues.list()`/`.create()` calls (same per-screen-owns-its-data pattern Activity and
+  Settings already use - no new shared mutation path). "Set value" opens a `BottomSheet` with
+  value/date (defaults to today)/note; saving always `POST`s a new row, never edits one.
+- `src/routes/StockDetail.tsx`: the "Fair value" section is now real - `StepLineChart` fed
+  `prices[ticker]`'s own `dates`/`close` plus `splitAdjustedHistory` for the estimate step line,
+  and a `DataTable` of every raw (not split-adjusted) estimate for this ticker with a
+  confirm-then-delete action per row, matching Activity's confirm-delete pattern exactly.
+- `src/routes/Dashboard.tsx`: rebuy ranking and the holdings table's fair-value/discount columns
+  now go through a ticker's **split-adjusted** current estimate (a new `currentFairValue` map)
+  instead of the raw stored `value_usd` - a pre-existing correctness gap this task's engine
+  module fixes as a side effect, since a pre-split estimate compared raw against today's
+  (already-split-adjusted) `latestClose` would have understated or overstated the discount for
+  any ticker that split after its last estimate.
+- `src/data/usePortfolioData.ts` / `PortfolioData.tsx`: the context now also exposes `prices`
+  (the same `{ ticker: PriceHistory }` map `analyze` is built from, already computed internally)
+  so any screen needing a ticker's splits - all three touched by this task - doesn't rebuild it
+  from `priceHistory` itself.
+Decisions:
+- **`src/engine/fairValue.ts`, not `src/data/fairValue.ts`.** Task 10 had decided fair value's
+  two formulas belonged beside `marketData.ts` in `src/data/`, reasoning CLAUDE.md's
+  engine-math rule was "about the VOO-comparison math". This task's own deliverable line names
+  `src/engine/fairValue.ts` explicitly, which I read as superseding that part of task 10's
+  decision (not the part about `analyze` never touching fair value - that still holds; this
+  module is a sibling `analyze` doesn't import, same as `reconcile.ts` or `m1/parse.ts`).
+- **The discount-zone classification (`zoneFor`, `DEEP_DISCOUNT`, `WELL_ABOVE`) moved from
+  `src/ui/zones.ts` into the engine too**, even though this task's deliverable line only says
+  "zone", because classifying a discount into a zone is the same kind of SPEC-7 math as the
+  discount formula itself, and it was previously untested (no `zones.test.ts` existed - a gap
+  every other financial calculation in this repo doesn't have). `src/ui/zones.ts` now only maps
+  the engine's `ZoneId` to a label and a colour tone (`Zone`), re-exporting the thresholds so a
+  meter's boundary ticks can't drift from the engine's own numbers. Every existing import
+  (`DiscountMeter`, `Kit`, `Dashboard`) is unchanged - `../ui` still exports `zoneFor`/`Zone`.
+- **Fair values screen lists open holdings only** (`shares !== 0`), matching the Dashboard's own
+  "Holdings" table and rebuy ranking - a closed ticker has no rebuy decision left for an
+  estimate to inform. Its full history (including delete) is still reachable for any ticker,
+  open or closed, through the stock detail screen either way.
+- **The fair-value history list on stock detail shows the raw stored `value_usd`**, not the
+  split-adjusted figure - SPEC 7 says "the stored value is never rewritten", and showing the
+  number exactly as typed is what lets a user recognize and delete a fat-fingered entry. Only
+  the `StepLineChart` (and the Dashboard/Fair-values current-estimate figures) show the
+  split-adjusted view, per SPEC 7's "shown split-adjusted on charts" - deliberately two
+  different numbers for two different purposes, both already distinguished by the module
+  (`splitAdjustedHistory` vs. reading a `FairValueRow` directly).
+- **No sixth "Discount" `StatTile` added to stock detail's headline grid.** Task 11 raised this
+  as an open question; this task's deliverable list doesn't ask for it (only "History on stock
+  detail", which the step chart and its readout already cover - the chart's own readout shows
+  both numbers side by side at any scrubbed date), so I left the headline grid as task 11 built
+  it rather than guessing at a seventh thing to show.
+Verified:
+- `npm run check` passes: typecheck + lint + **389 tests** (19 new in `fairValue.test.ts`,
+  7 removed with `src/data/fairValue.test.ts`).
+- Manual pass against `npx wrangler dev`, reusing tasks 10-11's synthetic fixtures (`GOOD`,
+  `WEAK`, `NOEST`, `SOLD`, `NEGB`, all still in local D1, gitignored, nothing real) plus one new
+  one built for this task: `SPLT`, a single buy with 60 days of fabricated daily closes and a
+  real 2-for-1 split event partway through, then four fair-value estimates dated two before and
+  two after the split date. Confirmed via the stock detail screen: the step line shows four
+  distinct levels, and the two pre-split entries ($90, $95) are drawn at half their stored value
+  ($45, $47.5) while the two post-split ones ($50, $55) are unchanged - the acceptance
+  criterion. Deleted one entry with the confirm-then-cancel-then-confirm flow and verified the
+  remaining three rows' stored values were untouched (`GET /api/fair-values?ticker=SPLT`).
+  Exercised "Set value" from the Fair values screen end to end (create, default-today date,
+  optional note, immediate re-render of price/discount/zone) against a no-estimate ticker.
+- Screenshots via an ad-hoc Playwright script (tasks 10-11's pattern, pointed at `:8787`) of
+  both new screens at 390px and 1280px, light and dark: zero console errors on any shot. The
+  phone shots confirm "comfortable one-handed at 390px" - the Fair values list collapses to one
+  card per ticker with a full-width "Set value" button, and the entry sheet's three fields plus
+  Save are all within thumb reach without the keyboard covering them.
+- Privacy: `git status` and the full diff reviewed before every commit; only `src/` files
+  touched, nothing from `private/` or the database. The synthetic `SPLT` fixture lives only in
+  the gitignored local `.wrangler` D1 state, same as every other qa fixture before it.
+Open issues:
+- **No component tests**, the same gap every UI task has noted since task 07.
+- **The Fair values screen has no per-row "last updated" date column** - zone and discount alone
+  were judged enough context for "is this estimate still worth trusting", and the full date is
+  one tap away on the stock detail screen. Worth revisiting if real use shows otherwise.
+- **A fair-value estimate entered for a ticker under an old (pre-rename) ticker symbol is not
+  alias-resolved** - `splitAdjustedValue`/`splitAdjustedHistory` key split lookups by the ticker
+  string on the row as stored, with no `resolveTicker` pass. SPEC section 7 doesn't mention
+  aliases, and the Fair values screen only ever writes the *current*, post-alias ticker symbol,
+  so this can only arise by hand-editing the database - noted, not fixed.
+- `src/engine/placeholder.test.ts` is still there, still redundant. Six tasks running have now
+  declined to delete it.

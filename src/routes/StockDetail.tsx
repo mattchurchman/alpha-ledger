@@ -1,6 +1,9 @@
-import { useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { api, ApiError, NotAuthenticatedError } from '../api/client'
+import type { FairValueRow } from '../api/types'
 import { tickerDecisions, tickerSeries, type BuyDecision } from '../engine'
+import { splitAdjustedHistory } from '../engine/fairValue'
 import { usePortfolioData } from '../data/usePortfolioData'
 import {
   BackIcon,
@@ -17,7 +20,9 @@ import {
   SectionHeading,
   SignedDelta,
   StatTile,
+  StepLineChart,
   toNumber,
+  useToast,
   type Column,
   type HistoryChartMarker,
 } from '../ui'
@@ -35,9 +40,104 @@ import {
  */
 export default function StockDetail() {
   const navigate = useNavigate()
+  const toast = useToast()
   const params = useParams<{ ticker: string }>()
   const ticker = (params.ticker ?? '').toUpperCase()
-  const { loading, error, result } = usePortfolioData()
+  const { loading, error, result, prices } = usePortfolioData()
+
+  const [fairValueRows, setFairValueRows] = useState<FairValueRow[] | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+
+  const report = useCallback(
+    (err: unknown) => {
+      if (err instanceof NotAuthenticatedError) toast.show(err.message, { status: 'critical' })
+      else if (err instanceof ApiError)
+        toast.show(`${err.status}: ${err.message}`, { status: 'critical' })
+      else toast.show(err instanceof Error ? err.message : String(err), { status: 'critical' })
+    },
+    [toast],
+  )
+
+  const reloadFairValues = useCallback(async () => {
+    try {
+      setFairValueRows(await api.fairValues.list(ticker))
+    } catch (err) {
+      report(err)
+    }
+  }, [ticker, report])
+
+  useEffect(() => {
+    if (!ticker) return
+    let cancelled = false
+    api.fairValues.list(ticker).then(
+      (rows) => {
+        if (!cancelled) setFairValueRows(rows)
+      },
+      (err: unknown) => {
+        if (!cancelled) report(err)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [ticker, report])
+
+  async function deleteFairValue(id: number) {
+    try {
+      await api.fairValues.remove(id)
+      setConfirmDeleteId(null)
+      toast.show('Fair value deleted.', { status: 'good' })
+      await reloadFairValues()
+    } catch (err) {
+      report(err)
+    }
+  }
+
+  const fairValueHistory = useMemo(
+    () => splitAdjustedHistory(fairValueRows ?? [], prices[ticker]?.splits ?? []),
+    [fairValueRows, prices, ticker],
+  )
+
+  const fairValueColumns: Column<FairValueRow>[] = [
+    {
+      key: 'date',
+      header: 'Date',
+      primary: true,
+      sort: (r) => r.effective_date,
+      render: (r) => dateShort(r.effective_date),
+    },
+    {
+      key: 'value',
+      header: 'Fair value',
+      align: 'right',
+      sort: (r) => Number(r.value_usd),
+      render: (r) => money(r.value_usd),
+    },
+    {
+      key: 'note',
+      header: 'Note',
+      render: (r) => r.note ?? '—',
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (r) =>
+        confirmDeleteId === r.id ? (
+          <div className="flex flex-wrap gap-1.5">
+            <Button variant="primary" onClick={() => void deleteFairValue(r.id)}>
+              Confirm delete
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <Button variant="ghost" onClick={() => setConfirmDeleteId(r.id)}>
+            Delete
+          </Button>
+        ),
+    },
+  ]
 
   const analysis = useMemo(
     () => result?.byTicker.find((t) => t.ticker === ticker) ?? null,
@@ -272,10 +372,32 @@ export default function StockDetail() {
 
       <section>
         <SectionHeading>Fair value</SectionHeading>
-        <Card>
-          <p className="text-small text-ink-muted">
-            The fair-value chart and editor land in task 12.
-          </p>
+        <StepLineChart
+          dates={prices[ticker]?.dates ?? []}
+          price={prices[ticker]?.close ?? []}
+          estimates={fairValueHistory}
+          title={`${ticker} price and your fair value`}
+          subtitle="Older estimates are drawn at today's split level - the number you entered is never changed."
+        />
+        <Card className="mt-4">
+          <DataTable
+            rows={fairValueRows ?? []}
+            columns={fairValueColumns}
+            rowKey={(r) => String(r.id)}
+            caption={`${ticker} fair-value history`}
+            initialSort={{ key: 'date', direction: 'desc' }}
+            empty={
+              <EmptyState
+                title="No estimates yet"
+                body="Add one from the Fair values screen."
+                action={
+                  <Button variant="secondary" onClick={() => navigate('/fair-values')}>
+                    Go to Fair values
+                  </Button>
+                }
+              />
+            }
+          />
         </Card>
       </section>
     </div>

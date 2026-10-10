@@ -1,17 +1,15 @@
+import { DEEP_DISCOUNT, WELL_ABOVE, zoneFor as classify, type ZoneId } from '../engine/fairValue'
 import { toNumber, type Numeric } from './format'
 
 /**
- * The fair-value discount zones. SPEC section 7 requires these thresholds to live as constants
- * in **one** file, and this is that file - anything that needs them (the meter, the rebuy
- * ranking, task 12's screens) imports from here rather than restating the numbers.
- *
- * Discount = (fair value − price) / fair value. Positive means the price is below your estimate.
+ * Presentation for the fair-value discount zones. The thresholds and the number-to-`ZoneId`
+ * classification are `src/engine/fairValue.ts`'s job (SPEC section 7: "constants in one file",
+ * and CLAUDE.md's "all financial math lives in the engine") - this file only adds the label and
+ * colour tone a screen renders, re-exporting the constants so a meter's boundary ticks and the
+ * engine's own thresholds can never drift apart.
  */
 
-export const DEEP_DISCOUNT = 0.15
-export const WELL_ABOVE = -0.15
-
-export type ZoneId = 'deep' | 'below' | 'above' | 'well-above'
+export { DEEP_DISCOUNT, WELL_ABOVE, type ZoneId }
 
 export interface Zone {
   id: ZoneId
@@ -31,8 +29,6 @@ const ZONES: Record<ZoneId, Zone> = {
 export function zoneFor(discount: Numeric): Zone | null {
   const value = toNumber(discount)
   if (value === null) return null
-  if (value >= DEEP_DISCOUNT) return ZONES.deep
-  if (value >= 0) return ZONES.below
-  if (value >= WELL_ABOVE) return ZONES.above
-  return ZONES['well-above']
+  const id = classify(value)
+  return id === null ? null : ZONES[id]
 }

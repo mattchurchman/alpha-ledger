@@ -29,3 +29,22 @@ export interface TickerAlias {
   to_ticker: string
   effective_date: string
 }
+
+/**
+ * One `fair_value` row (SPEC section 7), minus the server-assigned `created_at`. User-entered
+ * only, append-only - an updated estimate is a new row, never a rewrite of an old one.
+ */
+export interface FairValueEstimate {
+  ticker: string
+  value_usd: string
+  effective_date: string
+  note: string | null
+}
+
+/**
+ * A stored estimate. `id` is needed only to break a tie between two rows entered on the same
+ * `effective_date` - the higher id is the later entry, same convention `latestFairValues` uses.
+ */
+export interface FairValueRecord extends FairValueEstimate {
+  id: number
+}

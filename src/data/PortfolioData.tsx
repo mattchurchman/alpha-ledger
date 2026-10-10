@@ -161,6 +161,7 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
     transactions,
     aliases,
     priceHistory,
+    prices,
     meta,
     result,
     pricesAsOf,

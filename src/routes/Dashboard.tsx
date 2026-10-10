@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, ApiError, NotAuthenticatedError } from '../api/client'
 import type { FairValueRow } from '../api/types'
-import { discountFrom, latestFairValues } from '../data/fairValue'
 import { usePortfolioData } from '../data/usePortfolioData'
+import { discountFrom, latestFairValues, splitAdjustedValue } from '../engine/fairValue'
 import {
   Button,
   Card,
@@ -30,9 +30,10 @@ import type { TickerAnalysis } from '../engine'
 /**
  * SPEC section 9's first screen: within five seconds, am I beating VOO, and what looks cheap.
  * Every number here is read off `usePortfolioData().result` (task 09's `analyze` cache) or the
- * fair-value API - nothing is recomputed, per CLAUDE.md, beyond the two SPEC section 7 formulas
- * (the current estimate per ticker, and the discount) that live in `src/data/fairValue.ts`
- * because fair value is outside `analyze`'s domain entirely.
+ * fair-value API - nothing is recomputed, per CLAUDE.md, beyond the SPEC section 7 formulas
+ * (the current estimate per ticker, its split adjustment, and the discount) that live in
+ * `src/engine/fairValue.ts`, a module `analyze` never touches because fair value is outside its
+ * domain entirely.
  */
 
 type Range = '1Y' | '3Y' | 'All'
@@ -49,7 +50,7 @@ function isClosed(ticker: TickerAnalysis): boolean {
 export default function Dashboard() {
   const navigate = useNavigate()
   const toast = useToast()
-  const { loading, error, result } = usePortfolioData()
+  const { loading, error, result, prices } = usePortfolioData()
   const [fairValueRows, setFairValueRows] = useState<FairValueRow[] | null>(null)
   const [range, setRange] = useState<Range>('1Y')
 
@@ -80,6 +81,18 @@ export default function Dashboard() {
 
   const latestFairValue = useMemo(() => latestFairValues(fairValueRows ?? []), [fairValueRows])
 
+  /**
+   * The latest estimate per ticker, restated at today's split level (SPEC section 7) so it
+   * compares correctly against `latestClose`, which is always already in post-split terms.
+   */
+  const currentFairValue = useMemo(() => {
+    const current = new Map<string, string>()
+    for (const [ticker, fv] of latestFairValue) {
+      current.set(ticker, splitAdjustedValue(fv, prices[ticker]?.splits ?? []))
+    }
+    return current
+  }, [latestFairValue, prices])
+
   const heldTickers = useMemo(
     () => (result ? result.byTicker.filter((t) => !isClosed(t)) : []),
     [result],
@@ -89,24 +102,24 @@ export default function Dashboard() {
     const ranked: { ticker: string; discount: string; price: string; fairValue: string }[] = []
     const noEstimate: string[] = []
     for (const ticker of heldTickers) {
-      const fv = latestFairValue.get(ticker.ticker)
-      if (!fv) {
+      const fairValue = currentFairValue.get(ticker.ticker)
+      if (fairValue === undefined) {
         noEstimate.push(ticker.ticker)
         continue
       }
       if (ticker.latestClose === null) continue
-      const discount = discountFrom(ticker.latestClose, fv.value_usd)
+      const discount = discountFrom(ticker.latestClose, fairValue)
       if (discount === null) continue
       ranked.push({
         ticker: ticker.ticker,
         discount,
         price: ticker.latestClose,
-        fairValue: fv.value_usd,
+        fairValue,
       })
     }
     ranked.sort((a, b) => Number(b.discount) - Number(a.discount))
     return { ranked, noEstimate }
-  }, [heldTickers, latestFairValue])
+  }, [heldTickers, currentFairValue])
 
   const series = useMemo(() => {
     if (!result?.series) return { dates: [], value: [], shadow: [] }
@@ -185,12 +198,12 @@ export default function Dashboard() {
         align: 'right',
         hideOnCard: true,
         sort: (row) => {
-          const fv = latestFairValue.get(row.ticker)
-          return fv ? Number(fv.value_usd) : null
+          const fv = currentFairValue.get(row.ticker)
+          return fv === undefined ? null : Number(fv)
         },
         render: (row) => {
-          const fv = latestFairValue.get(row.ticker)
-          return fv ? money(fv.value_usd) : <span className="text-ink-muted">No estimate</span>
+          const fv = currentFairValue.get(row.ticker)
+          return fv === undefined ? <span className="text-ink-muted">No estimate</span> : money(fv)
         },
       },
       {
@@ -198,15 +211,16 @@ export default function Dashboard() {
         header: 'Discount',
         align: 'right',
         sort: (row) => {
-          const fv = latestFairValue.get(row.ticker)
-          if (!fv || row.latestClose === null) return null
-          const d = discountFrom(row.latestClose, fv.value_usd)
+          const fv = currentFairValue.get(row.ticker)
+          if (fv === undefined || row.latestClose === null) return null
+          const d = discountFrom(row.latestClose, fv)
           return d === null ? null : Number(d)
         },
         render: (row) => {
-          const fv = latestFairValue.get(row.ticker)
-          if (!fv || row.latestClose === null) return <span className="text-ink-muted">—</span>
-          const d = discountFrom(row.latestClose, fv.value_usd)
+          const fv = currentFairValue.get(row.ticker)
+          if (fv === undefined || row.latestClose === null)
+            return <span className="text-ink-muted">—</span>
+          const d = discountFrom(row.latestClose, fv)
           return d === null ? (
             <span className="text-ink-muted">—</span>
           ) : (
@@ -217,7 +231,7 @@ export default function Dashboard() {
         },
       },
     ],
-    [latestFairValue],
+    [currentFairValue],
   )
 
   if (loading) {

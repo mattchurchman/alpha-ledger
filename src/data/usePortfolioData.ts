@@ -24,6 +24,8 @@ export interface PortfolioData {
   transactions: TransactionRow[]
   aliases: TickerAlias[]
   priceHistory: StoredPriceHistory[]
+  /** `priceHistory` reshaped to `{ ticker: history }`, the same map `analyze` was built from. */
+  prices: Record<string, PriceHistory>
   meta: MetaMap
   /** null until VOO has a stored history - there is nothing to compare against before that. */
   result: AnalyzeResult | null

@@ -5,7 +5,7 @@
  */
 
 import type { PriceHistory } from '../engine/prices/types'
-import type { TickerAlias, Transaction, TransactionType } from '../engine/types'
+import type { FairValueEstimate, TickerAlias, Transaction, TransactionType } from '../engine/types'
 
 export type { TickerAlias, Transaction, TransactionType }
 
@@ -42,22 +42,13 @@ export interface BulkUpsertResult {
   skipped: number
 }
 
-export interface FairValueRow {
+export interface FairValueRow extends FairValueEstimate {
   id: number
-  ticker: string
-  value_usd: string
-  effective_date: string
-  note: string | null
   created_at: string
 }
 
 /** `created_at` is set by the server, not the client, so a clock-skewed phone cannot lie. */
-export interface FairValueInput {
-  ticker: string
-  value_usd: string
-  effective_date: string
-  note?: string | null
-}
+export type FairValueInput = Omit<FairValueEstimate, 'note'> & { note?: string | null }
 
 /**
  * One `price_history` row. `history` is the engine's `PriceHistory`, reassembled from the
