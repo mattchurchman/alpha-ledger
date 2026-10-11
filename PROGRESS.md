@@ -936,3 +936,26 @@ Open issues:
 - **Closed positions were a deliberate part of SPEC 9**, and dropping them hides realized
   outperformance - the thing the app exists to measure. Reversing it is a two-line change to
   `creators`. SPEC 9 was not edited; if this is permanent it belongs in the Decision log.
+
+## Follow-up: the guide and the spec caught up with the chart - 2026-10-11 - Opus
+Status: done. Found while smoke-checking the previous deploy: the live bundle still contained
+"Every ticker ever held", which is how the change was noticed at all.
+Built:
+- `src/routes/Help.tsx`: the creators/destroyers entry rewritten - what is excluded, why an
+  unpriced holding would draw as a total loss, and that the bars therefore do not sum to the
+  headline. The Holdings entry gained `shares`, and the stock-detail headline entry gained the
+  shares tile and its no-price footnote.
+- `docs/SPEC.md` Decision log: the narrowing recorded, keeping the two arguments apart - the
+  unpriced exclusion is a data gap, the closed exclusion is the user's preference against
+  SPEC 6's definition.
+Decisions:
+- **`src/routes/Kit.tsx` keeps "Every ticker ever held, closed positions included."** It demos
+  the `DivergingBars` component against `src/kit/synthetic.ts`, which does contain closed
+  positions; the subtitle is the demo's own prop, not a claim about the Dashboard. The kit
+  shows what the component does, the Dashboard decides what to feed it.
+Verified:
+- `npm run check`: typecheck + lint + 396 tests.
+Open issues:
+- Three screens now describe this chart - Dashboard's subtitle, Help's entry, SPEC 9 plus its
+  Decision log - and only the subtitle is derived. The other two are prose and will drift again
+  if the filter changes. Deriving Help's copy was not attempted here.

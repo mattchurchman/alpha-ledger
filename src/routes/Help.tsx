@@ -179,14 +179,18 @@ export default function Help() {
               is nothing to rank them by.
             </Term>
             <Term word="Holdings">
-              One row per open position: price, value, return, value added vs VOO, your fair value,
-              and the discount. Tap a column heading to sort, tap a row to open that stock. Below
-              640px the table becomes one card per row.
+              One row per open position: shares, price, value, return, value added vs VOO, your
+              fair value, and the discount. Tap a column heading to sort, tap a row to open that
+              stock. Below 640px the table becomes one card per row.
             </Term>
             <Term word="Value creators and destroyers">
-              Every ticker you have ever held, closed positions included, as bars either side of
-              zero - sorted by how much value each added or destroyed against VOO. On a phone it
-              shows the biggest few with a Show all control. Tap a bar to open that stock.
+              The positions you still hold and still have a price for, as bars either side of zero
+              - sorted by how much value each added or destroyed against VOO. Positions you have
+              closed are left out, and so is anything with no stored price, because a missing price
+              counts as $0 and would draw a holding as a total loss; the subtitle says how many of
+              each. That means these bars do not add up to the headline above, which still counts
+              every ticker. On a phone it shows the biggest few with a Show all control. Tap a bar
+              to open that stock.
             </Term>
           </dl>
         </Card>
@@ -201,8 +205,10 @@ export default function Help() {
           </p>
           <dl className="flex flex-col gap-4">
             <Term word="The same headline, for one stock">
-              Value added vs VOO for this ticker, then current value, its VOO equivalent, and both
-              IRRs. A position you have closed still has all of these: its current value is zero,
+              Value added vs VOO for this ticker, then the shares you hold, current value, its VOO
+              equivalent, and both IRRs. If no price is stored for the ticker, the shares tile says
+              so, because the current value beside it then reads as $0 rather than as a real
+              valuation. A position you have closed still has all of these: its current value is zero,
               and the comparison is proceeds plus dividends against what VOO would have done with
               the same cash flows. Closed positions are labelled.
             </Term>
