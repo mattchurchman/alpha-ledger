@@ -747,7 +747,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 17 | Chart scaling and shorter ranges | Sonnet | done |
 | 18 | Close or hide defunct tickers | Opus | done |
 | 19 | Per-account drill-down | Opus | done |
-| 20 | Watchlist | Sonnet | todo |
+| 20 | Watchlist | Sonnet | done |
 | 21 | Rebuy visuals and fair-value entry | Sonnet | todo |
 | 22 | Visual refresh | Opus | todo |
 | 23 | Release rev 2 | Haiku | todo |
@@ -1061,3 +1061,83 @@ Open issues:
 - The stock screen's headline footnote still reads "Your picks against…" in a narrowed view,
   where the dashboard's names the account. The heading beside the ticker already says which view
   it is, so this is a wording nicety rather than a wrong number.
+
+## Task 20: Watchlist - 2026-10-11 - Sonnet
+Status: done.
+Built:
+- `src/data/watchlist.ts` + `watchlist.test.ts`: `WATCHLIST_KEY` (`watchlist`, one `meta` row -
+  the `hidden_tickers` pattern exactly, so no migration), `parseWatchlist` / `serializeWatchlist`
+  / `withWatched`, and `mergeHeldAndWatched` - the one pure helper Fair values and Rebuy
+  opportunities both read to combine held tickers with the watchlist: a ticker already held is
+  never duplicated as watching, and a hidden watched ticker is left out entirely, same as a
+  hidden holding.
+- `src/data/PortfolioData.tsx` / `usePortfolioData.ts`: `watchlist` (parsed from `meta`) and
+  `setTickerWatched` on the context, the same shape as `hiddenTickers` / `setTickerHidden`.
+  `runUpdate`'s ticker list gains the watchlist, minus whatever is already in `tickersEverHeld`.
+- `src/routes/FairValues.tsx`: rows are now `mergeHeldAndWatched(heldTickers, watchlist,
+  hiddenTickers, prices)` instead of `heldTickers` alone - a watched row carries a "Watching"
+  label next to its ticker and a Remove button beside Set value. A new "Watch a ticker" card
+  below the table takes a symbol, fetches its price history live to validate it (storing what it
+  gets, source `yahoo`), then adds it to the watchlist.
+- `src/routes/Dashboard.tsx`: Rebuy opportunities ranks `mergeHeldAndWatched(heldTickers,
+  watchlist, hiddenTickers, prices)` rather than `heldTickers`; a watched row (ranked or in "No
+  estimate yet") is labelled "Watching". Holdings and the creators chart are untouched - both
+  still read plain `heldTickers`, so a watched ticker cannot reach either.
+- `src/routes/StockDetail.tsx`: the Fair value section (price chart, step-line estimates, history
+  table with delete) is hoisted into one `fairValueSection` JSX value, since it needs neither
+  `analysis` nor `series` - it reads `prices[ticker]` and the ticker's own fair-value rows only.
+  When a ticker has no activity but is on the watchlist, the screen now renders that section plus
+  a "Not held yet" card labelled "Watching" instead of the old blanket "No activity" empty state;
+  an unwatched, never-bought ticker still gets that empty state exactly as before.
+- `docs/SPEC.md` sections 7, 8 and 9, and the Decision log; the Dashboard, Stock detail and Fair
+  values sections of Help.
+Decisions:
+- **A ticker already held is never duplicated as watching, but nothing is deleted from the
+  stored watchlist when that happens.** The merge just drops a watchlist entry that is already
+  held before it reaches a screen. Selling back out of a position would make it watched again on
+  its own, which is the one case where that is the right answer - the user asked to track it
+  before they owned it and nothing has told the app that interest ended.
+- **"Watch a ticker" fetches before it saves.** The same live call "Update market data" makes
+  (`api.prices.fetch`, stored with `source: 'yahoo'`) runs once against the typed symbol; a typo
+  or a delisted ticker fails that fetch and is never added, rather than being added with no price
+  and showing up broken until the next update.
+- **Hiding and watching share a rule, applied in the merge helper, not a shared table.** A hidden
+  watched ticker is excluded the same way a hidden holding already was (task 18); the two
+  mechanisms stay otherwise independent, each its own `meta` key.
+Verified:
+- `npm run check`: typecheck + lint + 469 tests (was 457; `watchlist.test.ts` 12), covering held
+  only, watched only, both together (including the already-held-and-watched case), and hidden.
+- Export/restore: not a new test, since `meta` is already a generic key-value table and
+  `worker/api.test.ts`'s existing "restores a bundle byte-for-byte" case round-trips whatever
+  keys are present - confirmed by reading `worker/api/backup.ts`, which copies the whole table
+  both ways with no per-key logic to update.
+- End to end against `npx wrangler dev`, driven with the Chrome extension (the `computer` click
+  tool was unreliable again this session on both tabs tried - as flaky as tasks 18 and 19 logged
+  - so the clicks that didn't register through it were dispatched via `javascript_tool` instead,
+  and the rest confirmed through page text). Watched MSFT from Fair values: it validated against
+  a live price, appeared labelled "Watching" with a price and no estimate, got a $600 fair value,
+  and the row read 10.8% "Below fair value". The Dashboard's Rebuy opportunities ranked it
+  between GOOD and WEAK by that discount, labelled "Watching", while Holdings, the headline, and
+  the creators chart stayed exactly as before - no number moved. `/stocks/MSFT` showed "Not held
+  yet" with the price-and-fair-value chart and the one estimate, editable. "Update market data"
+  fetched MSFT alongside everything else and stored a real `yahoo`-sourced history for it.
+  "Remove" on Fair values took it back out, and the Dashboard and stock screen followed.
+Open issues:
+- **Running "Update market data" during this session's QA overwrote the local fixture's `GOOD`
+  and `VOO` price history with real Yahoo data.** Those two symbols were chosen as synthetic
+  fixture tickers by task 08/09 before this task existed, and both happen to collide with real
+  traded symbols; fetching live prices for everything-ever-held (unavoidable, to prove the
+  watchlist is fetched alongside) replaced their fabricated 900-day series with real market
+  history, which tells a completely different story (`GOOD` now reads as a loser, not a deep-discount
+  winner) and surfaced a genuine "looks delisted" warning on the fixture's other, never-updated
+  synthetic tickers because the benchmark's `asOf` jumped to today. Nothing is broken - the app's
+  behavior on the new data was itself re-verified (delisted detection, totals, rebuy, all correct)
+  - but the fixture no longer matches the numbers earlier task entries in this file describe, and
+  a future session's manual QA should expect that or re-seed `GOOD`/`VOO` (task 08/09's method:
+  delete the stray rows, write fresh fabricated history through the manual price-history
+  endpoint) before relying on exact figures. The MSFT rows this session's test added were deleted
+  afterward (directly in local D1, since there is no app-level price-history delete endpoint);
+  the ledger's 8 transactions and `hidden_tickers` were untouched throughout.
+- The CDP `computer` click tool continues to be unreliable in this sandbox (see above); `find` +
+  `javascript_tool`'s `.click()` is the fallback that has worked across three tasks running now
+  and may be worth adopting first rather than as a fallback.

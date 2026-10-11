@@ -47,6 +47,12 @@ export interface PortfolioData {
    * only: no total or chart changes, and `result` never knows about it.
    */
   hiddenTickers: string[]
+  /**
+   * Tickers the user is watching but does not hold (task 20). Never reaches `analyze`,
+   * Holdings, portfolio totals or the creators chart - `src/data/watchlist.ts`'s
+   * `mergeHeldAndWatched` is the one place it joins the held tickers for display.
+   */
+  watchlist: string[]
   /** null until VOO has a stored history - there is nothing to compare against before that. */
   result: AnalyzeResult | null
   /** Every `account_label` in the ledger, sorted. One entry means there is nothing to switch. */
@@ -69,6 +75,8 @@ export interface PortfolioData {
   runUpdate: () => Promise<UpdateOutcome>
   /** Adds or removes one ticker from `hiddenTickers`, then reloads. */
   setTickerHidden: (ticker: string, hidden: boolean) => Promise<void>
+  /** Adds or removes one ticker from `watchlist`, then reloads. */
+  setTickerWatched: (ticker: string, watched: boolean) => Promise<void>
   /** Re-fetches transactions/prices/aliases/meta and re-runs `analyze`. Call after any edit. */
   reload: () => Promise<void>
   /** The manual fallback: stores a ticker's history as-is, marked `source: 'manual'`. */

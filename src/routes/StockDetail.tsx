@@ -68,6 +68,7 @@ export default function StockDetail() {
     prices,
     hiddenTickers,
     setTickerHidden,
+    watchlist,
     transactions,
     aliases,
     accounts,
@@ -191,6 +192,43 @@ export default function StockDetail() {
         ),
     },
   ]
+
+  /**
+   * Shared by the full view below and the watched-ticker view (task 20) - neither `analysis`
+   * nor `series` says anything about a ticker's fair value, so this needs no `view` at all.
+   */
+  const fairValueSection = (
+    <section>
+      <SectionHeading>Fair value</SectionHeading>
+      <StepLineChart
+        dates={prices[ticker]?.dates ?? []}
+        price={prices[ticker]?.close ?? []}
+        estimates={fairValueHistory}
+        title={`${ticker} price and your fair value`}
+        subtitle="Older estimates are drawn at today's split level - the number you entered is never changed."
+      />
+      <Card className="mt-4">
+        <DataTable
+          rows={fairValueRows ?? []}
+          columns={fairValueColumns}
+          rowKey={(r) => String(r.id)}
+          caption={`${ticker} fair-value history`}
+          initialSort={{ key: 'date', direction: 'desc' }}
+          empty={
+            <EmptyState
+              title="No estimates yet"
+              body="Add one from the Fair values screen."
+              action={
+                <Button variant="secondary" onClick={() => navigate('/fair-values')}>
+                  Go to Fair values
+                </Button>
+              }
+            />
+          }
+        />
+      </Card>
+    </section>
+  )
 
   const analysis = useMemo(
     () => view?.byTicker.find((t) => t.ticker === ticker) ?? null,
@@ -346,13 +384,34 @@ export default function StockDetail() {
   }
 
   if (!analysis || !series) {
+    if (!watchlist.includes(ticker)) {
+      return (
+        <div className="flex flex-col gap-4">
+          {back}
+          <EmptyState
+            title={`No activity for ${ticker}`}
+            body="This ticker has never been bought in your ledger, or the symbol is misspelled."
+          />
+        </div>
+      )
+    }
+
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-7">
         {back}
-        <EmptyState
-          title={`No activity for ${ticker}`}
-          body="This ticker has never been bought in your ledger, or the symbol is misspelled."
-        />
+        <section>
+          <SectionHeading>
+            {ticker}
+            <span className="ml-2 text-small font-normal text-ink-muted">Watching</span>
+          </SectionHeading>
+          <Card>
+            <EmptyState
+              title="Not held yet"
+              body="You are watching this ticker but have not bought it, so there are no holding measures to show - just its price and your fair-value estimate, below."
+            />
+          </Card>
+        </section>
+        {fairValueSection}
       </div>
     )
   }
@@ -532,36 +591,7 @@ export default function StockDetail() {
         </Card>
       </section>
 
-      <section>
-        <SectionHeading>Fair value</SectionHeading>
-        <StepLineChart
-          dates={prices[ticker]?.dates ?? []}
-          price={prices[ticker]?.close ?? []}
-          estimates={fairValueHistory}
-          title={`${ticker} price and your fair value`}
-          subtitle="Older estimates are drawn at today's split level - the number you entered is never changed."
-        />
-        <Card className="mt-4">
-          <DataTable
-            rows={fairValueRows ?? []}
-            columns={fairValueColumns}
-            rowKey={(r) => String(r.id)}
-            caption={`${ticker} fair-value history`}
-            initialSort={{ key: 'date', direction: 'desc' }}
-            empty={
-              <EmptyState
-                title="No estimates yet"
-                body="Add one from the Fair values screen."
-                action={
-                  <Button variant="secondary" onClick={() => navigate('/fair-values')}>
-                    Go to Fair values
-                  </Button>
-                }
-              />
-            }
-          />
-        </Card>
-      </section>
+      {fairValueSection}
 
       <ClosePositionSheet ticker={closing} onClose={() => setClosing(null)} />
     </div>

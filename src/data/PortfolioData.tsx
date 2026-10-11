@@ -23,6 +23,7 @@ import {
   tickersEverHeld,
   type UpdateOutcome,
 } from './marketData'
+import { parseWatchlist, serializeWatchlist, WATCHLIST_KEY, withWatched } from './watchlist'
 import {
   PortfolioDataContext,
   type AccountSummary,
@@ -204,6 +205,17 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
     [hiddenTickers, reload],
   )
 
+  const watchlist = useMemo(() => parseWatchlist(meta[WATCHLIST_KEY]), [meta])
+
+  const setTickerWatched = useCallback(
+    async (ticker: string, watched: boolean) => {
+      const next = withWatched(watchlist, ticker, watched)
+      await api.meta.put(WATCHLIST_KEY, serializeWatchlist(next))
+      await reload()
+    },
+    [watchlist, reload],
+  )
+
   const pricesAsOf = useMemo(() => {
     const date = prices[DEFAULT_BENCHMARK]?.asOf ?? null
     return {
@@ -235,9 +247,12 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
   const runUpdate = useCallback(async (): Promise<UpdateOutcome> => {
     if (update.running) return { succeeded: [], failed: [], tolerated: [] }
 
+    const everHeld = tickersEverHeld(transactions, aliases)
+    const extra = watchlist.filter((t) => t !== DEFAULT_BENCHMARK && !everHeld.includes(t))
     const tickers = [
       DEFAULT_BENCHMARK,
-      ...tickersEverHeld(transactions, aliases).filter((t) => t !== DEFAULT_BENCHMARK),
+      ...everHeld.filter((t) => t !== DEFAULT_BENCHMARK),
+      ...extra,
     ]
     const from = priceFetchFrom(transactions, todayDate())
     setUpdate({
@@ -272,7 +287,7 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
       lastRunAt: new Date().toISOString(),
     })
     return outcome
-  }, [update.running, transactions, aliases, reload, toleratedTickers])
+  }, [update.running, transactions, aliases, watchlist, reload, toleratedTickers])
 
   const value: PortfolioData = {
     loading,
@@ -283,6 +298,7 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
     prices,
     meta,
     hiddenTickers,
+    watchlist,
     result,
     accounts,
     accountSummaries,
@@ -291,6 +307,7 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
     update,
     runUpdate,
     setTickerHidden,
+    setTickerWatched,
     reload,
     putPriceHistory,
   }

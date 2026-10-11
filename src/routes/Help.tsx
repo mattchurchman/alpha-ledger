@@ -201,9 +201,10 @@ export default function Help() {
               anything is computed.
             </Term>
             <Term word="Rebuy opportunities">
-              Each holding that has a fair value, ranked by discount, drawn as a meter with the zone
-              named. Holdings with no estimate are listed underneath rather than ranked, since there
-              is nothing to rank them by. Tap a meter or a ticker to open that stock.
+              Each holding and each watched ticker that has a fair value, ranked by discount, drawn
+              as a meter with the zone named - a watched one is labelled &ldquo;Watching&rdquo;.
+              Those with no estimate are listed underneath rather than ranked, since there is
+              nothing to rank them by. Tap a meter or a ticker to open that stock.
             </Term>
             <Term word="Holdings">
               One row per open position: shares, price, value, return, value added vs VOO, your fair
@@ -242,7 +243,10 @@ export default function Help() {
               zero, and the comparison is proceeds plus dividends against what VOO would have done
               with the same cash flows. Closed positions are labelled, and so are hidden ones. If
               you arrived from a dashboard narrowed to one account, every number here is that
-              account&rsquo;s, and the heading beside the ticker says which.
+              account&rsquo;s, and the heading beside the ticker says which. A ticker you are only
+              watching has none of this - it is labelled &ldquo;Watching&rdquo;, the screen says
+              &ldquo;Not held yet&rdquo; where the measures would be, and only the price chart and
+              fair-value history below are live.
             </Term>
             <Term word="Across accounts">
               Only when the ticker was traded in more than one account: shares and current value per
@@ -303,15 +307,25 @@ export default function Help() {
       <Section id="fair-values" title="Fair values">
         <Card className="flex flex-col gap-4 text-small text-ink-secondary">
           <p className="max-w-prose">
-            Every open holding in one list, built for fast entry on a phone:{' '}
-            <strong className="font-medium text-ink">Set value</strong> on a row, type the number,
-            optionally date it and say why, save. <Here to="/fair-values">Open it</Here>.
+            Every open holding, plus every ticker you are watching, in one list built for fast entry
+            on a phone: <strong className="font-medium text-ink">Set value</strong> on a row, type
+            the number, optionally date it and say why, save. <Here to="/fair-values">Open it</Here>
+            .
           </p>
           <p className="max-w-prose">
             Saving always adds an entry rather than editing one, so the history is a record of what
             you believed and when. Delete a mistaken entry from that ticker&rsquo;s detail screen.
             Closed positions are not listed here - there is no rebuy decision left to inform - but
             their estimate history is still on their detail screen.
+          </p>
+          <p className="max-w-prose">
+            <strong className="font-medium text-ink">Watch a ticker</strong>, at the bottom, tracks
+            a company you do not own yet: type its symbol and tap Watch, which checks it against a
+            live price before adding it. A watched ticker is labelled &ldquo;Watching&rdquo; here
+            and on Rebuy opportunities, gets priced by Update market data same as a holding, and can
+            get a fair value the same way - but it never counts toward a total, never appears on
+            Holdings, and Remove takes it off the list with one tap. Buy it for real and it simply
+            becomes a holding; nothing is ever listed twice.
           </p>
           <div>
             <p className="label-micro">The zones</p>

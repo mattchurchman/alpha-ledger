@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api, ApiError, NotAuthenticatedError } from '../api/client'
 import type { FairValueRow } from '../api/types'
 import { usePortfolioData } from '../data/usePortfolioData'
+import { mergeHeldAndWatched } from '../data/watchlist'
 import { delistedCandidates, isClosedPosition } from '../engine'
 import { discountFrom, latestFairValues, splitAdjustedValue } from '../engine/fairValue'
 import { ClosePositionSheet } from './ClosePosition'
@@ -52,8 +53,16 @@ import type { TickerAnalysis } from '../engine'
 export default function Dashboard() {
   const navigate = useNavigate()
   const toast = useToast()
-  const { loading, error, prices, hiddenTickers, accounts, accountSummaries, resultFor } =
-    usePortfolioData()
+  const {
+    loading,
+    error,
+    prices,
+    hiddenTickers,
+    watchlist,
+    accounts,
+    accountSummaries,
+    resultFor,
+  } = usePortfolioData()
   const [searchParams, setSearchParams] = useSearchParams()
   const [fairValueRows, setFairValueRows] = useState<FairValueRow[] | null>(null)
   const [range, setRange] = useState<ChartRange>('1Y')
@@ -167,13 +176,29 @@ export default function Dashboard() {
     }).filter((c) => !hiddenTickers.includes(c.ticker))
   }, [view, prices, hiddenTickers])
 
+  /**
+   * Rebuy opportunities ranks everything you might buy, not only what you hold: watched
+   * tickers (task 20) join through the same `mergeHeldAndWatched` helper Fair values reads, so
+   * the two lists can never drift apart.
+   */
+  const watchableTickers = useMemo(
+    () => mergeHeldAndWatched(heldTickers, watchlist, hiddenTickers, prices),
+    [heldTickers, watchlist, hiddenTickers, prices],
+  )
+
   const rebuy = useMemo(() => {
-    const ranked: { ticker: string; discount: string; price: string; fairValue: string }[] = []
-    const noEstimate: string[] = []
-    for (const ticker of heldTickers) {
+    const ranked: {
+      ticker: string
+      discount: string
+      price: string
+      fairValue: string
+      watching: boolean
+    }[] = []
+    const noEstimate: { ticker: string; watching: boolean }[] = []
+    for (const ticker of watchableTickers) {
       const fairValue = currentFairValue.get(ticker.ticker)
       if (fairValue === undefined) {
-        noEstimate.push(ticker.ticker)
+        noEstimate.push({ ticker: ticker.ticker, watching: ticker.watching })
         continue
       }
       if (ticker.latestClose === null) continue
@@ -184,11 +209,12 @@ export default function Dashboard() {
         discount,
         price: ticker.latestClose,
         fairValue,
+        watching: ticker.watching,
       })
     }
     ranked.sort((a, b) => Number(b.discount) - Number(a.discount))
     return { ranked, noEstimate }
-  }, [heldTickers, currentFairValue])
+  }, [watchableTickers, currentFairValue])
 
   const series = useMemo(() => {
     if (!view?.series) return { dates: [], value: [], shadow: [] }
@@ -562,6 +588,7 @@ export default function Dashboard() {
                   onClick={() => navigate(stockPath(item.ticker))}
                   className="-mx-4 -my-2 px-4 py-2 text-left hover:bg-sunken"
                 >
+                  {item.watching && <Label className="mb-1 block">Watching</Label>}
                   <DiscountMeter
                     label={`${item.ticker} vs fair value`}
                     discount={item.discount}
@@ -574,14 +601,17 @@ export default function Dashboard() {
                 <div className="border-t border-rule pt-4">
                   <Label>No estimate yet</Label>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {rebuy.noEstimate.map((ticker) => (
+                    {rebuy.noEstimate.map((item) => (
                       <button
-                        key={ticker}
+                        key={item.ticker}
                         type="button"
-                        onClick={() => navigate(stockPath(ticker))}
-                        className="rounded-full border border-rule px-2 py-0.5 font-mono text-small min-h-11 flex items-center hover:bg-sunken transition-colors duration-[120ms]"
+                        onClick={() => navigate(stockPath(item.ticker))}
+                        className="rounded-full border border-rule px-2 py-0.5 font-mono text-small min-h-11 flex items-center gap-1.5 hover:bg-sunken transition-colors duration-[120ms]"
                       >
-                        {ticker}
+                        {item.ticker}
+                        {item.watching && (
+                          <span className="text-micro font-normal text-ink-muted">Watching</span>
+                        )}
                       </button>
                     ))}
                   </div>
