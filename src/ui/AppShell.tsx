@@ -114,7 +114,10 @@ export function AppShell({
       </nav>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 border-b border-rule bg-plane/95 backdrop-blur-sm">
+        <header
+          className="sticky top-0 z-30 border-b border-rule bg-plane/95 backdrop-blur-sm"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
           <div className="mx-auto flex w-full max-w-4xl items-center gap-3 px-4 py-2.5">
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-h1 font-semibold">{heading}</h1>

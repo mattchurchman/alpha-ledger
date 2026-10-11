@@ -743,7 +743,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 ## Rev 2 task status
 | # | Task | Model | Status |
 |---|------|-------|--------|
-| 16 | Quick fixes | Haiku | todo |
+| 16 | Quick fixes | Haiku | done |
 | 17 | Chart scaling and shorter ranges | Sonnet | todo |
 | 18 | Close or hide defunct tickers | Opus | todo |
 | 19 | Per-account drill-down | Opus | todo |
@@ -753,3 +753,59 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 23 | Release rev 2 | Haiku | todo |
 
 ## Rev 2 entries
+
+## Task 16: Quick fixes - 2026-10-11 - Haiku
+Status: done.
+Built:
+- `src/ui/BottomSheet.tsx`: `onClose` is now held in a ref, synced by its own effect; the
+  focus-management effect depends only on `open`. Every caller (Activity, Import, Settings) goes
+  through this one component, so all four sheets stop re-stealing focus on each keystroke
+  without their own changes.
+- `src/ui/AppShell.tsx`: the sticky `<header>` gets `padding-top: env(safe-area-inset-top)`,
+  matching the bottom tab bar's existing inset. `index.html`'s two `theme-color` metas were
+  swapped - they had the light and dark plane colors on the wrong `prefers-color-scheme` branch -
+  and `apple-mobile-web-app-status-bar-style` is now set by the existing boot script to `default`
+  (dark text) or `black-translucent` (white text) to match the resolved theme, instead of a
+  static `black-translucent` that was unreadable in light mode. `scroll-mt-32` on Help's anchors
+  was left as is - 8rem comfortably clears a safe-area inset on every iPhone.
+- `src/routes/Dashboard.tsx`: the Rebuy opportunities `DiscountMeter` rows and both pill sets
+  (missing-price, no-estimate) are now `<button>`s that `navigate` to `/stocks/:ticker`. The
+  pills get `min-h-11` to clear DESIGN.md 3.3's 44px floor - the old trade-off comment is gone
+  since the floor is no longer a reason to leave them unclickable.
+- `index.html` gained `rel="icon"` (SVG, plus a 32px PNG fallback) and a real 180px
+  `apple-touch-icon`, both rasterized from the existing `public/icon.svg` by a new
+  `scripts/gen-icon.ts` (same `playwright-core` + system Chromium pattern as
+  `scripts/screenshots.ts`, wired up as `npm run icons:gen`). No new dependency.
+- Deleted the stray `alpha-ledger/123`.
+- `src/routes/Help.tsx`: the headline-warning and Rebuy-opportunities entries now say tickers are
+  tappable, matching Holdings' existing wording.
+Decisions:
+- **DiscountMeter rows are wrapped in a `<button>` rather than changed internally.** The
+  component is reused undecorated on `/kit`; adding navigation to it directly would have coupled
+  a presentational chart to routing. A `role="meter"` div nested in a `<button>` is not
+  interactive content by the HTML content model, so this does not nest two interactive widgets.
+- **Status bar style is set by the existing pre-paint boot script, not a second static meta.**
+  `apple-mobile-web-app-status-bar-style` has no media-query form, so matching both themes needs
+  a script; the one already stamping `data-theme` before first paint was the natural place,
+  keeping the "no flash of the wrong theme" property for the status bar too.
+Verified:
+- `npm run check`: typecheck + lint + 396 tests.
+- Manually, against `npx wrangler dev`: typed six characters into Fair values > Set GOOD's fair
+  value without the field losing focus (screenshot shows the input still held, text `123456`
+  entered in order). Clicked a `DiscountMeter` row (GOOD) and a "No estimate yet" pill (NEGB) on
+  the Dashboard - both navigated to the matching `/stocks/:ticker`. Confirmed `/icon.svg`,
+  `/icons/icon-32.png`, `/icons/icon-180.png` all serve 200, and the generated PNGs are the
+  correct 32x32 / 180x180 pixel sizes (the first generator draft screenshotted the full 1280x720
+  viewport by mistake - caught by inspecting the files, fixed by setting the page viewport to
+  the target size before each shot).
+- `padding-top: env(safe-area-inset-top)` confirmed present on the header via computed style;
+  it resolves to `0px` on this desktop Chrome, which is correct - there is no safe area to
+  reserve on a non-notched viewport. The browser window in this sandbox would not resize below
+  its default width, so a true 390px screenshot against a simulated notch was not taken; the
+  CSS matches the tab bar's existing, working `env(safe-area-inset-bottom)` pattern exactly.
+Open issues:
+- The 390px screenshot in the task's acceptance criteria could not be captured directly - this
+  session's browser window would not go narrower than ~1256px regardless of the resize call.
+  The fix was verified at the code level (computed style, correct property, same pattern as the
+  already-shipped bottom-inset) and by the six-character typing test, but a device or DevTools
+  mobile-emulation screenshot is worth taking before the next release to see it rendered.

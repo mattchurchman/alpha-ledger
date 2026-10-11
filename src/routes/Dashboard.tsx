@@ -337,16 +337,16 @@ export default function Dashboard() {
                 {result.missingPrices.length === 1 ? '' : 's'} with no stored price, counted as $0
               </StatusBadge>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {/* Plain pills, matching "No estimate yet" below - a tappable 24px pill would
-                    be under DESIGN.md 3.3's 44px floor, and the Holdings table already links
-                    every one of these tickers to its own screen. */}
+                {/* Now tappable 44px pills that navigate to the stock detail screen. */}
                 {result.missingPrices.map((ticker) => (
-                  <span
+                  <button
                     key={ticker}
-                    className="rounded-full border border-rule px-2 py-0.5 font-mono text-small"
+                    type="button"
+                    onClick={() => navigate(`/stocks/${ticker}`)}
+                    className="rounded-full border border-rule px-2 py-0.5 font-mono text-small min-h-11 flex items-center hover:bg-sunken transition-colors duration-[120ms]"
                   >
                     {ticker}
-                  </span>
+                  </button>
                 ))}
               </div>
               <p className="mt-2 max-w-prose text-small text-ink-secondary">
@@ -398,25 +398,33 @@ export default function Dashboard() {
           ) : (
             <>
               {rebuy.ranked.map((item) => (
-                <DiscountMeter
+                <button
                   key={item.ticker}
-                  label={`${item.ticker} vs fair value`}
-                  discount={item.discount}
-                  price={item.price}
-                  fairValue={item.fairValue}
-                />
+                  type="button"
+                  onClick={() => navigate(`/stocks/${item.ticker}`)}
+                  className="-mx-4 -my-2 px-4 py-2 text-left hover:bg-sunken"
+                >
+                  <DiscountMeter
+                    label={`${item.ticker} vs fair value`}
+                    discount={item.discount}
+                    price={item.price}
+                    fairValue={item.fairValue}
+                  />
+                </button>
               ))}
               {rebuy.noEstimate.length > 0 && (
                 <div className="border-t border-rule pt-4">
                   <Label>No estimate yet</Label>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {rebuy.noEstimate.map((ticker) => (
-                      <span
+                      <button
                         key={ticker}
-                        className="rounded-full border border-rule px-2 py-0.5 font-mono text-small"
+                        type="button"
+                        onClick={() => navigate(`/stocks/${ticker}`)}
+                        className="rounded-full border border-rule px-2 py-0.5 font-mono text-small min-h-11 flex items-center hover:bg-sunken transition-colors duration-[120ms]"
                       >
                         {ticker}
-                      </span>
+                      </button>
                     ))}
                   </div>
                   <Button

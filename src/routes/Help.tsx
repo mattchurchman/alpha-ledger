@@ -166,7 +166,8 @@ export default function Help() {
             <Term word="A warning under the headline">
               If a holding has no stored price it is counted as $0 and listed there by ticker,
               because portfolio value, total return and value added are all short by whatever it is
-              worth. Fetch prices again, or set that one price by hand on Settings.
+              worth. Tap a ticker to open that stock, fetch prices again, or set that one price by
+              hand on Settings.
             </Term>
             <Term word="History">
               Your portfolio and its VOO shadow as two lines, with the gap between them filled -
@@ -176,7 +177,7 @@ export default function Help() {
             <Term word="Rebuy opportunities">
               Each holding that has a fair value, ranked by discount, drawn as a meter with the zone
               named. Holdings with no estimate are listed underneath rather than ranked, since there
-              is nothing to rank them by.
+              is nothing to rank them by. Tap a meter or a ticker to open that stock.
             </Term>
             <Term word="Holdings">
               One row per open position: shares, price, value, return, value added vs VOO, your

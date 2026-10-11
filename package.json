@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "m1:summary": "node scripts/m1-summary.ts",
     "screenshots": "node scripts/screenshots.ts",
+    "icons:gen": "node scripts/gen-icon.ts",
     "format": "prettier --write .",
     "check": "npm run typecheck && npm run lint && npm run test"
   },

@@ -22,7 +22,13 @@ export interface BottomSheetProps {
 export function BottomSheet({ open, onClose, title, children, footer }: BottomSheetProps) {
   const panelRef = useRef<HTMLDivElement | null>(null)
   const restoreRef = useRef<HTMLElement | null>(null)
+  const onCloseRef = useRef(onClose)
   const titleId = useId()
+
+  // Keep onCloseRef in sync so the effect can call the latest version without re-running.
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     if (!open) return
@@ -33,7 +39,7 @@ export function BottomSheet({ open, onClose, title, children, footer }: BottomSh
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation()
-        onClose()
+        onCloseRef.current()
       }
     }
     document.addEventListener('keydown', onKeyDown)
@@ -47,7 +53,7 @@ export function BottomSheet({ open, onClose, title, children, footer }: BottomSh
       document.body.style.overflow = previousOverflow
       restoreRef.current?.focus?.()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 
