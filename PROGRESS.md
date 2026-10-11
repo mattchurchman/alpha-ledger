@@ -809,3 +809,37 @@ Open issues:
 - Cached `/assets/` entries are never pruned, so each future deploy leaves its predecessor's
   bundle in Cache Storage (~460 KB). Bumping `CACHE_NAME` clears them; worth revisiting only if
   it ever matters.
+
+## Holdings: a Shares column - 2026-10-11 - Opus
+Status: done. Asked for by the user after the first real import: the Holdings table showed
+Ticker/Price/Value/Return/vs VOO/Fair value/Discount and no share count anywhere.
+Built:
+- `src/routes/Dashboard.tsx`: a `shares` column between Ticker and Price - right-aligned,
+  sortable on `Number(row.shares)`, rendered through `shares as formatShares` from `../ui`
+  (the same alias `Activity.tsx` and `Import.tsx` use), not a hand-rolled format.
+Decisions:
+- **No `hideOnCard`.** The held share count was the thing the user could not find, so hiding it
+  on the phone would miss the point. At 390px `DataTable`'s card grid pairs it with Price in the
+  first row of `dt`/`dd`s, which costs no height over the previous layout.
+- **The engine was never wrong.** `analyze` had the right share counts all along (70 open
+  positions on the real ledger); the number simply had no column. Held shares are still absent
+  from Stock detail, where `analysis.shares` is only read to decide open vs closed
+  (`StockDetail.tsx:268`) - left alone, out of scope.
+Verified:
+- `npm run check`: typecheck + lint + 396 tests, all passing. No new tests - this is a column
+  definition over an engine field already covered by `holdings.test.ts`.
+- Shot against `npx wrangler dev` (local synthetic fixtures) at 390px and 1280px: the column
+  renders in both the table and the card layout, appears in the phone sort `<select>`, fractional
+  shares print as `33.333333`, no console errors, no failed requests, and
+  `scrollWidth === clientWidth` at both widths.
+Open issues:
+- A dozen tickers in the real ledger still have no price history, and the app's missing-prices
+  list on the Dashboard is the live copy of which. Two are symbol problems the Settings alias
+  editor fixes: M1's `BRK.B` is `BRK-B` at Yahoo, and `CP.OLD` is a rename to `CP`. The `BRK.B`
+  one needs a **far-future** `effective_date` - `resolveTicker` matches
+  `trade_date <= effective_date` (`holdings.ts:91`), and because this is a notation difference
+  rather than a rename, M1 will keep writing `BRK.B` on future buys; a cutover date would strand
+  them in a second, unpriced position. The rest are delisted or acquired companies, so no alias
+  will price them - the manual `putPriceHistory` fallback is the only route if their history
+  ever matters. CEIX is among them and went to CNR by share conversion, so the task 15 open
+  issue above (reconcile CEIX) is still open and may need an `adjust` row. None entered yet.

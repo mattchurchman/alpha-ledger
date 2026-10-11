@@ -19,6 +19,7 @@ import {
   moneyCompact,
   percent,
   SectionHeading,
+  shares as formatShares,
   SignedDelta,
   StatTile,
   StatusBadge,
@@ -150,6 +151,13 @@ export default function Dashboard() {
         primary: true,
         sort: (row) => row.ticker,
         render: (row) => <span className="font-mono font-medium">{row.ticker}</span>,
+      },
+      {
+        key: 'shares',
+        header: 'Shares',
+        align: 'right',
+        sort: (row) => Number(row.shares),
+        render: (row) => formatShares(row.shares),
       },
       {
         key: 'price',
