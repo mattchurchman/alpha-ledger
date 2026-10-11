@@ -3,6 +3,7 @@ import {
   areaBetweenPath,
   clamp,
   decimate,
+  divergingSpan,
   extent,
   gapRuns,
   linePath,
@@ -13,6 +14,8 @@ import {
   pathLength,
   stepPath,
   thin,
+  tileSide,
+  tileSizes,
   valueAt,
   type Point,
 } from './geometry'
@@ -308,5 +311,84 @@ describe('clamp', () => {
     expect(clamp(5, 0, 10)).toBe(5)
     expect(clamp(-5, 0, 10)).toBe(0)
     expect(clamp(50, 0, 10)).toBe(10)
+  })
+})
+
+describe('divergingSpan', () => {
+  it('scales linearly inside the range', () => {
+    expect(divergingSpan(0.15, 0.3)).toEqual({ fraction: 0.5, clamped: false })
+    expect(divergingSpan(-0.15, 0.3)).toEqual({ fraction: 0.5, clamped: false })
+  })
+
+  it('is unclamped exactly at the boundary', () => {
+    expect(divergingSpan(0.3, 0.3)).toEqual({ fraction: 1, clamped: false })
+    expect(divergingSpan(-0.3, 0.3)).toEqual({ fraction: 1, clamped: false })
+  })
+
+  it('clamps beyond the range but still reports it happened', () => {
+    expect(divergingSpan(0.9, 0.3)).toEqual({ fraction: 1, clamped: true })
+    expect(divergingSpan(-0.9, 0.3)).toEqual({ fraction: 1, clamped: true })
+  })
+
+  it('is zero at the centre', () => {
+    expect(divergingSpan(0, 0.3)).toEqual({ fraction: 0, clamped: false })
+  })
+
+  it('never divides by zero on a degenerate range', () => {
+    expect(divergingSpan(0.2, 0)).toEqual({ fraction: 0, clamped: false })
+  })
+})
+
+describe('tileSide', () => {
+  it('gives the single item in a list the maximum size', () => {
+    expect(tileSide(100, 100)).toBe(112)
+  })
+
+  it('gives a zero or negative weight the minimum size rather than collapsing to 0', () => {
+    expect(tileSide(0, 100)).toBe(44)
+    expect(tileSide(-5, 100)).toBe(44)
+  })
+
+  it('scales by the square root of the weight, so area - not side length - is proportional', () => {
+    // Half the weight should be a quarter the area: side = min + sqrt(0.5) * (max - min).
+    const side = tileSide(50, 100)
+    const expected = 44 + Math.sqrt(0.5) * (112 - 44)
+    expect(side).toBeCloseTo(expected, 6)
+  })
+
+  it('never collapses on a degenerate (zero) maxWeight', () => {
+    expect(tileSide(0, 0)).toBe(44)
+  })
+
+  it('honours custom bounds', () => {
+    expect(tileSide(100, 100, { min: 20, max: 60 })).toBe(60)
+    expect(tileSide(0, 100, { min: 20, max: 60 })).toBe(20)
+  })
+})
+
+describe('tileSizes', () => {
+  it('sizes the one item in a single-ticker list at the maximum', () => {
+    expect(tileSizes([42])).toEqual([112])
+  })
+
+  it('keeps every one of 30 varied weights within bounds and monotonic with weight', () => {
+    const weights = Array.from({ length: 30 }, (_, i) => (i + 1) * (i % 3 === 0 ? 50 : 500))
+    const sizes = tileSizes(weights)
+    expect(sizes).toHaveLength(30)
+    for (const size of sizes) {
+      expect(size).toBeGreaterThanOrEqual(44)
+      expect(size).toBeLessThanOrEqual(112)
+    }
+    // Monotonic: a bigger weight never draws a smaller tile than a smaller one.
+    const pairs = weights
+      .map((weight, i) => [weight, sizes[i]] as const)
+      .sort((a, b) => a[0] - b[0])
+    for (let i = 1; i < pairs.length; i += 1) {
+      expect(pairs[i][1]).toBeGreaterThanOrEqual(pairs[i - 1][1])
+    }
+  })
+
+  it('gives every tile the same size when every weight is zero, rather than collapsing', () => {
+    expect(tileSizes([0, 0, 0])).toEqual([44, 44, 44])
   })
 })

@@ -11,8 +11,8 @@ import {
   Button,
   Card,
   DataTable,
-  BottomSheet,
   EmptyState,
+  FairValueSheet,
   money,
   percent,
   SectionHeading,
@@ -20,6 +20,7 @@ import {
   useToast,
   zoneFor,
   type Column,
+  type FairValueSheetInput,
 } from '../ui'
 
 /**
@@ -42,16 +43,6 @@ function todayDate(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-interface Draft {
-  value_usd: string
-  effective_date: string
-  note: string
-}
-
-function blankDraft(): Draft {
-  return { value_usd: '', effective_date: todayDate(), note: '' }
-}
-
 export default function FairValues() {
   const navigate = useNavigate()
   const toast = useToast()
@@ -67,9 +58,6 @@ export default function FairValues() {
   } = usePortfolioData()
   const [fairValueRows, setFairValueRows] = useState<FairValueRow[] | null>(null)
   const [target, setTarget] = useState<string | null>(null)
-  const [draft, setDraft] = useState<Draft>(blankDraft())
-  const [formError, setFormError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
   const [watchDraft, setWatchDraft] = useState('')
   const [watchBusy, setWatchBusy] = useState(false)
   const [unwatching, setUnwatching] = useState<string | null>(null)
@@ -138,11 +126,11 @@ export default function FairValues() {
     [result, hiddenTickers],
   )
 
-  function openFor(ticker: string) {
-    setTarget(ticker)
-    setDraft(blankDraft())
-    setFormError(null)
-  }
+  /** Every row with no current estimate, in table order - what "Save and next" walks. */
+  const noEstimateQueue = useMemo(
+    () => rows.filter((row) => !currentFairValue.has(row.ticker)).map((row) => row.ticker),
+    [rows, currentFairValue],
+  )
 
   async function addWatch() {
     const ticker = watchDraft.trim().toUpperCase()
@@ -177,30 +165,10 @@ export default function FairValues() {
     [setTickerWatched, toast, report],
   )
 
-  async function save() {
-    if (!target) return
-    if (draft.value_usd.trim() === '') return setFormError('A value is required.')
-    if (draft.effective_date.trim() === '') return setFormError('A date is required.')
-    if (Number.isNaN(Number(draft.value_usd))) return setFormError('Value must be a number.')
-
-    setBusy(true)
-    try {
-      await api.fairValues.create({
-        ticker: target,
-        value_usd: draft.value_usd.trim(),
-        effective_date: draft.effective_date,
-        note: draft.note.trim() === '' ? null : draft.note.trim(),
-      })
-      setFormError(null)
-      setTarget(null)
-      toast.show(`Fair value set for ${target}.`, { status: 'good' })
-      await reload()
-    } catch (err) {
-      if (err instanceof ApiError) setFormError(err.message)
-      else report(err)
-    } finally {
-      setBusy(false)
-    }
+  async function saveFairValue(ticker: string, input: FairValueSheetInput) {
+    await api.fairValues.create({ ticker, ...input })
+    toast.show(`Fair value set for ${ticker}.`, { status: 'good' })
+    await reload()
   }
 
   const columns: Column<MergedTicker>[] = useMemo(
@@ -262,28 +230,8 @@ export default function FairValues() {
           )
         },
       },
-      {
-        key: 'actions',
-        header: 'Actions',
-        render: (row) => (
-          <div className="flex flex-wrap gap-1.5">
-            <Button variant="secondary" onClick={() => openFor(row.ticker)}>
-              Set value
-            </Button>
-            {row.watching && (
-              <Button
-                variant="ghost"
-                disabled={unwatching === row.ticker}
-                onClick={() => void removeWatch(row.ticker)}
-              >
-                {unwatching === row.ticker ? 'Removing…' : 'Remove'}
-              </Button>
-            )}
-          </div>
-        ),
-      },
     ],
-    [currentFairValue, unwatching, removeWatch],
+    [currentFairValue],
   )
 
   if (loading) {
@@ -319,6 +267,18 @@ export default function FairValues() {
           rowKey={(row) => row.ticker}
           caption="Your holdings and your fair-value estimates"
           initialSort={{ key: 'ticker', direction: 'asc' }}
+          onRowSelect={(row) => setTarget(row.ticker)}
+          rowAction={(row) =>
+            row.watching ? (
+              <Button
+                variant="ghost"
+                disabled={unwatching === row.ticker}
+                onClick={() => void removeWatch(row.ticker)}
+              >
+                {unwatching === row.ticker ? 'Removing…' : 'Remove'}
+              </Button>
+            ) : null
+          }
           empty={
             <EmptyState
               title="No holdings or watched tickers yet"
@@ -326,6 +286,7 @@ export default function FairValues() {
             />
           }
         />
+        <p className="mt-3 text-small text-ink-muted">Tap a row to set its fair value.</p>
         {hiddenOpenCount > 0 && (
           <p className="mt-3 text-small text-ink-muted">
             {hiddenOpenCount} hidden holding{hiddenOpenCount === 1 ? '' : 's'} left out. Hiding
@@ -356,49 +317,13 @@ export default function FairValues() {
         </div>
       </Card>
 
-      <BottomSheet
-        open={target !== null}
+      <FairValueSheet
+        ticker={target}
+        priceFor={(ticker) => rows.find((row) => row.ticker === ticker)?.latestClose ?? null}
+        queue={noEstimateQueue}
         onClose={() => setTarget(null)}
-        title={target ? `Set ${target}'s fair value` : 'Set fair value'}
-      >
-        <div className="flex flex-col gap-3">
-          <TextField
-            label="Fair value (USD)"
-            inputMode="decimal"
-            value={draft.value_usd}
-            onChange={(e) => setDraft((d) => ({ ...d, value_usd: e.target.value }))}
-            placeholder="0.00"
-          />
-          <TextField
-            label="Date"
-            type="date"
-            value={draft.effective_date}
-            onChange={(e) => setDraft((d) => ({ ...d, effective_date: e.target.value }))}
-          />
-          <TextField
-            label="Note"
-            value={draft.note}
-            onChange={(e) => setDraft((d) => ({ ...d, note: e.target.value }))}
-            placeholder="Optional - why this number"
-          />
-
-          {formError && <p className="text-small text-critical">{formError}</p>}
-
-          <p className="text-small text-ink-muted">
-            This always adds a new entry. Past estimates are kept, never overwritten - see this
-            ticker's detail screen for the full history.
-          </p>
-
-          <div className="mt-1 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setTarget(null)} disabled={busy}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={() => void save()} disabled={busy}>
-              {busy ? 'Saving…' : 'Save'}
-            </Button>
-          </div>
-        </div>
-      </BottomSheet>
+        onSave={saveFairValue}
+      />
     </div>
   )
 }

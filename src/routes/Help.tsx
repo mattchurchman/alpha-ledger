@@ -201,10 +201,21 @@ export default function Help() {
               anything is computed.
             </Term>
             <Term word="Rebuy opportunities">
-              Each holding and each watched ticker that has a fair value, ranked by discount, drawn
-              as a meter with the zone named - a watched one is labelled &ldquo;Watching&rdquo;.
-              Those with no estimate are listed underneath rather than ranked, since there is
-              nothing to rank them by. Tap a meter or a ticker to open that stock.
+              Each holding and each watched ticker that has a fair value, ranked by discount, as a
+              two-sided bar growing from fair value - a watched one is labelled
+              &ldquo;Watching&rdquo;. Bars and Map (beside the heading) are the same ranking two
+              ways: Bars reads best for &ldquo;what is cheapest&rdquo;, Map sizes each tile by
+              position value and shades it by discount, for &ldquo;which big holding is
+              cheap&rdquo;. Tapping a row or tile opens that stock; Edit beside a row opens the
+              fair-value sheet instead, in place. Those with no estimate are listed underneath
+              rather than ranked, since there is nothing to rank them by - tap one to set its value
+              the same way.
+            </Term>
+            <Term word="Allocation">
+              One bar, a segment per open holding sized by its share of current value - how
+              concentrated you are, at a glance. No ring chart: a stacked bar reads at a glance and
+              survives greyscale print, where a ring needs either a legend or colour to carry every
+              slice&rsquo;s identity. Tap a segment to open that stock.
             </Term>
             <Term word="Holdings">
               One row per open position: shares, price, value, return, value added vs VOO, your fair
@@ -298,7 +309,9 @@ export default function Help() {
               The price line with your estimates drawn as a step line, a marker and its note at each
               change, and the full history underneath - including the only place an estimate can be
               deleted. Old estimates are drawn at today&rsquo;s split level so they line up with the
-              price; the number you typed is never rewritten.
+              price; the number you typed is never rewritten.{' '}
+              <strong className="font-medium text-ink">Set value</strong>, beside the heading, opens
+              the same fast-entry sheet as Rebuy opportunities and Fair values, for this ticker.
             </Term>
           </dl>
         </Card>
@@ -308,9 +321,11 @@ export default function Help() {
         <Card className="flex flex-col gap-4 text-small text-ink-secondary">
           <p className="max-w-prose">
             Every open holding, plus every ticker you are watching, in one list built for fast entry
-            on a phone: <strong className="font-medium text-ink">Set value</strong> on a row, type
-            the number, optionally date it and say why, save. <Here to="/fair-values">Open it</Here>
-            .
+            on a phone: tap a row, type the number on the decimal keypad, optionally date it and say
+            why, save. The field is already focused when the sheet opens, and{' '}
+            <strong className="font-medium text-ink">Save and next</strong> walks every ticker with
+            no estimate yet, one after another, without closing the sheet.{' '}
+            <Here to="/fair-values">Open it</Here>.
           </p>
           <p className="max-w-prose">
             Saving always adds an entry rather than editing one, so the history is a record of what

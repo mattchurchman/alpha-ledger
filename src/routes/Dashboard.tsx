@@ -10,20 +10,24 @@ import { ClosePositionSheet } from './ClosePosition'
 import {
   AccountStrip,
   AccountSwitcher,
+  AllocationStrip,
   Button,
   Card,
   ChartSkeleton,
   DataTable,
-  DiscountMeter,
+  DiscountMap,
   DivergingBars,
   EmptyState,
+  FairValueSheet,
   HistoryChart,
   Label,
+  MiniButton,
   money,
   moneyCompact,
   percent,
   rangeStart,
   RangeSelector,
+  RebuyBars,
   SectionHeading,
   shares as formatShares,
   SignedDelta,
@@ -33,6 +37,7 @@ import {
   type AccountStripRow,
   type ChartRange,
   type Column,
+  type FairValueSheetInput,
 } from '../ui'
 import type { TickerAnalysis } from '../engine'
 
@@ -67,6 +72,8 @@ export default function Dashboard() {
   const [fairValueRows, setFairValueRows] = useState<FairValueRow[] | null>(null)
   const [range, setRange] = useState<ChartRange>('1Y')
   const [closing, setClosing] = useState<string | null>(null)
+  const [rebuyView, setRebuyView] = useState<'bars' | 'map'>('bars')
+  const [editingFairValue, setEditingFairValue] = useState<string | null>(null)
 
   /**
    * A label that is not in the ledger - a stale bookmark, or a renamed account - falls back to
@@ -114,6 +121,14 @@ export default function Dashboard() {
     [toast],
   )
 
+  const reloadFairValues = useCallback(async () => {
+    try {
+      setFairValueRows(await api.fairValues.list())
+    } catch (err) {
+      report(err)
+    }
+  }, [report])
+
   useEffect(() => {
     let cancelled = false
     api.fairValues.list().then(
@@ -128,6 +143,15 @@ export default function Dashboard() {
       cancelled = true
     }
   }, [report])
+
+  const saveFairValue = useCallback(
+    async (ticker: string, input: FairValueSheetInput) => {
+      await api.fairValues.create({ ticker, ...input })
+      toast.show(`Fair value set for ${ticker}.`, { status: 'good' })
+      await reloadFairValues()
+    },
+    [toast, reloadFairValues],
+  )
 
   const latestFairValue = useMemo(() => latestFairValues(fairValueRows ?? []), [fairValueRows])
 
@@ -186,12 +210,19 @@ export default function Dashboard() {
     [heldTickers, watchlist, hiddenTickers, prices],
   )
 
+  /** Current value per held ticker, for `DiscountMap`'s sizing - a watched one has none. */
+  const valueByTicker = useMemo(
+    () => new Map(heldTickers.map((t) => [t.ticker, t.currentValue])),
+    [heldTickers],
+  )
+
   const rebuy = useMemo(() => {
     const ranked: {
       ticker: string
       discount: string
       price: string
       fairValue: string
+      value: string | null
       watching: boolean
     }[] = []
     const noEstimate: { ticker: string; watching: boolean }[] = []
@@ -209,12 +240,13 @@ export default function Dashboard() {
         discount,
         price: ticker.latestClose,
         fairValue,
+        value: ticker.watching ? null : (valueByTicker.get(ticker.ticker) ?? null),
         watching: ticker.watching,
       })
     }
     ranked.sort((a, b) => Number(b.discount) - Number(a.discount))
     return { ranked, noEstimate }
-  }, [watchableTickers, currentFairValue])
+  }, [watchableTickers, currentFairValue, valueByTicker])
 
   const series = useMemo(() => {
     if (!view?.series) return { dates: [], value: [], shadow: [] }
@@ -565,11 +597,26 @@ export default function Dashboard() {
       </section>
 
       <section>
-        <SectionHeading>Rebuy opportunities</SectionHeading>
-        <Card className="flex flex-col gap-6">
-          {fairValueRows === null ? (
+        <SectionHeading
+          action={
+            <div className="flex gap-1">
+              <MiniButton pressed={rebuyView === 'bars'} onClick={() => setRebuyView('bars')}>
+                Bars
+              </MiniButton>
+              <MiniButton pressed={rebuyView === 'map'} onClick={() => setRebuyView('map')}>
+                Map
+              </MiniButton>
+            </div>
+          }
+        >
+          Rebuy opportunities
+        </SectionHeading>
+        {fairValueRows === null ? (
+          <Card>
             <ChartSkeleton height={120} />
-          ) : rebuy.ranked.length === 0 && rebuy.noEstimate.length === 0 ? (
+          </Card>
+        ) : rebuy.ranked.length === 0 && rebuy.noEstimate.length === 0 ? (
+          <Card>
             <EmptyState
               title="Nothing to rank yet"
               body="Add a fair value for a holding and it shows up here."
@@ -579,54 +626,53 @@ export default function Dashboard() {
                 </Button>
               }
             />
-          ) : (
-            <>
-              {rebuy.ranked.map((item) => (
-                <button
-                  key={item.ticker}
-                  type="button"
-                  onClick={() => navigate(stockPath(item.ticker))}
-                  className="-mx-4 -my-2 px-4 py-2 text-left hover:bg-sunken"
-                >
-                  {item.watching && <Label className="mb-1 block">Watching</Label>}
-                  <DiscountMeter
-                    label={`${item.ticker} vs fair value`}
-                    discount={item.discount}
-                    price={item.price}
-                    fairValue={item.fairValue}
-                  />
-                </button>
-              ))}
-              {rebuy.noEstimate.length > 0 && (
-                <div className="border-t border-rule pt-4">
-                  <Label>No estimate yet</Label>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {rebuy.noEstimate.map((item) => (
-                      <button
-                        key={item.ticker}
-                        type="button"
-                        onClick={() => navigate(stockPath(item.ticker))}
-                        className="rounded-full border border-rule px-2 py-0.5 font-mono text-small min-h-11 flex items-center gap-1.5 hover:bg-sunken transition-colors duration-[120ms]"
-                      >
-                        {item.ticker}
-                        {item.watching && (
-                          <span className="text-micro font-normal text-ink-muted">Watching</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                  <Button
-                    variant="secondary"
-                    className="mt-3"
-                    onClick={() => navigate('/fair-values')}
-                  >
-                    Add a fair value
-                  </Button>
+          </Card>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {rebuyView === 'bars' ? (
+              <RebuyBars
+                items={rebuy.ranked}
+                onSelect={(ticker) => navigate(stockPath(ticker))}
+                onEdit={(ticker) => setEditingFairValue(ticker)}
+              />
+            ) : (
+              <DiscountMap
+                items={rebuy.ranked}
+                onSelect={(ticker) => navigate(stockPath(ticker))}
+              />
+            )}
+            {rebuy.noEstimate.length > 0 && (
+              <Card>
+                <Label>No estimate yet</Label>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {rebuy.noEstimate.map((item) => (
+                    <button
+                      key={item.ticker}
+                      type="button"
+                      onClick={() => setEditingFairValue(item.ticker)}
+                      className="rounded-full border border-rule px-2 py-0.5 font-mono text-small min-h-11 flex items-center gap-1.5 hover:bg-sunken transition-colors duration-[120ms]"
+                      aria-label={`Set ${item.ticker}'s fair value`}
+                    >
+                      {item.ticker}
+                      {item.watching && (
+                        <span className="text-micro font-normal text-ink-muted">Watching</span>
+                      )}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </>
-          )}
-        </Card>
+                <p className="mt-2 text-small text-ink-muted">Tap one to set its fair value.</p>
+              </Card>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <SectionHeading>Allocation</SectionHeading>
+        <AllocationStrip
+          items={heldTickers.map((t) => ({ ticker: t.ticker, value: t.currentValue }))}
+          onSelect={(ticker) => navigate(stockPath(ticker))}
+        />
       </section>
 
       <section>
@@ -684,6 +730,16 @@ export default function Dashboard() {
       </section>
 
       <ClosePositionSheet ticker={closing} onClose={() => setClosing(null)} />
+
+      <FairValueSheet
+        ticker={editingFairValue}
+        priceFor={(ticker) =>
+          watchableTickers.find((t) => t.ticker === ticker)?.latestClose ?? null
+        }
+        queue={rebuy.noEstimate.map((item) => item.ticker)}
+        onClose={() => setEditingFairValue(null)}
+        onSave={saveFairValue}
+      />
     </div>
   )
 }

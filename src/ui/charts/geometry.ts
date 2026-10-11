@@ -283,6 +283,55 @@ export function gapRuns(a: readonly number[], b: readonly number[]): GapRun[] {
   return runs.filter((run) => run.indices.length >= 2)
 }
 
+export interface DivergingSpan {
+  /** Fraction of the half-track the fill reaches, 0 to 1, after clamping to `range`. */
+  fraction: number
+  /** True when the raw magnitude exceeded `range` - the caller draws a "beyond the scale" mark. */
+  clamped: boolean
+}
+
+/**
+ * One side of a bar growing from a centre reference (zero, or a fair value): how far it reaches
+ * toward its own edge of the track, clamped to `range`. Shared by `DiscountMeter` and
+ * `RebuyBars`, which both draw the same shape - "a signed value against a fixed-width track" -
+ * at different sizes.
+ */
+export function divergingSpan(value: number, range: number): DivergingSpan {
+  if (range <= 0 || !Number.isFinite(value)) return { fraction: 0, clamped: false }
+  const magnitude = Math.abs(value)
+  return { fraction: clamp(magnitude, 0, range) / range, clamped: magnitude > range }
+}
+
+/**
+ * The side length of a value-sized tile in a wrapping grid (`DiscountMap`). Area, not side
+ * length, is kept proportional to `weight` - a tile twice the position value should cover
+ * roughly twice the area, not twice the width - so the side is `sqrt(weight / maxWeight)`.
+ * Clamped to `[min, max]`: `min` is the 44px touch-target floor, `max` keeps one large holding
+ * from pushing everything else off a 390px screen. This is deliberately not a packed-rectangle
+ * treemap - CSS flex-wrap does the actual 2D packing, so the only maths needed is one tile's
+ * side length.
+ */
+export function tileSide(
+  weight: number,
+  maxWeight: number,
+  { min = 44, max = 112 }: { min?: number; max?: number } = {},
+): number {
+  if (!Number.isFinite(weight) || !Number.isFinite(maxWeight) || maxWeight <= 0 || weight <= 0) {
+    return min
+  }
+  const fraction = Math.sqrt(clamp(weight, 0, maxWeight) / maxWeight)
+  return min + fraction * (max - min)
+}
+
+/** `tileSide` across a whole list, sharing one `maxWeight` so sizes stay comparable. */
+export function tileSizes(
+  weights: readonly number[],
+  options?: { min?: number; max?: number },
+): number[] {
+  const maxWeight = weights.reduce((found, weight) => Math.max(found, weight), 0)
+  return weights.map((weight) => tileSide(weight, maxWeight, options))
+}
+
 /**
  * Keeps the first and last index and an evenly spaced subset between them. Used on a gap run's
  * interior, where the crossings at the ends must stay exact but a 10%-opacity wash does not

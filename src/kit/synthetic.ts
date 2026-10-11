@@ -193,3 +193,44 @@ export const estimates = [
 
 /** A short series for the sparkline, which is deliberately axis-less and value-less. */
 export const sparkline = history.you.slice(-90).filter((_, i) => i % 3 === 0)
+
+export interface RebuyDemoRow {
+  ticker: string
+  discount: string
+  price: string
+  fairValue: string
+  /** Position value, for `DiscountMap`'s sizing. `null` for a watched ticker - no position. */
+  value: string | null
+  watching: boolean
+}
+
+/**
+ * Thirty tickers with a fair value, for `RebuyBars`, `DiscountMap` and the fair-value sheet -
+ * task 21's "thirty tickers read at a glance" acceptance check. Four letters, a round-robin
+ * suffix so none collide, discounts spread across all four zones (including well past the ±30%
+ * clamp, which is what exercises the marker), and every fifth one watched rather than held.
+ */
+function buildRebuyDemo(): RebuyDemoRow[] {
+  const random = lcg(7071)
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const rows: RebuyDemoRow[] = []
+  for (let i = 0; i < 30; i += 1) {
+    const ticker = `${letters[i % 26]}${letters[(i * 7) % 26]}${letters[(i * 13) % 26]}${i}`
+    const price = 8 + random() * 380
+    // Spread discounts from well above fair value to well past the deep-discount clamp.
+    const discount = -0.45 + (i / 29) * 0.95 + (random() - 0.5) * 0.04
+    const fairValue = price / (1 - discount)
+    const watching = i % 5 === 4
+    rows.push({
+      ticker,
+      price: price.toFixed(2),
+      fairValue: fairValue.toFixed(2),
+      discount: discount.toFixed(4),
+      value: watching ? null : (600 + random() * 24000).toFixed(2),
+      watching,
+    })
+  }
+  return rows
+}
+
+export const rebuyDemo: RebuyDemoRow[] = buildRebuyDemo()

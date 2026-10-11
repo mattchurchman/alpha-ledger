@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react'
 import { CloseIcon } from './icons'
 
 /**
@@ -17,9 +17,18 @@ export interface BottomSheetProps {
   title: string
   children: ReactNode
   footer?: ReactNode
+  /** Focused instead of the panel itself when the sheet opens - a form's first field, say. */
+  initialFocus?: RefObject<HTMLElement | null>
 }
 
-export function BottomSheet({ open, onClose, title, children, footer }: BottomSheetProps) {
+export function BottomSheet({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  initialFocus,
+}: BottomSheetProps) {
   const panelRef = useRef<HTMLDivElement | null>(null)
   const restoreRef = useRef<HTMLElement | null>(null)
   const onCloseRef = useRef(onClose)
@@ -34,7 +43,7 @@ export function BottomSheet({ open, onClose, title, children, footer }: BottomSh
     if (!open) return
 
     restoreRef.current = document.activeElement as HTMLElement | null
-    panelRef.current?.focus()
+    ;(initialFocus?.current ?? panelRef.current)?.focus()
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -53,7 +62,7 @@ export function BottomSheet({ open, onClose, title, children, footer }: BottomSh
       document.body.style.overflow = previousOverflow
       restoreRef.current?.focus?.()
     }
-  }, [open])
+  }, [open, initialFocus])
 
   if (!open) return null
 

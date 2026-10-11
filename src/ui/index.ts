@@ -8,6 +8,11 @@ export { AppShell, type AppShellProps } from './AppShell'
 export { DESTINATIONS, titleFor, type Destination } from './destinations'
 export { BottomSheet, type BottomSheetProps } from './BottomSheet'
 export { DataTable, type Column, type DataTableProps } from './DataTable'
+export {
+  FairValueSheet,
+  type FairValueSheetInput,
+  type FairValueSheetProps,
+} from './FairValueSheet'
 export { SignedDelta, type SignedDeltaProps } from './SignedDelta'
 export { StatTile, type StatTileProps } from './StatTile'
 export { ToastProvider } from './Toast'
@@ -36,10 +41,25 @@ export {
 export { useElementWidth } from './useElementWidth'
 export { BackIcon } from './icons'
 export { applyTheme, readStoredTheme, useTheme, THEME_STORAGE_KEY, type Theme } from './theme'
-export { DEEP_DISCOUNT, WELL_ABOVE, zoneFor, type Zone, type ZoneId } from './zones'
+export {
+  DEEP_DISCOUNT,
+  WELL_ABOVE,
+  rampStepFor,
+  zoneFor,
+  SEQUENTIAL_RAMP,
+  type RampStep,
+  type Zone,
+  type ZoneId,
+} from './zones'
 
+export {
+  AllocationStrip,
+  type AllocationStripItem,
+  type AllocationStripProps,
+} from './charts/AllocationStrip'
 export { ChartFrame, Readout, type ChartFrameProps } from './charts/ChartFrame'
 export { CHART_RANGES, SHORT_RANGES, rangeStart, type ChartRange } from './charts/chartRange'
+export { DiscountMap, type DiscountMapItem, type DiscountMapProps } from './charts/DiscountMap'
 export { DiscountMeter, type DiscountMeterProps } from './charts/DiscountMeter'
 export { DivergingBars, type DivergingBarsProps } from './charts/DivergingBars'
 export {
@@ -48,6 +68,7 @@ export {
   type HistoryChartProps,
 } from './charts/HistoryChart'
 export { RangeSelector, type RangeSelectorProps } from './charts/RangeSelector'
+export { RebuyBars, type RebuyBarsItem, type RebuyBarsProps } from './charts/RebuyBars'
 export { Sparkline, type SparklineProps } from './charts/Sparkline'
 export { StepLineChart, type EstimateChange, type StepLineChartProps } from './charts/StepLineChart'
 

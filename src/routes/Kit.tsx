@@ -2,18 +2,23 @@ import { useState } from 'react'
 import {
   AccountStrip,
   AccountSwitcher,
+  AllocationStrip,
   BottomSheet,
   Button,
   Card,
   ChartSkeleton,
   DataTable,
+  DiscountMap,
   DiscountMeter,
   DivergingBars,
   EmptyState,
+  FairValueSheet,
   HistoryChart,
   Label,
+  MiniButton,
   rangeStart,
   RangeSelector,
+  RebuyBars,
   SectionHeading,
   SignedDelta,
   Sparkline,
@@ -37,6 +42,7 @@ import {
   headline,
   history,
   holdings,
+  rebuyDemo,
   sparkline,
   stockDetail,
   type DemoHolding,
@@ -54,7 +60,13 @@ export default function Kit() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [historyRange, setHistoryRange] = useState<ChartRange>('1Y')
   const [demoAccount, setDemoAccount] = useState<string | null>(null)
+  const [rebuyView, setRebuyView] = useState<'bars' | 'map'>('bars')
+  const [fairValueTicker, setFairValueTicker] = useState<string | null>(null)
   const historyStart = rangeStart(history.dates, historyRange)
+
+  const rebuyPrices = Object.fromEntries(rebuyDemo.map((row) => [row.ticker, row.price]))
+  // A handful of tickers "with no estimate yet", to demo "Save and next" walking them.
+  const noEstimateQueue = rebuyDemo.slice(0, 4).map((row) => row.ticker)
 
   const columns: Column<DemoHolding>[] = [
     {
@@ -220,6 +232,44 @@ export default function Kit() {
       </section>
 
       <section>
+        <SectionHeading
+          action={
+            <div className="flex gap-1">
+              <MiniButton pressed={rebuyView === 'bars'} onClick={() => setRebuyView('bars')}>
+                Bars
+              </MiniButton>
+              <MiniButton pressed={rebuyView === 'map'} onClick={() => setRebuyView('map')}>
+                Map
+              </MiniButton>
+            </div>
+          }
+        >
+          Rebuy opportunities, 30 tickers
+        </SectionHeading>
+        {rebuyView === 'bars' ? (
+          <RebuyBars
+            items={rebuyDemo}
+            subtitle="Sorted by discount. Every fifth ticker is watched, not held."
+            onSelect={(ticker) => toast.show(`Would open ${ticker}.`)}
+            onEdit={(ticker) => setFairValueTicker(ticker)}
+          />
+        ) : (
+          <DiscountMap
+            items={rebuyDemo}
+            onSelect={(ticker) => toast.show(`Would open ${ticker}.`)}
+          />
+        )}
+      </section>
+
+      <section>
+        <SectionHeading>Allocation</SectionHeading>
+        <AllocationStrip
+          items={holdings}
+          onSelect={(ticker) => toast.show(`Would open ${ticker}.`)}
+        />
+      </section>
+
+      <section>
         <SectionHeading>Discount to fair value</SectionHeading>
         <Card>
           <div className="flex flex-col gap-6">
@@ -320,6 +370,9 @@ export default function Kit() {
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" onClick={() => setSheetOpen(true)}>
               Open bottom sheet
+            </Button>
+            <Button onClick={() => setFairValueTicker(noEstimateQueue[0])}>
+              Open fair-value sheet
             </Button>
             <Button onClick={() => toast.show('Imported 42 transactions, 8 duplicates skipped.')}>
               Toast: good
@@ -447,6 +500,18 @@ export default function Kit() {
           </p>
         </div>
       </BottomSheet>
+
+      <FairValueSheet
+        ticker={fairValueTicker}
+        priceFor={(ticker) => rebuyPrices[ticker]}
+        queue={noEstimateQueue}
+        onClose={() => setFairValueTicker(null)}
+        onSave={async (ticker, input) => {
+          // No API in /kit - the real screens wire this to api.fairValues.create instead.
+          await new Promise((resolve) => setTimeout(resolve, 150))
+          toast.show(`Fair value set for ${ticker}: $${input.value_usd}.`, { status: 'good' })
+        }}
+      />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import {
   type InputHTMLAttributes,
   type ButtonHTMLAttributes,
   type ReactNode,
+  type Ref,
   type SelectHTMLAttributes,
 } from 'react'
 
@@ -128,21 +129,31 @@ export function SeriesKey({
 const FIELD_STYLES =
   'min-h-11 w-full rounded-control border border-rule bg-surface px-2.5 text-small text-ink placeholder:text-ink-muted disabled:opacity-45'
 
-/** A labelled text/date/number input. `hint` and `error` are mutually exclusive - an error wins. */
+/**
+ * A labelled text/date/number input. `hint` and `error` are mutually exclusive - an error wins.
+ * `ref` reaches the `<input>` itself - `FairValueSheet` uses it to put focus straight into the
+ * field on open.
+ */
 export function TextField({
   label,
   hint,
   error,
   className = '',
+  ref,
   ...props
-}: InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: string; error?: string }) {
+}: InputHTMLAttributes<HTMLInputElement> & {
+  label: string
+  hint?: string
+  error?: string
+  ref?: Ref<HTMLInputElement>
+}) {
   const id = useId()
   return (
     <div className={`flex flex-col gap-1 ${className}`.trimEnd()}>
       <label htmlFor={id} className="label-micro">
         {label}
       </label>
-      <input id={id} className={FIELD_STYLES} {...props} />
+      <input id={id} ref={ref} className={FIELD_STYLES} {...props} />
       {error ? (
         <span className="text-micro text-critical">{error}</span>
       ) : hint ? (

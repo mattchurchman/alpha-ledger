@@ -748,7 +748,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 18 | Close or hide defunct tickers | Opus | done |
 | 19 | Per-account drill-down | Opus | done |
 | 20 | Watchlist | Sonnet | done |
-| 21 | Rebuy visuals and fair-value entry | Sonnet | todo |
+| 21 | Rebuy visuals and fair-value entry | Sonnet | done |
 | 22 | Visual refresh | Opus | todo |
 | 23 | Release rev 2 | Haiku | todo |
 
@@ -1141,3 +1141,119 @@ Open issues:
 - The CDP `computer` click tool continues to be unreliable in this sandbox (see above); `find` +
   `javascript_tool`'s `.click()` is the fallback that has worked across three tasks running now
   and may be worth adopting first rather than as a fallback.
+
+## Task 21: Rebuy visuals and fair-value entry - 2026-10-11 - Sonnet
+
+Status: done.
+Built:
+
+- `src/ui/charts/geometry.ts` + tests: `divergingSpan` (the bar-clamp maths `DiscountMeter` and
+  `RebuyBars` both need - how far a signed value reaches toward its own edge of a track before
+  clamping at `range`) and `tileSide` / `tileSizes` (a value-sized tile's side length in a
+  wrapping grid - area, not side length, proportional to weight, clamped to the 44px touch floor
+  and a 112px ceiling). Deliberately not a packed-rectangle treemap - CSS flex-wrap does the
+  actual 2D packing, so the geometry is one function, not an algorithm, and there is nothing
+  treemap-shaped to get subtly wrong at 30 tiles.
+- `src/ui/zones.ts`: `SEQUENTIAL_RAMP` (DESIGN 2.5's documented blue ramp, copied verbatim) and
+  `rampStepFor`, mapping a discount onto it by magnitude for `DiscountMap`'s shading - darker is
+  a bigger discount, in the one hue DESIGN already validated, rather than a second red-tinted
+  ramp (a real palette addition, and out of this task's scope per task 22).
+- `src/ui/charts/RebuyBars.tsx`: the compact read of Rebuy opportunities - one `min-h-11` row per
+  ticker, a two-sided bar from a centre fair-value line, ticker, discount, zone, watching badge,
+  and (≥640px) price/fair value, sorted by discount, top-8 with "Show all". The row itself opens
+  stock detail; a separate, non-nested Edit button (the `DataTable` `rowAction` idea, applied to
+  a plain list) opens `FairValueSheet`.
+- `src/ui/charts/DiscountMap.tsx`: the same ranked tickers as tiles, sized by position value
+  (`tileSizes`) and shaded by discount (`rampStepFor`); a watched ticker gets a fixed small
+  outlined tile instead, since it has no position to size by. Tap opens stock detail.
+- `src/ui/charts/AllocationStrip.tsx`: one stacked bar, a segment per open holding by current
+  value, tap to open. No categorical per-ticker palette exists (DESIGN 2.3 defines series by
+  role, not by ticker), so every segment is `--al-viz-you`; identity comes from a direct label on
+  a wide-enough segment plus the table twin. No donuts (DESIGN section 1).
+- `src/ui/FairValueSheet.tsx`: the shared fast-entry sheet, extracted out of `FairValues.tsx` -
+  `inputMode="decimal"`, the field focused on open (a new `initialFocus` ref on `BottomSheet`,
+  plus the form refocusing itself on every "Save and next" step, since `BottomSheet`'s own
+  open-effect only fires once per open), Enter submits the form, a live discount preview from
+  `discountFrom`, and "Save and next" walking a caller-supplied queue of no-estimate tickers
+  without closing. Holds no API call itself, same as the rest of `src/ui/` - `onSave` is wired
+  per screen to `api.fairValues.create`; `/kit` wires it to a toast-only no-op.
+- `src/routes/FairValues.tsx`: the table's whole row now opens `FairValueSheet` (`onRowSelect`);
+  Remove moved to `rowAction` so it stays reachable without nesting a button in the row's own
+  button. The private draft/form state this screen used to own is gone - it is all in the shared
+  sheet now.
+- `src/routes/Dashboard.tsx`: Rebuy opportunities gained a Bars/Map toggle (`RebuyBars` /
+  `DiscountMap`, same ranked data) and an Allocation section above Holdings (`AllocationStrip`,
+  held tickers only, same scope as Holdings itself). The "No estimate yet" pills and a rebuy
+  row's Edit control open `FairValueSheet` in place instead of navigating to stock detail.
+- `src/routes/StockDetail.tsx`: a "Set value" button beside the Fair value heading (shown in both
+  the normal view and the watched-but-not-held view) opens `FairValueSheet` for that one ticker;
+  the empty state's old "Go to Fair values" redirect is now the same in-place action.
+- `src/kit/synthetic.ts` + `Kit.tsx`: `rebuyDemo`, 30 synthetic tickers (four-letter-plus-index,
+  discounts spread from well above fair value past the deep-discount clamp, every fifth one
+  watched) feeding new `/kit` sections for `RebuyBars`/`DiscountMap` (with the Bars/Map toggle),
+  `AllocationStrip`, and a `FairValueSheet` demo wired to a toast instead of the API.
+- `docs/DESIGN.md` section 5.5 (four new rows, plus a note on `BottomSheet`'s `initialFocus`) and
+  the Dashboard, Fair values and Stock detail sections of Help.
+
+Decisions:
+
+- **`DiscountMap`'s tiles are area-proportional squares in a flex-wrap grid, not a squarified
+  treemap.** A real treemap is a real algorithm (row-building, worst-aspect-ratio comparisons,
+  floating-point rectangle edges) with real edge cases at 30 tiles and 390px; a tile's side
+  length from `sqrt(weight / maxWeight)` gets "bigger holding, bigger tile" with none of that
+  risk, and the browser already does 2D packing for free. Revisit only if a real packed-mosaic
+  look is specifically asked for.
+- **`FairValueSheet` is UI-layer, not a screen-level component like `ClosePositionSheet`.** It
+  takes `onSave` rather than calling `api.fairValues.create` itself, which is what let `/kit`
+  demo the real component instead of a description of it - `/kit` makes no API calls, by the
+  rule at the top of that page, and a data-layer import would have broken that.
+- **A rebuy row's main tap still opens stock detail; Edit is a second, separate control**, not a
+  tap-to-edit row. The task asked for both "tap opens stock detail" and "open \[the sheet\]
+  straight from a rebuy row" - satisfying both without nesting a button inside the row's own
+  button meant giving Edit its own hit target, sibling to the row, the same shape `DataTable`
+  already uses for `rowAction`.
+- **The ramp shades by magnitude in one direction (bigger discount = darker), not by zone in
+  four bands.** DESIGN 2.5 documents one sequential blue ramp, for exactly this job ("the one
+  place magnitude is encoded by lightness"); a four-band zone fill would have needed either
+  reusing blue for both "cheap" and "expensive" (misleading) or a second hue DESIGN has not
+  validated (a palette change, task 22's job).
+- **Geometry tests cover `divergingSpan`'s clamp boundary and `tileSizes` at 1 and 30 items**,
+  per the task's acceptance line, rather than full component tests - this codebase has no
+  component-level tests yet (only `geometry`, `chartRange` and `format`), and adding the first
+  one was not asked for here.
+
+Verified:
+
+- `npm run check`: typecheck + lint + 482 tests (was 469; 13 new, covering `divergingSpan`'s
+  clamp boundary and sign, and `tileSide`/`tileSizes` at 1 item, 30 items, and zero weight).
+- `npm run build && npm run screenshots`: 390px/1280px, light/dark, no console error or failed
+  request, no horizontal scroll - `/kit`'s Rebuy opportunities section (30 tickers), Allocation,
+  and the existing sections all read correctly at both widths.
+- `/kit` driven live with the Chrome extension (the `computer` screenshot path hung again this
+  session - same flakiness tasks 18-20 logged - so verification went through `get_page_text` and
+  `javascript_tool` instead): the Bars/Map toggle switches between the two renderings of the same
+  30 tickers; the Map tile shading runs smoothly from darkest (deepest discount) to palest (well
+  above) across all 30, with the two watched tiles (every fifth one) rendering outlined instead
+  of filled; opening the fair-value sheet puts focus in the field immediately (a blue focus ring
+  on first paint); typing updates the live discount preview; Save and next advances to the next
+  no-estimate ticker, refocuses the field, and resets the draft, without closing the sheet.
+- End to end against `npx wrangler dev` with the real fixture (`qa-fixture`/`qa-fixture-2`, 8
+  transactions): opened GOOD's fair value from a Rebuy-opportunities Edit button, saved $30, and
+  watched the discount update from 95.8% to 57.7% in both Rebuy opportunities and the Holdings
+  table from the one save; opened NEGB (the fixture's one no-estimate ticker) from the "No
+  estimate yet" pill; confirmed the whole row opens the sheet on Fair values (desktop `<table>`
+  row, clicked via `javascript_tool` since the CDP click landed on the CSS-hidden phone-card
+  markup instead - the same known extension quirk, not a bug in the row itself); confirmed
+  stock detail's new Set value button opens the sheet for one ticker with no Save-and-next
+  control, as designed. The test fair-value row written during this was deleted from local D1
+  afterward; the fixture's 8 transactions were untouched throughout.
+
+Open issues:
+
+- `RebuyBars`' row and its Edit button are two separate `min-h-11` targets side by side, which
+  is slightly more horizontal space than a single packed row - acceptable at 390px (confirmed in
+  the screenshots) but worth a look in task 22's visual pass if it ever feels cramped with a long
+  ticker.
+- `DiscountMap` has no table-view row for a watched tile's position value (there is none to
+  show) - the table twin prints an em dash there, which is correct but was not called out
+  explicitly as a case to check; worth a glance next time that screen is touched.

@@ -21,6 +21,7 @@ import {
   DataTable,
   dateShort,
   EmptyState,
+  FairValueSheet,
   HistoryChart,
   money,
   moneyCompact,
@@ -37,6 +38,7 @@ import {
   type ChartRange,
   type AccountStripRow,
   type Column,
+  type FairValueSheetInput,
   type HistoryChartMarker,
 } from '../ui'
 
@@ -101,6 +103,7 @@ export default function StockDetail() {
   const [range, setRange] = useState<ChartRange>('1Y')
   const [closing, setClosing] = useState<string | null>(null)
   const [unhiding, setUnhiding] = useState(false)
+  const [settingFairValue, setSettingFairValue] = useState(false)
 
   const report = useCallback(
     (err: unknown) => {
@@ -147,10 +150,23 @@ export default function StockDetail() {
     }
   }
 
+  async function saveFairValue(_ticker: string, input: FairValueSheetInput) {
+    await api.fairValues.create({ ticker, ...input })
+    toast.show(`Fair value set for ${ticker}.`, { status: 'good' })
+    await reloadFairValues()
+  }
+
   const fairValueHistory = useMemo(
     () => splitAdjustedHistory(fairValueRows ?? [], prices[ticker]?.splits ?? []),
     [fairValueRows, prices, ticker],
   )
+
+  /** The raw stored close, independent of `analysis` - this screen's watched-but-unheld view
+   *  has no analysis at all, but still needs a price for the fair-value sheet's preview. */
+  const latestStoredClose = useMemo(() => {
+    const close = prices[ticker]?.close
+    return close && close.length > 0 ? close[close.length - 1] : null
+  }, [prices, ticker])
 
   const fairValueColumns: Column<FairValueRow>[] = [
     {
@@ -199,7 +215,9 @@ export default function StockDetail() {
    */
   const fairValueSection = (
     <section>
-      <SectionHeading>Fair value</SectionHeading>
+      <SectionHeading action={<Button onClick={() => setSettingFairValue(true)}>Set value</Button>}>
+        Fair value
+      </SectionHeading>
       <StepLineChart
         dates={prices[ticker]?.dates ?? []}
         price={prices[ticker]?.close ?? []}
@@ -217,10 +235,10 @@ export default function StockDetail() {
           empty={
             <EmptyState
               title="No estimates yet"
-              body="Add one from the Fair values screen."
+              body="Add one with Set value, above."
               action={
-                <Button variant="secondary" onClick={() => navigate('/fair-values')}>
-                  Go to Fair values
+                <Button variant="secondary" onClick={() => setSettingFairValue(true)}>
+                  Set value
                 </Button>
               }
             />
@@ -345,6 +363,15 @@ export default function StockDetail() {
     </Button>
   )
 
+  const fairValueSheet = (
+    <FairValueSheet
+      ticker={settingFairValue ? ticker : null}
+      price={latestStoredClose}
+      onClose={() => setSettingFairValue(false)}
+      onSave={saveFairValue}
+    />
+  )
+
   if (loading) {
     return (
       <div className="flex flex-col gap-7">
@@ -412,6 +439,7 @@ export default function StockDetail() {
           </Card>
         </section>
         {fairValueSection}
+        {fairValueSheet}
       </div>
     )
   }
@@ -592,6 +620,7 @@ export default function StockDetail() {
       </section>
 
       {fairValueSection}
+      {fairValueSheet}
 
       <ClosePositionSheet ticker={closing} onClose={() => setClosing(null)} />
     </div>
