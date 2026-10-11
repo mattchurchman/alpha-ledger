@@ -18,6 +18,7 @@ import {
   moneyCompact,
   percent,
   SectionHeading,
+  shares as formatShares,
   SignedDelta,
   StatTile,
   StepLineChart,
@@ -293,7 +294,16 @@ export default function StockDetail() {
                 : 'Your picks against the same dollars in VOO on the same dates.'
             }
           />
-          <div className="mt-5 grid grid-cols-2 gap-5 border-t border-rule pt-4 md:grid-cols-4">
+          <div className="mt-5 grid grid-cols-2 gap-5 border-t border-rule pt-4 md:grid-cols-5">
+            <StatTile
+              label="Shares"
+              value={formatShares(analysis.shares)}
+              footnote={
+                analysis.latestClose === null && !closed
+                  ? 'No stored price for this ticker, so its current value reads as $0.'
+                  : undefined
+              }
+            />
             <StatTile label="Current value" value={moneyCompact(analysis.currentValue)} />
             <StatTile
               label="VOO equivalent"

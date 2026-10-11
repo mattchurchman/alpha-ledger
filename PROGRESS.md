@@ -843,3 +843,35 @@ Open issues:
   will price them - the manual `putPriceHistory` fallback is the only route if their history
   ever matters. CEIX is among them and went to CNR by share conversion, so the task 15 open
   issue above (reconcile CEIX) is still open and may need an `adjust` row. None entered yet.
+
+## Stock detail: the share count in the header - 2026-10-11 - Opus
+Status: done. The follow-up to the entry above - same number, the other screen.
+Built:
+- `src/routes/StockDetail.tsx`: a `Shares` tile first in the header card's stat grid, which
+  goes `md:grid-cols-4` to `md:grid-cols-5` to hold it. Same `shares as formatShares` helper
+  as the Holdings column.
+- The tile carries a footnote when the ticker has no stored price and the position is open:
+  "No stored price for this ticker, so its current value reads as $0."
+Decisions:
+- **The footnote is the point, not decoration.** An unpriced open position renders as Shares 7.5
+  / Current value $0.00 / Value added -100%, which reads as a wiped-out holding rather than
+  missing data. The Dashboard has its missing-prices callout; the detail screen had nothing.
+  Condition is `latestClose === null && !closed`, so a closed position - legitimately 0 shares,
+  $0 value - stays quiet.
+- **No `closed` special case on the value.** `formatShares('0')` already prints `0`, and the
+  heading's existing "Closed" badge supplies the context, so a ternary would have been dead code.
+Verified:
+- `npm run check`: typecheck + lint + 396 tests. No new tests - a tile over an engine field,
+  same as the Holdings column.
+- Shot against `npx wrangler dev` at 390px, 820px and 1280px: the 5-up grid reads left to right
+  on desktop and wraps 2/2/1 at 390px, no console errors, no failed requests, no horizontal
+  scroll at any width. A closed position shows `Shares 0` with the badge and no footnote.
+- The footnote path was shot by inserting a temporary unpriced buy into the **local** miniflare
+  D1, then deleting it - the committed fixtures all have prices, so nothing else reaches that
+  branch. Local fixture count is back to 8.
+Open issues:
+- The first draft of that footnote said "the value below", which is wrong in both layouts: the
+  grid puts Current value *beside* Shares at every width, not under it. Caught in the
+  screenshot. Worth remembering that stat-grid copy must not describe position.
+- The real ledger's unpriced tickers (previous entry) are what makes this footnote visible at
+  all. Still unentered: the `BRK.B` and `CP.OLD` aliases.
