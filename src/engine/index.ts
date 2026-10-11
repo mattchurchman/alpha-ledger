@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js'
+import { transactionsIn } from './accounts'
 import {
   computeHoldings,
   splitAdjustTransactions,
@@ -156,6 +157,25 @@ export function analyze(input: AnalyzeInput): AnalyzeResult {
   }
 }
 
+export interface AnalyzeAccountInput extends AnalyzeInput {
+  /** The one `account_label` to analyze. */
+  account: string
+}
+
+/**
+ * `analyze` over a single account's rows (task 19). It lives here rather than in
+ * `accounts.ts` so that module does not have to import this one back.
+ *
+ * Pass `asOf` - the all-accounts result's own - rather than letting it default. Today the
+ * default is the same date either way, since it is the newest close across `prices` and every
+ * account is handed the same price map, but pinning it is what makes "the parts sum to the
+ * whole" a property of this function instead of a coincidence of the price set.
+ */
+export function analyzeAccount(input: AnalyzeAccountInput): AnalyzeResult {
+  const { account, ...rest } = input
+  return analyze({ ...rest, transactions: transactionsIn(input.transactions, account) })
+}
+
 /** One ticker's daily history, from the context `analyze` already built (SPEC: on demand). */
 export function tickerSeries(result: AnalyzeResult, ticker: string): DailySeries {
   return seriesFrom(result.context, ticker)
@@ -166,6 +186,9 @@ export function tickerDecisions(result: AnalyzeResult, ticker: string): BuyDecis
   const { adjusted, prices, benchmarkHistory, asOf } = result.context
   return decisionsFrom(adjusted, prices, benchmarkHistory, asOf, ticker)
 }
+
+export { accountLabels, sharesByAccount, transactionsIn } from './accounts'
+export type { AccountShares, SharesByAccountInput } from './accounts'
 
 export {
   calendarDaysBetween,

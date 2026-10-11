@@ -2,6 +2,8 @@
  * The component kit's public surface. Screens import from `../ui`, never from a file inside it,
  * so the kit can be rearranged without touching six screens.
  */
+export { AccountStrip, type AccountStripProps, type AccountStripRow } from './AccountStrip'
+export { AccountSwitcher, ALL_ACCOUNTS_LABEL, type AccountSwitcherProps } from './AccountSwitcher'
 export { AppShell, type AppShellProps } from './AppShell'
 export { DESTINATIONS, titleFor, type Destination } from './destinations'
 export { BottomSheet, type BottomSheetProps } from './BottomSheet'

@@ -746,7 +746,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 16 | Quick fixes | Haiku | done |
 | 17 | Chart scaling and shorter ranges | Sonnet | done |
 | 18 | Close or hide defunct tickers | Opus | done |
-| 19 | Per-account drill-down | Opus | todo |
+| 19 | Per-account drill-down | Opus | done |
 | 20 | Watchlist | Sonnet | todo |
 | 21 | Rebuy visuals and fair-value entry | Sonnet | todo |
 | 22 | Visual refresh | Opus | todo |
@@ -980,3 +980,84 @@ Open issues:
   phone before the release in task 23.
 - `hidden_tickers` is written as `[]` rather than removed when the last ticker is unhidden. The
   parser treats both the same; it is only slightly untidy in an export.
+
+## Task 19: Per-account drill-down - 2026-10-11 - Opus
+Status: done.
+Built:
+- `src/engine/accounts.ts` + `accounts.test.ts`: the mechanism, pure. `accountLabels` (sorted,
+  distinct, excluded rows left out because the engine drops them too), `transactionsIn`, and
+  `sharesByAccount` - one ticker's split across accounts, via `computeHoldings` per account
+  rather than `analyze`, since the answer is a share count and its value and the buckets, IRRs
+  and daily series would all be waste.
+- `analyzeAccount` sits in `engine/index.ts`, not `accounts.ts`, so that module does not have to
+  import the front door back. It takes the all-accounts `asOf` rather than defaulting, which is
+  what makes "the parts sum to the whole" a property of the function instead of a coincidence of
+  the price set.
+- `src/data/PortfolioData.tsx`: `accounts`, `accountSummaries` and `resultFor(account)` on the
+  context. The cache is a `useMemo` holding the `Map` **alongside** the transactions, prices and
+  aliases it was built from, so a reload replaces the whole object and an account view can never
+  be served from a ledger it was not computed from.
+- `src/ui/AccountSwitcher.tsx`: the segmented control, same scrolling 44px row as
+  `RangeSelector`. It renders `null` below two accounts, so a single-account ledger reads exactly
+  as it did before this task and no caller has to know the rule.
+- `src/ui/AccountStrip.tsx`: one tappable line per account carrying two figures. Generalised
+  after the first draft (`figure` + a `delta` node + `selected`) so the stock detail screen's
+  share split and the dashboard's value/value-added strip are the same component rather than two
+  hand-rolled lists.
+- `src/routes/Dashboard.tsx`: `view = resultFor(account)` replaces `result` everywhere, so
+  headline, history, rebuy, holdings and creators all follow the selection. `?account=` is the
+  state, pushed not replaced; an unknown label falls back to the summed view. Every link out to a
+  stock goes through `stockPath`, which carries the account.
+- `src/routes/StockDetail.tsx`: reads the same parameter, labels the heading `<account> only`,
+  and gains an "Across accounts" section - shown only when the ticker traded in more than one.
+- `/kit` demos both components against three synthetic accounts, one with a deliberately long
+  label; `docs/DESIGN.md` 5.5, `docs/ENGINE_API.md`, SPEC sections 1 and 9, the SPEC Decision
+  log, `HowCalculated.tsx` and Help's Dashboard and Stock detail sections all updated.
+Decisions:
+- **A single-account view is `analyze` run again, not a slice of the totals.** SPEC section 4
+  pools average cost across accounts, so a narrowed view uses that account's own average and the
+  realized/unrealized split moves - the total gain does not. The additive measures
+  (`currentValue`, `shadowValue`, `valueAdded`, `invested`, `returned`, `totalGain`, `shares`) do
+  sum back exactly, per ticker and in total. The screen says so under the switcher, Help and
+  `HowCalculated` say it too, and `accounts.test.ts` pins both halves - including a ledger built
+  so the pooled and per-account realized gains genuinely differ ($500 pooled vs $1,000 + $0).
+- **The strip shows value and value added, and only those.** They are the two measures that add
+  up to the headline directly above them; putting a basis-derived figure there would have put a
+  number in the strip that does not sum to the one above it.
+- **The strip is built without the daily series** (`includeSeries: false`), which is most of what
+  `analyze` costs. The one account the user then switches to is analyzed a second time with its
+  series. That duplicate beats building a series per account for a strip that draws none.
+- **The share split is always the whole position**, in every view. "How much of this is in which
+  account" is not a per-account number, and in a narrowed view it is the only thing on the screen
+  that still says what is elsewhere. Tapping the row you are already in goes back to all
+  accounts, so the strip is the way out as well as the way in.
+Verified:
+- `npm run check`: typecheck + lint + 457 tests (was 442; `accounts.test.ts` 15).
+- The acceptance check, in `accounts.test.ts`: per-account values and shadow values sum to the
+  all-accounts figures, per ticker and in total, on the synthetic fixture.
+- End to end against `npx wrangler dev` on the local QA fixture, driven with the Chrome
+  extension. A second holding of GOOD was added to `qa-fixture-2` for the session so a ticker
+  would live in two accounts. All accounts read $15,007 value added with the strip showing
+  qa-fixture $15.9K / +$13.9K and qa-fixture-2 $2,519 / +$1,106; switching to qa-fixture-2 put
+  `?account=qa-fixture-2` in the URL and narrowed every section (headline $1,106, two holdings,
+  rebuy and creators down to GOOD and SPLT, the chart rescaled). Tapping GOOD opened
+  `/stocks/GOOD?account=qa-fixture-2` with 5 shares and $930.01 added, the heading reading
+  "qa-fixture-2 only", and "Across accounts" showing qa-fixture 50 / $12.2K and qa-fixture-2 5 /
+  $1,224 - 55 shares and $13.5K, which is exactly the all-accounts holdings row. Tapping the
+  selected row cleared the parameter and the label. The fixture was restored to its original 8
+  transactions.
+- 390px screenshots in both themes, via playwright-core and the system Chromium (the same
+  pattern `scripts/screenshots.ts` uses), with no page errors and no 4xx: the switcher and the
+  comparison strip in the All view, the selected state with the cost-basis line, and the stock
+  screen's share split.
+Open issues:
+- The CDP screenshot path the Chrome extension uses timed out on every attempt this session, on
+  two tabs - the same flakiness task 18 logged. The functional checks were done through the
+  accessibility tree and page text instead, and the 390px images came from the Playwright
+  shooter, which is the more reliable of the two for this anyway.
+- `accountSummaries` runs one `analyze` per account on every ledger change, eagerly, so a ledger
+  with many accounts pays for the strip even while looking at a single account's view. Two
+  accounts on real data; worth making lazy if that ever changes.
+- The stock screen's headline footnote still reads "Your picks against…" in a narrowed view,
+  where the dashboard's names the account. The heading beside the ticker already says which view
+  it is, so this is a wording nicety rather than a wrong number.

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api, ApiError, NotAuthenticatedError } from '../api/client'
 import type { FairValueRow } from '../api/types'
 import { usePortfolioData } from '../data/usePortfolioData'
@@ -7,6 +7,8 @@ import { delistedCandidates, isClosedPosition } from '../engine'
 import { discountFrom, latestFairValues, splitAdjustedValue } from '../engine/fairValue'
 import { ClosePositionSheet } from './ClosePosition'
 import {
+  AccountStrip,
+  AccountSwitcher,
   Button,
   Card,
   ChartSkeleton,
@@ -27,6 +29,7 @@ import {
   StatTile,
   StatusBadge,
   useToast,
+  type AccountStripRow,
   type ChartRange,
   type Column,
 } from '../ui'
@@ -34,20 +37,63 @@ import type { TickerAnalysis } from '../engine'
 
 /**
  * SPEC section 9's first screen: within five seconds, am I beating VOO, and what looks cheap.
- * Every number here is read off `usePortfolioData().result` (task 09's `analyze` cache) or the
+ * Every number here is read off `usePortfolioData().resultFor` (task 09's `analyze` cache) or the
  * fair-value API - nothing is recomputed, per CLAUDE.md, beyond the SPEC section 7 formulas
  * (the current estimate per ticker, its split adjustment, and the discount) that live in
  * `src/engine/fairValue.ts`, a module `analyze` never touches because fair value is outside its
  * domain entirely.
+ *
+ * Task 19 made the whole screen switchable: `view` is either the all-accounts analysis or one
+ * account's own, and every section below reads `view` rather than the summed result. The
+ * selection lives in `?account=` so the back button and a refresh both keep it, and it rides
+ * along on every link out to a stock so the detail screen opens in the same view.
  */
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const toast = useToast()
-  const { loading, error, result, prices, hiddenTickers } = usePortfolioData()
+  const { loading, error, prices, hiddenTickers, accounts, accountSummaries, resultFor } =
+    usePortfolioData()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [fairValueRows, setFairValueRows] = useState<FairValueRow[] | null>(null)
   const [range, setRange] = useState<ChartRange>('1Y')
   const [closing, setClosing] = useState<string | null>(null)
+
+  /**
+   * A label that is not in the ledger - a stale bookmark, or a renamed account - falls back to
+   * the summed view. The alternative is a screen of zeroes with no way to tell why.
+   */
+  const requestedAccount = searchParams.get('account')
+  const account =
+    requestedAccount !== null && accounts.includes(requestedAccount) ? requestedAccount : null
+
+  const selectAccount = useCallback(
+    (next: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev)
+          if (next === null) params.delete('account')
+          else params.set('account', next)
+          return params
+        },
+        // A push, not a replace: switching views is a step the back button should undo.
+        { replace: false },
+      )
+    },
+    [setSearchParams],
+  )
+
+  /** The analysis every section below reads. `null` account means all of them, summed. */
+  const view = resultFor(account)
+
+  /** Links out carry the view, so the stock screen opens on the same account. */
+  const stockPath = useCallback(
+    (ticker: string) =>
+      account === null
+        ? `/stocks/${ticker}`
+        : `/stocks/${ticker}?account=${encodeURIComponent(account)}`,
+    [account],
+  )
 
   const report = useCallback(
     (err: unknown) => {
@@ -95,18 +141,17 @@ export default function Dashboard() {
    */
   const heldTickers = useMemo(
     () =>
-      result
-        ? result.byTicker.filter((t) => !isClosedPosition(t) && !hiddenTickers.includes(t.ticker))
+      view
+        ? view.byTicker.filter((t) => !isClosedPosition(t) && !hiddenTickers.includes(t.ticker))
         : [],
-    [result, hiddenTickers],
+    [view, hiddenTickers],
   )
 
   const hiddenOpenCount = useMemo(
     () =>
-      (result?.byTicker ?? []).filter(
-        (t) => !isClosedPosition(t) && hiddenTickers.includes(t.ticker),
-      ).length,
-    [result, hiddenTickers],
+      (view?.byTicker ?? []).filter((t) => !isClosedPosition(t) && hiddenTickers.includes(t.ticker))
+        .length,
+    [view, hiddenTickers],
   )
 
   /**
@@ -115,12 +160,12 @@ export default function Dashboard() {
    * already hidden is left out: the user has said they do not want to see it.
    */
   const delisted = useMemo(() => {
-    if (!result) return []
+    if (!view) return []
     return delistedCandidates({
-      ...result,
-      benchmarkCloseDate: prices[result.benchmark]?.asOf ?? null,
+      ...view,
+      benchmarkCloseDate: prices[view.benchmark]?.asOf ?? null,
     }).filter((c) => !hiddenTickers.includes(c.ticker))
-  }, [result, prices, hiddenTickers])
+  }, [view, prices, hiddenTickers])
 
   const rebuy = useMemo(() => {
     const ranked: { ticker: string; discount: string; price: string; fairValue: string }[] = []
@@ -146,14 +191,14 @@ export default function Dashboard() {
   }, [heldTickers, currentFairValue])
 
   const series = useMemo(() => {
-    if (!result?.series) return { dates: [], value: [], shadow: [] }
-    const start = rangeStart(result.series.dates, range)
+    if (!view?.series) return { dates: [], value: [], shadow: [] }
+    const start = rangeStart(view.series.dates, range)
     return {
-      dates: result.series.dates.slice(start),
-      value: result.series.value.slice(start),
-      shadow: result.series.shadow.slice(start),
+      dates: view.series.dates.slice(start),
+      value: view.series.value.slice(start),
+      shadow: view.series.shadow.slice(start),
     }
-  }, [result, range])
+  }, [view, range])
 
   /**
    * SPEC 9 put every ticker ever held in this chart. Narrowed at the user's request to
@@ -165,7 +210,7 @@ export default function Dashboard() {
    * that.
    */
   const creators = useMemo(() => {
-    const rows = result?.byTicker ?? []
+    const rows = view?.byTicker ?? []
     const open = rows.filter((t) => !isClosedPosition(t))
     return {
       items: open
@@ -174,7 +219,25 @@ export default function Dashboard() {
       closed: rows.length - open.length,
       unpriced: open.filter((t) => t.latestClose === null).length,
     }
-  }, [result])
+  }, [view])
+
+  /** The strip's rows: the data layer's summaries, formatted by the kit's own formatters. */
+  const accountRows = useMemo<AccountStripRow[]>(
+    () =>
+      accountSummaries.map((summary) => ({
+        account: summary.account,
+        figure: moneyCompact(summary.currentValue),
+        delta: (
+          <SignedDelta
+            value={summary.valueAdded}
+            format="moneyCompact"
+            size="sm"
+            describe={{ up: 'beat VOO by', down: 'trailed VOO by' }}
+          />
+        ),
+      })),
+    [accountSummaries],
+  )
 
   const creatorsSubtitle = useMemo(() => {
     const hidden: string[] = []
@@ -300,7 +363,7 @@ export default function Dashboard() {
     return <EmptyState title="Could not load your data" body={error} />
   }
 
-  if (!result) {
+  if (!view) {
     return (
       <EmptyState
         title="No comparison yet"
@@ -314,14 +377,33 @@ export default function Dashboard() {
     )
   }
 
-  const { portfolio } = result
+  const { portfolio } = view
   const irrTrend =
-    result.series && result.series.value.length >= 2
-      ? { values: result.series.value.slice(-90), label: 'Portfolio value, last 90 trading days' }
+    view.series && view.series.value.length >= 2
+      ? { values: view.series.value.slice(-90), label: 'Portfolio value, last 90 trading days' }
       : undefined
 
   return (
     <div className="flex flex-col gap-7">
+      {/*
+       * Renders nothing with one account, so a single-account ledger reads exactly as it did
+       * before task 19. The line under it only appears once a view is narrowed - it is where
+       * the cost-basis caveat belongs, since that is the one number that is not just a slice
+       * of the summed figure (SPEC section 4, and the Decision log).
+       */}
+      {accounts.length > 1 && (
+        <section>
+          <AccountSwitcher accounts={accounts} value={account} onChange={selectAccount} />
+          {account !== null && (
+            <p className="mt-1 max-w-prose text-small text-ink-muted">
+              {account} only. Cost basis here is this account&rsquo;s own average cost, not the
+              pooled one, so realized and unrealized gain are split differently from the
+              all-accounts view - their total is the same.
+            </p>
+          )}
+        </section>
+      )}
+
       <section>
         <SectionHeading>Headline</SectionHeading>
         <Card>
@@ -334,7 +416,11 @@ export default function Dashboard() {
               format: 'percent',
               describe: { up: 'ahead of VOO by', down: 'behind VOO by' },
             }}
-            footnote="Your picks against the same dollars in VOO on the same dates."
+            footnote={
+              account === null
+                ? 'Your picks against the same dollars in VOO on the same dates.'
+                : `${account} only: its picks against the same dollars in VOO on the same dates.`
+            }
           />
           <div className="mt-5 grid grid-cols-2 gap-5 border-t border-rule pt-4 md:grid-cols-4">
             <StatTile label="Portfolio value" value={moneyCompact(portfolio.currentValue)} />
@@ -347,24 +433,41 @@ export default function Dashboard() {
             <StatTile label="VOO IRR" value={percent(portfolio.shadowIrr, { sign: false })} />
           </div>
           {/*
+           * The comparison strip, in the summed view only - inside the one account's view the
+           * strip would just be the headline above it repeated. Value and value added are the
+           * two measures that do sum to that headline, which is why they are the two here.
+           */}
+          {account === null && accountSummaries.length > 0 && (
+            <div className="mt-4 border-t border-rule pt-4">
+              <Label>By account</Label>
+              <div className="mt-2">
+                <AccountStrip rows={accountRows} onSelect={selectAccount} />
+              </div>
+              <p className="mt-2 max-w-prose text-small text-ink-muted">
+                Value and value added, per account. They add up to the headline above. Tap one to
+                narrow every section below to it.
+              </p>
+            </div>
+          )}
+          {/*
            * `analyze` reports still-held tickers it could not price (ENGINE_API: "they read as
            * value 0"), and until this block nothing showed them - every total above was quietly
            * short by whatever they are worth. SPEC section 8 lists per-ticker fetch failures on
            * the Update screen; this is the same fact where the affected numbers actually are.
            */}
-          {result.missingPrices.length > 0 && (
+          {view.missingPrices.length > 0 && (
             <div className="mt-4 border-t border-rule pt-4">
               <StatusBadge status="warning">
-                {result.missingPrices.length} holding
-                {result.missingPrices.length === 1 ? '' : 's'} with no stored price, counted as $0
+                {view.missingPrices.length} holding
+                {view.missingPrices.length === 1 ? '' : 's'} with no stored price, counted as $0
               </StatusBadge>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {/* Now tappable 44px pills that navigate to the stock detail screen. */}
-                {result.missingPrices.map((ticker) => (
+                {view.missingPrices.map((ticker) => (
                   <button
                     key={ticker}
                     type="button"
-                    onClick={() => navigate(`/stocks/${ticker}`)}
+                    onClick={() => navigate(stockPath(ticker))}
                     className="rounded-full border border-rule px-2 py-0.5 font-mono text-small min-h-11 flex items-center hover:bg-sunken transition-colors duration-[120ms]"
                   >
                     {ticker}
@@ -456,7 +559,7 @@ export default function Dashboard() {
                 <button
                   key={item.ticker}
                   type="button"
-                  onClick={() => navigate(`/stocks/${item.ticker}`)}
+                  onClick={() => navigate(stockPath(item.ticker))}
                   className="-mx-4 -my-2 px-4 py-2 text-left hover:bg-sunken"
                 >
                   <DiscountMeter
@@ -475,7 +578,7 @@ export default function Dashboard() {
                       <button
                         key={ticker}
                         type="button"
-                        onClick={() => navigate(`/stocks/${ticker}`)}
+                        onClick={() => navigate(stockPath(ticker))}
                         className="rounded-full border border-rule px-2 py-0.5 font-mono text-small min-h-11 flex items-center hover:bg-sunken transition-colors duration-[120ms]"
                       >
                         {ticker}
@@ -505,7 +608,7 @@ export default function Dashboard() {
             rowKey={(row) => row.ticker}
             caption="Current holdings"
             initialSort={{ key: 'valueAdded', direction: 'desc' }}
-            onRowSelect={(row) => navigate(`/stocks/${row.ticker}`)}
+            onRowSelect={(row) => navigate(stockPath(row.ticker))}
             rowAction={(row) => (
               <Button
                 onClick={() => setClosing(row.ticker)}
@@ -546,7 +649,7 @@ export default function Dashboard() {
         <DivergingBars
           items={creators.items}
           subtitle={creatorsSubtitle}
-          onSelect={(ticker) => navigate(`/stocks/${ticker}`)}
+          onSelect={(ticker) => navigate(stockPath(ticker))}
         />
       </section>
 

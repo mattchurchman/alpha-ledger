@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api } from '../api/client'
 import type { MetaMap, StoredPriceHistory, TickerAlias, TransactionRow } from '../api/types'
-import { analyze, DEFAULT_BENCHMARK, isClosedPosition, type AnalyzeResult } from '../engine'
+import {
+  accountLabels,
+  analyze,
+  analyzeAccount,
+  DEFAULT_BENCHMARK,
+  isClosedPosition,
+  type AnalyzeResult,
+} from '../engine'
 import type { PriceHistory } from '../engine/prices/types'
 import {
   HIDDEN_TICKERS_KEY,
@@ -16,7 +23,12 @@ import {
   tickersEverHeld,
   type UpdateOutcome,
 } from './marketData'
-import { PortfolioDataContext, type PortfolioData, type UpdateState } from './usePortfolioData'
+import {
+  PortfolioDataContext,
+  type AccountSummary,
+  type PortfolioData,
+  type UpdateState,
+} from './usePortfolioData'
 
 /**
  * The data hook task 09 asks for: loads transactions, prices and aliases once, runs `analyze`,
@@ -112,6 +124,75 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
     }
   }, [transactions, prices, aliases])
 
+  const accounts = useMemo(() => accountLabels(transactions), [transactions])
+
+  /**
+   * The per-account cache (task 19). The engine's own inputs are held alongside the `Map` so
+   * that a new ledger or a new price set replaces the whole object - an account view can never
+   * be served from a set of transactions it was not computed from.
+   */
+  const accountViews = useMemo(
+    () => ({ transactions, prices, aliases, cache: new Map<string, AnalyzeResult | null>() }),
+    [transactions, prices, aliases],
+  )
+
+  const resultFor = useCallback(
+    (account: string | null): AnalyzeResult | null => {
+      if (account === null) return result
+      if (!result) return null
+
+      const cached = accountViews.cache.get(account)
+      if (cached !== undefined) return cached
+
+      let next: AnalyzeResult | null
+      try {
+        next = analyzeAccount({
+          transactions: accountViews.transactions,
+          prices: accountViews.prices,
+          aliases: accountViews.aliases,
+          asOf: result.asOf,
+          account,
+        })
+      } catch {
+        next = null
+      }
+      accountViews.cache.set(account, next)
+      return next
+    },
+    [result, accountViews],
+  )
+
+  /**
+   * The strip's rows, built without the daily series: it needs four numbers per account, and
+   * the series is most of what `analyze` costs. The one account the user then switches to is
+   * analyzed again by `resultFor`, with its series - a second pass over one account's rows,
+   * which is cheaper than building a series per account for a strip that shows none.
+   */
+  const accountSummaries = useMemo<AccountSummary[]>(() => {
+    if (!result || accounts.length < 2) return []
+    try {
+      return accounts.map((account) => {
+        const { portfolio } = analyzeAccount({
+          transactions,
+          prices,
+          aliases,
+          asOf: result.asOf,
+          account,
+          includeSeries: false,
+        })
+        return {
+          account,
+          currentValue: portfolio.currentValue,
+          shadowValue: portfolio.shadowValue,
+          valueAdded: portfolio.valueAdded,
+          percentDifference: portfolio.percentDifference,
+        }
+      })
+    } catch {
+      return []
+    }
+  }, [result, accounts, transactions, prices, aliases])
+
   const hiddenTickers = useMemo(() => parseHiddenTickers(meta[HIDDEN_TICKERS_KEY]), [meta])
 
   const setTickerHidden = useCallback(
@@ -203,6 +284,9 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
     meta,
     hiddenTickers,
     result,
+    accounts,
+    accountSummaries,
+    resultFor,
     pricesAsOf,
     update,
     runUpdate,

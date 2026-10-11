@@ -20,6 +20,19 @@ export interface UpdateState {
   lastRunAt: string | null
 }
 
+/**
+ * One row of the Dashboard's account comparison strip (task 19). Every field is read straight
+ * off that account's own `analyze` result - the strip does no arithmetic of its own, and these
+ * are full-precision decimal strings like everything else the engine returns.
+ */
+export interface AccountSummary {
+  account: string
+  currentValue: string
+  shadowValue: string
+  valueAdded: string
+  percentDifference: string | null
+}
+
 export interface PortfolioData {
   loading: boolean
   error: string | null
@@ -36,6 +49,20 @@ export interface PortfolioData {
   hiddenTickers: string[]
   /** null until VOO has a stored history - there is nothing to compare against before that. */
   result: AnalyzeResult | null
+  /** Every `account_label` in the ledger, sorted. One entry means there is nothing to switch. */
+  accounts: string[]
+  /**
+   * One summary per account, for the comparison strip. Empty when there is only one account
+   * (or none) - there is no comparison to draw, and running `analyze` again would be waste.
+   */
+  accountSummaries: AccountSummary[]
+  /**
+   * The analysis a screen should show: `result` for `null` ("All accounts"), otherwise that
+   * one account's own, memoised on first ask. SPEC section 4 pools cost basis across accounts,
+   * so a single-account view is a fresh `analyze` over its rows and not a slice of the totals.
+   * Null when there is no comparison yet, exactly like `result`.
+   */
+  resultFor: (account: string | null) => AnalyzeResult | null
   pricesAsOf: PricesAsOf
   update: UpdateState
   /** Fetches VOO plus every ticker ever held and stores each series. SPEC 8's one action. */

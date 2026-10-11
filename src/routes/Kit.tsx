@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import {
+  AccountStrip,
+  AccountSwitcher,
   BottomSheet,
   Button,
   Card,
@@ -28,6 +30,8 @@ import {
 } from '../ui'
 import {
   DEMO_DAYS,
+  accountSummaries,
+  accounts as demoAccounts,
   creators,
   estimates,
   headline,
@@ -49,6 +53,7 @@ export default function Kit() {
   const toast = useToast()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [historyRange, setHistoryRange] = useState<ChartRange>('1Y')
+  const [demoAccount, setDemoAccount] = useState<string | null>(null)
   const historyStart = rangeStart(history.dates, historyRange)
 
   const columns: Column<DemoHolding>[] = [
@@ -154,6 +159,41 @@ export default function Kit() {
             />
             <StatTile label="VOO IRR" value={percent(headline.shadowIrr, { sign: false })} />
           </div>
+        </Card>
+      </section>
+
+      <section>
+        <SectionHeading>Account switcher and comparison strip</SectionHeading>
+        <AccountSwitcher
+          accounts={demoAccounts}
+          value={demoAccount}
+          onChange={setDemoAccount}
+          label="Account (demo)"
+        />
+        <Card className="mt-3">
+          <Label>By account</Label>
+          <div className="mt-2">
+            <AccountStrip
+              rows={accountSummaries.map((summary) => ({
+                account: summary.account,
+                figure: moneyCompact(summary.currentValue),
+                delta: (
+                  <SignedDelta
+                    value={summary.valueAdded}
+                    format="moneyCompact"
+                    size="sm"
+                    describe={{ up: 'beat VOO by', down: 'trailed VOO by' }}
+                  />
+                ),
+                selected: summary.account === demoAccount,
+              }))}
+              onSelect={setDemoAccount}
+            />
+          </div>
+          <p className="mt-2 max-w-prose text-small text-ink-muted">
+            The switcher disappears below two accounts. A selected row is marked rather than
+            recoloured, so the state survives greyscale.
+          </p>
         </Card>
       </section>
 

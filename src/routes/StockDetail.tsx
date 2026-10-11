@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError, NotAuthenticatedError } from '../api/client'
 import type { FairValueRow } from '../api/types'
-import { isClosedPosition, tickerDecisions, tickerSeries, type BuyDecision } from '../engine'
+import {
+  isClosedPosition,
+  sharesByAccount,
+  tickerDecisions,
+  tickerSeries,
+  type BuyDecision,
+} from '../engine'
 import { splitAdjustedHistory } from '../engine/fairValue'
 import { usePortfolioData } from '../data/usePortfolioData'
 import { ClosePositionSheet } from './ClosePosition'
 import {
+  AccountStrip,
   BackIcon,
   Button,
   Card,
@@ -28,13 +35,14 @@ import {
   toNumber,
   useToast,
   type ChartRange,
+  type AccountStripRow,
   type Column,
   type HistoryChartMarker,
 } from '../ui'
 
 /**
  * SPEC section 9's second screen: for one ticker, did owning it beat VOO, and which buys
- * were good. Every measure is read off `usePortfolioData().result` (task 09's `analyze`
+ * were good. Every measure is read off `usePortfolioData().resultFor` (task 09's `analyze`
  * cache) and the two on-demand helpers `docs/ENGINE_API.md` describes - `tickerSeries` and
  * `tickerDecisions` - rather than recomputed here (CLAUDE.md).
  *
@@ -42,13 +50,50 @@ import {
  * holdings table and value-creators chart (closed positions only show up there), and
  * Activity's ticker column. Works for a closed position because `valueAdded` and the
  * decision list are both defined when `shares` and `currentValue` are zero (SPEC section 6).
+ *
+ * Task 19: `?account=` narrows every number on the screen to one account, the same parameter
+ * the Dashboard uses and passes along in its links, so arriving from a filtered dashboard
+ * keeps the view. The share split below the headline is always the whole position, whichever
+ * view is selected - it is the one thing on the screen that is about where the shares live
+ * rather than about one account's numbers.
  */
 export default function StockDetail() {
   const navigate = useNavigate()
   const toast = useToast()
   const params = useParams<{ ticker: string }>()
   const ticker = (params.ticker ?? '').toUpperCase()
-  const { loading, error, result, prices, hiddenTickers, setTickerHidden } = usePortfolioData()
+  const {
+    loading,
+    error,
+    prices,
+    hiddenTickers,
+    setTickerHidden,
+    transactions,
+    aliases,
+    accounts,
+    resultFor,
+  } = usePortfolioData()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  /** An unknown label falls back to the summed view, exactly as on the Dashboard. */
+  const requestedAccount = searchParams.get('account')
+  const account =
+    requestedAccount !== null && accounts.includes(requestedAccount) ? requestedAccount : null
+
+  const selectAccount = useCallback(
+    (next: string | null) => {
+      setSearchParams((prev) => {
+        const next_ = new URLSearchParams(prev)
+        if (next === null) next_.delete('account')
+        else next_.set('account', next)
+        return next_
+      })
+    },
+    [setSearchParams],
+  )
+
+  /** The analysis this screen reads: all accounts, or the one `?account=` names. */
+  const view = resultFor(account)
 
   const [fairValueRows, setFairValueRows] = useState<FairValueRow[] | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
@@ -148,11 +193,33 @@ export default function StockDetail() {
   ]
 
   const analysis = useMemo(
-    () => result?.byTicker.find((t) => t.ticker === ticker) ?? null,
-    [result, ticker],
+    () => view?.byTicker.find((t) => t.ticker === ticker) ?? null,
+    [view, ticker],
   )
 
-  const series = useMemo(() => (result ? tickerSeries(result, ticker) : null), [result, ticker])
+  /**
+   * Where this position's shares actually live. Always the whole position, in every view: "how
+   * much of this is in which account" is not a per-account number, and in a narrowed view it is
+   * the only thing on the screen that still says what is elsewhere. Nothing is shown when the
+   * ticker only ever traded in one account - there is no split to report.
+   */
+  const accountSplit = useMemo<AccountStripRow[]>(() => {
+    if (!view) return []
+    const rows = sharesByAccount({ transactions, prices, aliases, asOf: view.asOf, ticker })
+    if (rows.length < 2) return []
+    return rows.map((row) => ({
+      account: row.account,
+      figure: formatShares(row.shares),
+      delta: (
+        <span className="text-small tabular-nums text-ink-secondary">
+          {moneyCompact(row.currentValue)}
+        </span>
+      ),
+      selected: row.account === account,
+    }))
+  }, [view, transactions, prices, aliases, ticker, account])
+
+  const series = useMemo(() => (view ? tickerSeries(view, ticker) : null), [view, ticker])
 
   /** `series`, windowed to the selected range - same helper and behaviour as the Dashboard chart. */
   const windowedSeries = useMemo(() => {
@@ -165,7 +232,7 @@ export default function StockDetail() {
     }
   }, [series, range])
 
-  const decisions = useMemo(() => (result ? tickerDecisions(result, ticker) : []), [result, ticker])
+  const decisions = useMemo(() => (view ? tickerDecisions(view, ticker) : []), [view, ticker])
 
   const markers = useMemo<HistoryChartMarker[]>(() => {
     // A buy or sell from before the visible window would otherwise snap to the window's left
@@ -261,7 +328,7 @@ export default function StockDetail() {
     )
   }
 
-  if (!result) {
+  if (!view) {
     return (
       <div className="flex flex-col gap-4">
         {back}
@@ -319,6 +386,10 @@ export default function StockDetail() {
           {ticker}
           {closed && <span className="ml-2 text-small font-normal text-ink-muted">Closed</span>}
           {hidden && <span className="ml-2 text-small font-normal text-ink-muted">Hidden</span>}
+          {/* Which view these numbers are: without it a narrowed screen looks like the whole position. */}
+          {account !== null && (
+            <span className="ml-2 text-small font-normal text-ink-muted">{account} only</span>
+          )}
         </SectionHeading>
         <Card>
           <StatTile
@@ -396,6 +467,30 @@ export default function StockDetail() {
           </div>
         </Card>
       </section>
+
+      {accountSplit.length > 0 && (
+        <section>
+          <SectionHeading>Across accounts</SectionHeading>
+          <Card>
+            <AccountStrip
+              rows={accountSplit}
+              // Tapping the row you are already in goes back to all accounts, so the strip is
+              // the way out of a narrowed view as well as the way in.
+              onSelect={(next) => selectAccount(next === account ? null : next)}
+              describe={(name) =>
+                name === account
+                  ? `Show ${ticker} across all accounts`
+                  : `Show ${ticker} in ${name} only`
+              }
+            />
+            <p className="mt-3 max-w-prose text-small text-ink-muted">
+              Shares and current value per account - the whole position, whichever view you are in.
+              Tap one to narrow this screen to it, or tap the one you are in to go back to all
+              accounts. An account that held it and sold out is still listed, at zero shares.
+            </p>
+          </Card>
+        </section>
+      )}
 
       <section>
         <SectionHeading>Position versus VOO</SectionHeading>

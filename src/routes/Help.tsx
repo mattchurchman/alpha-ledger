@@ -156,6 +156,22 @@ export default function Help() {
             The answer to the first question, top to bottom. <Here to="/">Open it</Here>.
           </p>
           <dl className="flex flex-col gap-4">
+            <Term word="All accounts, or one">
+              If your ledger has more than one account label, a row of buttons sits above the
+              headline: <strong className="font-medium text-ink">All accounts</strong> plus one per
+              account. Picking one narrows <em>every</em> section below it - headline, history,
+              rebuy, holdings and the creators chart - to that account alone. The choice is in the
+              address, so a refresh and the back button both keep it, and tapping a ticker opens
+              that stock in the same view. With one account there is nothing to switch and the row
+              does not appear. One number changes meaning in a narrowed view, and the line under the
+              buttons says so: cost basis becomes that account&rsquo;s own average cost, which
+              splits the same total return differently between realized and unrealized.
+            </Term>
+            <Term word="By account">
+              In the All view, one line per account under the headline tiles: what it is worth, and
+              how it did against the same dollars in VOO. These two do add up to the headline above
+              them. Tap a line to switch to that account.
+            </Term>
             <Term word="Headline">
               <strong className="font-medium text-ink">Value added vs VOO</strong> is the one number
               the app exists for: what your holdings are worth today minus what the same dollars put
@@ -224,7 +240,16 @@ export default function Help() {
               so, because the current value beside it then reads as $0 rather than as a real
               valuation. A position you have closed still has all of these: its current value is
               zero, and the comparison is proceeds plus dividends against what VOO would have done
-              with the same cash flows. Closed positions are labelled, and so are hidden ones.
+              with the same cash flows. Closed positions are labelled, and so are hidden ones. If
+              you arrived from a dashboard narrowed to one account, every number here is that
+              account&rsquo;s, and the heading beside the ticker says which.
+            </Term>
+            <Term word="Across accounts">
+              Only when the ticker was traded in more than one account: shares and current value per
+              account, which always describe the whole position whichever view you are in. Tapping a
+              line narrows this screen and the Dashboard to that account; tapping the one you are
+              already in goes back to all of them. An account that held it and sold out stays
+              listed, at zero shares, because that is part of where the shares went.
             </Term>
             <Term word="Close or hide…">
               Beside the ticker, for any position that still holds shares. Three choices, and only

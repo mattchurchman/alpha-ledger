@@ -87,6 +87,27 @@ agree exactly on screen.
   ticker's `valueAdded` for a ticker that paid one. The ticker-level figure is the one to
   show as truth; this view answers "was this particular purchase a good idea".
 
+## One account at a time: `accounts.ts` and `analyzeAccount`
+
+Every transaction carries exactly one `account_label`, and `analyze` is pure, so one account
+is the same call over a filtered ledger with the same prices. SPEC section 9's dashboard
+switcher is built on these; the data layer memoises the result per account.
+
+| Function                                | |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `accountLabels(transactions)`            | the sorted distinct set. Rows marked `excluded` are left out, because the engine drops them too - offering such an account as a choice would open an empty screen.                                                                         |
+| `transactionsIn(transactions, account)` | that account's rows, in order. Equality on the label; a label is opaque and never parsed.                                                                                                                                                  |
+| `analyzeAccount(input)`                 | `analyze` plus an `account`. **Pass `asOf`** - the all-accounts result's own - so the parts are valued on the same day as the whole. It lives in `index.ts` rather than `accounts.ts` so that module need not import the front door back. |
+| `sharesByAccount(input)`                | how one ticker's shares split across accounts, as `{ account, shares, currentValue }[]`. Runs `computeHoldings` per account, not `analyze`: the answer is a share count and its value, so buckets, IRRs and the daily series would be waste. An account that traded the ticker and is now flat is kept, at zero shares; one that never traded it is left out. |
+
+**What sums and what does not.** The additive measures sum back to the all-accounts figures
+exactly, per ticker and in total: `currentValue`, `shadowValue`, `valueAdded`, `invested`,
+`returned`, `totalGain`, `shares`. The realized/unrealized split and `costBasis` do **not** -
+SPEC section 4 pools average cost across accounts, so a sale in one account is matched against
+that account's own average instead, which moves where a gain is booked without changing the
+total. `percentDifference`, `irr` and `shadowIrr` are ratios and never sum; read them per view.
+`accounts.test.ts` pins all three of those statements.
+
 ## Closing a position that is gone: `defunct.ts`
 
 Four helpers the screens use directly, all pure and none of them part of `analyze`. SPEC's
@@ -110,6 +131,7 @@ the benchmark from the settlement date. `defunct.test.ts` pins that to the cent.
 | `types.ts`     | `Transaction`, `TickerAlias`                                                  |
 | `calendar.ts`  | trading-day helpers; the "calendar" is always a price series' `dates`         |
 | `holdings.ts`  | the real side: shares, basis, gains, split adjustment, alias resolution       |
+| `accounts.ts`  | per-account views: the labels, the filter, and one ticker's split by account  |
 | `reconcile.ts` | reconstructed shares versus the broker's own counts                           |
 | `shadow.ts`    | the VOO buckets (SPEC section 5)                                              |
 | `returns.ts`   | IRR, value added, percent difference (SPEC section 6)                         |

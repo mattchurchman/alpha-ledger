@@ -100,7 +100,10 @@ export function HowCalculatedContent() {
               Cost basis is average cost, not tax lots.
             </strong>{' '}
             Realized and unrealized gain use one average cost per ticker across all accounts. That
-            is for reading on a screen, not for a tax return.
+            is for reading on a screen, not for a tax return. When you narrow the Dashboard to a
+            single account, that view uses <em>that account&rsquo;s</em> own average cost instead,
+            so the same total gain is split differently between realized and unrealized. Value, the
+            VOO equivalent and value added are unaffected: those do add up across accounts exactly.
           </li>
           <li>
             <strong className="font-medium text-ink">

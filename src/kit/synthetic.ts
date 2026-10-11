@@ -86,6 +86,19 @@ export const creators = [
   { label: 'NOVA', value: '-280.15' },
 ]
 
+/**
+ * Three accounts for the switcher and the comparison strip. One is behind VOO and one has a
+ * deliberately long label, which is what the strip's truncation and the switcher's scrolling
+ * row have to survive at 390px. They sum to `headline` the way the real ones do.
+ */
+export const accounts = ['Individual brokerage', 'Roth IRA', 'Traditional IRA']
+
+export const accountSummaries = [
+  { account: 'Individual brokerage', currentValue: '61420.00', valueAdded: '12840.55' },
+  { account: 'Roth IRA', currentValue: '38110.00', valueAdded: '4215.20' },
+  { account: 'Traditional IRA', currentValue: '19260.00', valueAdded: '-3120.80' },
+]
+
 export interface DemoHolding {
   ticker: string
   price: string
