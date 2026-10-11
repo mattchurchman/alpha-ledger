@@ -875,3 +875,20 @@ Open issues:
   screenshot. Worth remembering that stat-grid copy must not describe position.
 - The real ledger's unpriced tickers (previous entry) are what makes this footnote visible at
   all. Still unentered: the `BRK.B` and `CP.OLD` aliases.
+
+## Deploy the two Shares changes - 2026-10-11 - Opus
+Status: done, at the user's request right after the previous two commits.
+Deployed: version `21a41ef7-dc3e-43dc-9faf-3f0f0068acd5`, 3 new assets uploaded.
+Verified live:
+- `/` 200, the `/stocks/:ticker` deep link 200 (SPA fallback intact), `/sw.js` 200 still
+  reporting `alpha-ledger-v2`.
+- Signed out, `/api/transactions` 401; with a wrong bearer, 403. Unchanged auth contract.
+- The served bundle is byte-identical to the local `dist/` build (sha256 match), and contains
+  both changes: the Holdings `shares` column and the detail header's Shares tile with its
+  no-price footnote.
+Open issues:
+- Grep the minified bundle with **backticks**, not double quotes - esbuild emits
+  ``header:`Shares` ``, so the `"Shares"` spelling used in an earlier deploy check silently
+  finds nothing and reads as a failed deploy. Cost a few minutes here.
+- Per the service-worker entry further up, an already-open tab still needs one reload to pick
+  up the new shell. Nothing new.
