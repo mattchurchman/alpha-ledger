@@ -4,7 +4,7 @@ import { api, ApiError, NotAuthenticatedError } from '../api/client'
 import type { FairValueRow } from '../api/types'
 import { usePortfolioData } from '../data/usePortfolioData'
 import { discountFrom, latestFairValues, splitAdjustedValue } from '../engine/fairValue'
-import type { TickerAnalysis } from '../engine'
+import { isClosedPosition, type TickerAnalysis } from '../engine'
 import {
   Button,
   Card,
@@ -15,7 +15,6 @@ import {
   percent,
   SectionHeading,
   TextField,
-  toNumber,
   useToast,
   zoneFor,
   type Column,
@@ -28,14 +27,11 @@ import {
  * section 7), never edits one in place. The split-adjusted current estimate and the discount it
  * implies both come from `src/engine/fairValue.ts`; nothing here recomputes them.
  *
- * "Holdings" here means open positions, matching the Dashboard's own holdings table and rebuy
- * ranking - a closed ticker has no rebuy decision left to inform. Its full estimate history
- * (including delete) lives on the stock detail screen, reachable either way.
+ * "Holdings" here means open positions the user has not hidden, matching the Dashboard's own
+ * holdings table and rebuy ranking - a closed ticker has no rebuy decision left to inform, and a
+ * hidden one has been asked to go away (task 18). Either one's full estimate history (including
+ * delete) lives on the stock detail screen, reachable either way.
  */
-
-function isClosed(ticker: TickerAnalysis): boolean {
-  return (toNumber(ticker.shares) ?? 0) === 0
-}
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10)
@@ -54,7 +50,7 @@ function blankDraft(): Draft {
 export default function FairValues() {
   const navigate = useNavigate()
   const toast = useToast()
-  const { loading, error, result, prices } = usePortfolioData()
+  const { loading, error, result, prices, hiddenTickers } = usePortfolioData()
   const [fairValueRows, setFairValueRows] = useState<FairValueRow[] | null>(null)
   const [target, setTarget] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft>(blankDraft())
@@ -105,8 +101,19 @@ export default function FairValues() {
   }, [latestFairValue, prices])
 
   const heldTickers = useMemo(
-    () => (result ? result.byTicker.filter((t) => !isClosed(t)) : []),
-    [result],
+    () =>
+      result
+        ? result.byTicker.filter((t) => !isClosedPosition(t) && !hiddenTickers.includes(t.ticker))
+        : [],
+    [result, hiddenTickers],
+  )
+
+  const hiddenOpenCount = useMemo(
+    () =>
+      (result?.byTicker ?? []).filter(
+        (t) => !isClosedPosition(t) && hiddenTickers.includes(t.ticker),
+      ).length,
+    [result, hiddenTickers],
   )
 
   function openFor(ticker: string) {
@@ -246,6 +253,12 @@ export default function FairValues() {
             />
           }
         />
+        {hiddenOpenCount > 0 && (
+          <p className="mt-3 text-small text-ink-muted">
+            {hiddenOpenCount} hidden holding{hiddenOpenCount === 1 ? '' : 's'} left out. Hiding
+            changes no number anywhere - unhide in Settings.
+          </p>
+        )}
       </Card>
 
       <BottomSheet

@@ -72,6 +72,12 @@ export interface UpdateFailure {
 export interface UpdateOutcome {
   succeeded: string[]
   failed: UpdateFailure[]
+  /**
+   * Fetches that failed where failing is the expected answer - a company that no longer
+   * trades, whose history is already stored. Reported separately so SPEC 8's per-ticker
+   * failure list stays a list of things actually worth fixing (task 18).
+   */
+  tolerated: UpdateFailure[]
 }
 
 export interface RunMarketUpdateOptions {
@@ -81,18 +87,26 @@ export interface RunMarketUpdateOptions {
   fetchPrice: (ticker: string) => Promise<PriceHistory>
   storePrice: (ticker: string, history: PriceHistory) => Promise<void>
   onProgress?: (done: number, total: number) => void
+  /**
+   * Tickers whose failure belongs in `tolerated` rather than `failed`. The caller decides
+   * what qualifies; `PortfolioData` passes closed positions that already have stored
+   * history, since a delisted symbol can never be fetched again and nothing is lost by it.
+   */
+  tolerateFailure?: (ticker: string) => boolean
 }
 
 /**
  * Fetches and stores every ticker with limited concurrency. One retry per ticker, and a
  * failing ticker never blocks the others - both are SPEC 8 / task 09 acceptance criteria, not
- * just performance choices.
+ * just performance choices. A ticker is still always fetched; `tolerateFailure` only changes
+ * how its failure is reported, never whether it is tried.
  */
 export async function runMarketUpdate(options: RunMarketUpdateOptions): Promise<UpdateOutcome> {
-  const { tickers, fetchPrice, storePrice, onProgress } = options
+  const { tickers, fetchPrice, storePrice, onProgress, tolerateFailure } = options
   const concurrency = Math.max(1, Math.min(options.concurrency ?? 3, tickers.length || 1))
   const succeeded: string[] = []
   const failed: UpdateFailure[] = []
+  const tolerated: UpdateFailure[] = []
   let done = 0
   let next = 0
 
@@ -114,7 +128,9 @@ export async function runMarketUpdate(options: RunMarketUpdateOptions): Promise<
         await storePrice(ticker, history)
         succeeded.push(ticker)
       } catch (err) {
-        failed.push({ ticker, error: err instanceof Error ? err.message : String(err) })
+        const failure = { ticker, error: err instanceof Error ? err.message : String(err) }
+        if (tolerateFailure?.(ticker)) tolerated.push(failure)
+        else failed.push(failure)
       } finally {
         done++
         onProgress?.(done, tickers.length)
@@ -124,9 +140,11 @@ export async function runMarketUpdate(options: RunMarketUpdateOptions): Promise<
 
   await Promise.all(Array.from({ length: Math.min(concurrency, tickers.length) }, () => worker()))
 
+  const byTicker = (a: UpdateFailure, b: UpdateFailure) => a.ticker.localeCompare(b.ticker)
   return {
     succeeded: succeeded.sort(),
-    failed: failed.sort((a, b) => a.ticker.localeCompare(b.ticker)),
+    failed: failed.sort(byTicker),
+    tolerated: tolerated.sort(byTicker),
   }
 }
 

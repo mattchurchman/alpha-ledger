@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, NotAuthenticatedError } from '../api/client'
 import type { FairValueRow } from '../api/types'
-import { tickerDecisions, tickerSeries, type BuyDecision } from '../engine'
+import { isClosedPosition, tickerDecisions, tickerSeries, type BuyDecision } from '../engine'
 import { splitAdjustedHistory } from '../engine/fairValue'
 import { usePortfolioData } from '../data/usePortfolioData'
+import { ClosePositionSheet } from './ClosePosition'
 import {
   BackIcon,
   Button,
@@ -47,11 +48,13 @@ export default function StockDetail() {
   const toast = useToast()
   const params = useParams<{ ticker: string }>()
   const ticker = (params.ticker ?? '').toUpperCase()
-  const { loading, error, result, prices } = usePortfolioData()
+  const { loading, error, result, prices, hiddenTickers, setTickerHidden } = usePortfolioData()
 
   const [fairValueRows, setFairValueRows] = useState<FairValueRow[] | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [range, setRange] = useState<ChartRange>('1Y')
+  const [closing, setClosing] = useState<string | null>(null)
+  const [unhiding, setUnhiding] = useState(false)
 
   const report = useCallback(
     (err: unknown) => {
@@ -287,17 +290,35 @@ export default function StockDetail() {
     )
   }
 
-  const closed = (toNumber(analysis.shares) ?? 0) === 0
+  const closed = isClosedPosition(analysis)
   const shadowNegative = (toNumber(analysis.shadowValue) ?? 0) < 0
+  const hidden = hiddenTickers.includes(ticker)
+
+  async function unhide() {
+    setUnhiding(true)
+    try {
+      await setTickerHidden(ticker, false)
+      toast.show(`${ticker} is back in your lists.`, { status: 'good' })
+    } catch (err) {
+      report(err)
+    } finally {
+      setUnhiding(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-7">
       {back}
 
       <section>
-        <SectionHeading>
+        <SectionHeading
+          action={
+            closed ? undefined : <Button onClick={() => setClosing(ticker)}>Close or hide…</Button>
+          }
+        >
           {ticker}
           {closed && <span className="ml-2 text-small font-normal text-ink-muted">Closed</span>}
+          {hidden && <span className="ml-2 text-small font-normal text-ink-muted">Hidden</span>}
         </SectionHeading>
         <Card>
           <StatTile
@@ -338,6 +359,17 @@ export default function StockDetail() {
             <StatTile label="Your IRR" value={percent(analysis.irr, { sign: false })} />
             <StatTile label="VOO IRR" value={percent(analysis.shadowIrr, { sign: false })} />
           </div>
+          {hidden && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-rule pt-4">
+              <p className="max-w-prose text-small text-ink-secondary">
+                Hidden from Holdings, Rebuy opportunities and Fair values. Every number on this
+                screen, and every total on the Dashboard, still counts it in full.
+              </p>
+              <Button disabled={unhiding} onClick={() => void unhide()}>
+                {unhiding ? 'Saving…' : 'Unhide'}
+              </Button>
+            </div>
+          )}
         </Card>
       </section>
 
@@ -435,6 +467,8 @@ export default function StockDetail() {
           />
         </Card>
       </section>
+
+      <ClosePositionSheet ticker={closing} onClose={() => setClosing(null)} />
     </div>
   )
 }

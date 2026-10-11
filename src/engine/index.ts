@@ -167,6 +167,27 @@ export function tickerDecisions(result: AnalyzeResult, ticker: string): BuyDecis
   return decisionsFrom(adjusted, prices, benchmarkHistory, asOf, ticker)
 }
 
+export {
+  calendarDaysBetween,
+  closeOutPlan,
+  closedTickers,
+  DEFAULT_STALE_DAYS,
+  delistedCandidates,
+  exchangePlan,
+  isClosedPosition,
+} from './defunct'
+export type {
+  CashBasis,
+  CloseOutInput,
+  CloseOutPlan,
+  CloseOutSell,
+  DelistedCandidate,
+  DelistedInput,
+  ExchangeInput,
+  ExchangeOutcome,
+  ExchangePlan,
+} from './defunct'
+
 export type { DailySeries, SeriesContext } from './series'
 export type { BuyDecision, BuyExit } from './decisions'
 export type { ShadowCoverageWarning, ShadowFlow } from './shadow'

@@ -5,6 +5,7 @@ Source of truth for behavior. Task files point at sections here by number.
 ## 1. Purpose and scope
 
 Two questions:
+
 1. Did my stock picking beat investing the same dollars in VOO on the same dates?
 2. By my own fair-value estimates, which current holdings look attractive to add to?
 
@@ -14,23 +15,25 @@ Out of scope forever: trading, brokerage connections, AI recommendations, comput
 
 ## 2. Architecture
 
-| Piece | Choice | Why |
-|---|---|---|
-| Front end | Vite + React + TypeScript + Tailwind, installable (PWA) | One codebase for desktop and iPhone home screen |
-| Hosting + API | One Cloudflare Worker serving static assets and `/api/*` | Free, runs only on request, no idle pausing |
-| Database | Cloudflare D1 (SQLite) | Free tier, same vendor, synced across devices |
-| Login | One 256-bit access token held in a password manager, exchanged for a signed year-long HttpOnly cookie by the Worker | Free with no payment method, which Cloudflare Access is not (see Decision log) |
-| Prices | Yahoo Finance chart endpoint, called by the Worker only on user request | Free, no key, includes splits and dividends |
-| Math | Pure TypeScript in `src/engine/`, runs in the browser | Testable, no server cost |
+| Piece         | Choice                                                                                                              | Why                                                                            |
+| ------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Front end     | Vite + React + TypeScript + Tailwind, installable (PWA)                                                             | One codebase for desktop and iPhone home screen                                |
+| Hosting + API | One Cloudflare Worker serving static assets and `/api/*`                                                            | Free, runs only on request, no idle pausing                                    |
+| Database      | Cloudflare D1 (SQLite)                                                                                              | Free tier, same vendor, synced across devices                                  |
+| Login         | One 256-bit access token held in a password manager, exchanged for a signed year-long HttpOnly cookie by the Worker | Free with no payment method, which Cloudflare Access is not (see Decision log) |
+| Prices        | Yahoo Finance chart endpoint, called by the Worker only on user request                                             | Free, no key, includes splits and dividends                                    |
+| Math          | Pure TypeScript in `src/engine/`, runs in the browser                                                               | Testable, no server cost                                                       |
 
 Rejected: Supabase (free projects pause after 7 days idle and can be deleted if left paused), GitHub Pages + local storage (no sync, no real privacy).
 
 Known risks, each with a required fallback:
+
 - Yahoo's endpoint is unofficial and may block or change. Fallback: manual price CSV upload per ticker and manual "current price" entry. Task 03 must prove the fetch works from a deployed Worker, not only locally.
 - Delisted or renamed tickers may have no data. Fallback: ticker alias table and manual prices.
 - ~~Cloudflare Access free-tier terms must be confirmed in task 06 on Cloudflare's own pricing page. If it is not free for one user, stop and ask the user.~~ Resolved in task 06: the plan is free for one user but onboarding demands a payment method, so Access was dropped. See the Decision log.
 
 Free-tier limits to design around (Workers Free): 100,000 requests/day, 50 outbound fetches per request, about 10 ms CPU per request. D1 Free: about 100,000 row writes/day. Therefore:
+
 - The browser asks for one ticker per API call when updating prices.
 - A ticker's whole daily history is stored as one JSON row, not one row per day.
 
@@ -40,7 +43,7 @@ Free-tier limits to design around (Workers Free): 100,000 requests/day, 50 outbo
 - `ticker_alias`: from_ticker, to_ticker, effective_date. For renames and mergers.
 - `price_history`: ticker (pk), fetched_at, series_json (dates, close, adj_close), splits_json, dividends_json, source (`yahoo` | `manual`).
 - `fair_value`: id, ticker, value_usd, effective_date, note, created_at. Append-only. Editing means inserting a new row. Deleting a mistaken entry is allowed but must be an explicit action.
-- `meta`: key, value. Holds `prices_last_updated`.
+- `meta`: key, value. Holds `prices_last_updated` and `hidden_tickers` (a JSON array of symbols the user has hidden from Holdings, Rebuy and Fair values - presentation only, see the Decision log).
 
 Transaction `type` values: `buy`, `sell`, `dividend` (cash paid out by the stock), `split`, `adjust` (manual share correction for spinoffs, mergers, transfers in kind). A reinvested dividend is a `dividend` row plus a `buy` row. Deposits, withdrawals, interest, fees and transfers of cash are dropped at import.
 
@@ -57,12 +60,12 @@ Transaction `type` values: `buy`, `sell`, `dividend` (cash paid out by the stock
 
 Each ticker has its own shadow bucket of VOO.
 
-| Real event in ticker T | Shadow bucket T |
-|---|---|
-| Buy $X | Buy $X of VOO that day |
-| Sell for $X | Sell $X of VOO that day |
-| Cash dividend $X | Sell $X of VOO that day |
-| Split, adjust | Nothing |
+| Real event in ticker T | Shadow bucket T         |
+| ---------------------- | ----------------------- |
+| Buy $X                 | Buy $X of VOO that day  |
+| Sell for $X            | Sell $X of VOO that day |
+| Cash dividend $X       | Sell $X of VOO that day |
+| Split, adjust          | Nothing                 |
 
 Because both sides have identical cash flows, the difference in value today is the result of stock selection.
 
@@ -75,6 +78,7 @@ A bucket can be negative. It means the stock returned more cash than VOO would h
 ## 6. Measures
 
 Per ticker and for the whole portfolio:
+
 - Invested = sum of buys. Returned = sum of sells + dividends.
 - Current value = shares today x latest close.
 - Total gain = current value + returned - invested. Split into realized, unrealized and dividends for display.
@@ -100,7 +104,7 @@ Taxes, fees and cash drag are ignored on both sides. State this once in the app'
 
 ## 8. Market data
 
-- Nothing fetches prices automatically. One "Update market data" action fetches VOO and every ticker ever held, one API call per ticker, with a visible progress count and per-ticker failures listed.
+- Nothing fetches prices automatically. One "Update market data" action fetches VOO and every ticker ever held, one API call per ticker, with a visible progress count and per-ticker failures listed. A **closed** position whose history is already stored is still fetched, but a failure for it is reported separately as expected rather than as something to fix - a symbol that stopped trading can never be fetched again, and nothing about it can change.
 - After an update the app shows "Prices as of <date of last close>, updated <timestamp>". All views use stored data between updates.
 - Range: from 10 days before the earliest transaction to today, daily.
 
@@ -137,4 +141,14 @@ Negative-bucket tooltip text: "This position has paid you back more cash than th
 - 2026-10-08: Money and share counts are **TEXT** columns, not REAL. They stay exact decimal strings from the M1 parser through D1 to the engine; SQLite's REAL is a float64 and would round a fractional share or a cent.
 - 2026-10-10: **A Help screen was added at `/help`** (section 9, screen 7), outside the 15-task plan and at the user's request. Two constraints came with it, because a guide that disagrees with the app is worse than none: it never restates a threshold or a label in prose (the fair-value zones render from `DEEP_DISCOUNT` / `WELL_ABOVE` and `zoneFor`), and the "How this is calculated" text moved to `src/routes/HowCalculated.tsx` so Settings and Help show one copy. It is not a tab-bar destination - see `docs/DESIGN.md` 5.6.
 - 2026-10-08: Bulk import **inserts new `source_row_hash` values and leaves existing ones untouched** rather than overwriting them, so re-importing an overlapping export cannot undo an edit or an exclusion the user has made. A restore, by contrast, replaces all five tables - merging two ledgers is not something this app attempts.
+- 2026-10-11: **A defunct ticker is closed by recording the exit, not by filtering or deleting.** A bought-out company keeps showing shares for one reason: M1 pays the buyout out as cash, the parser drops cash rows, so the ledger never recorded the exit. Task 18 therefore writes one manual `sell` for every share held on the settlement date, for the cash received, through the existing transactions API. Shares then go to zero, the ticker leaves Holdings, Rebuy and Fair values on its own, and it keeps its place in the history as Closed. Three consequences the close-out sheet states before it writes anything:
+  - The sell's share count is in **its own trade date's** terms, not today's: the shares held are divided back by every split dated after the close-out date, which the engine re-applies when it reads the row. This is what makes the position land on exactly zero.
+  - A per-share figure is multiplied by that same trade-date count, and the derived total is rounded to the cent - it stands for money that actually moved. A total typed directly is stored exactly as typed.
+  - The cash received is what the VOO bucket is debited by, so **value added reads the buyout price**, not the last close before it. A buyout above the market price shows up as outperformance, carried forward by the benchmark from the settlement date.
+- 2026-10-11: **A non-1:1 exchange is recorded as a `ticker_alias` plus an `adjust`.** The alias alone only moves history under the new symbol; it carries no ratio, so 100 old shares becoming 50 new ones would otherwise read as 100. The smallest correct mechanism is the existing `adjust` type for the share delta, dated the effective date, which the close-out sheet offers alongside the alias. Two known limits, in preference to a `share_ratio` column on `ticker_alias` or a new transaction type:
+  - A **negative** adjust releases its basis as a realized loss (section 4), so a shrinking ratio shifts the realized/unrealized split. `totalGain`, `valueAdded` and the share count are all unaffected - an adjust moves no money and produces no shadow flow - and reporting a tax-accurate basis is explicitly out of scope.
+  - The delta is **not** `shares * (ratio - 1)`. A row's share count is restated by the split events of whatever ticker it resolves under, so the moment the alias moves those rows to the new symbol they are restated by the _new_ ticker's splits instead of the old one's - and right after a rename the new symbol usually has no stored price history at all, so none apply. `exchangePlan` therefore applies the alias first, measures what the moved rows actually contribute, and writes only the gap between that and the target. A 1:1 rename of a ticker that never split correctly writes nothing. (Found by driving the flow against a split fixture, where the naive delta zeroed the position out; `defunct.test.ts` pins it.)
+  - The count can still move once prices for the new symbol are fetched, because a rename usually brings the old split history with it under the new ticker. The sheet says so, and the fix is reconciliation (section 4), which exists for exactly this.
+- 2026-10-11: **A delisted-looking holding is only reported when the reference series kept going without it.** The valuation date is the newest close across _every_ stored ticker, so a single manual spot price on a symbol nobody holds can drag it months past the real series and leave every holding more than 30 days behind it. When the benchmark's own close is itself that far behind the valuation date, the whole price set is behind - that is "update your prices", not "these companies are gone" - and no stale-price candidate is reported. A **missing** price is reported either way. (Found driving the fixture ledger, where it flagged five of five holdings.)
+- 2026-10-11: **Hiding a ticker changes no number.** `hidden_tickers` in `meta` leaves a symbol out of Holdings, Rebuy opportunities and Fair values - the three "what should I do now" lists - and out of nothing else. The headline, the history chart, the value-creators bars and every per-ticker figure still count it in full, the screens that hide it print how many are hidden, and the only place to get one back is Settings. It is a meta row rather than a column so it needs no migration, and it rides along in `/api/export` with everything else. A delisted-looking holding gets a **prompt**, never an automatic close or hide: from the app's side, a data-source outage and a real buyout are indistinguishable, and only one of them should change the ledger.
 - 2026-10-11: **The dashboard's value creators and destroyers chart shows only open, priced positions. (User decided.)** Section 9 specified every ticker ever held, closed ones included, and the headline above it still counts every ticker - so the bars no longer sum to it, and the chart's subtitle prints how many were left out for that reason. Two different arguments were collapsed into one filter here, and they are not equally strong. An **unpriced** position is a data gap, not a view preference: `analyze` counts a missing price as $0, so a merged or delisted holding drew as a near-total loss and the bar was never a reading of anything. A **closed** position's `valueAdded` is real and realized, and section 6 defines it for exactly that case, so hiding it hides outperformance the app exists to measure; it is out because the user wants the chart to be about live decisions. If the unpriced ones are ever given a manual history, they reappear on their own.

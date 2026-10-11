@@ -169,11 +169,20 @@ export default function Help() {
               worth. Tap a ticker to open that stock, fetch prices again, or set that one price by
               hand on Settings.
             </Term>
+            <Term word="“A holding looks delisted”">
+              Below that, any holding with no stored price at all, or whose last close stopped more
+              than 30 days before the valuation date. Usually that means the company was bought out
+              or merged and the exit was never recorded - M1 pays a buyout out as cash, and the
+              import drops cash rows, so the shares are still sitting there. Close or hide… opens
+              the same sheet as a holdings row. It is only ever a question: nothing is removed from
+              your ledger for you, because a bad day at the price source looks exactly the same from
+              here.
+            </Term>
             <Term word="History">
               Your portfolio and its VOO shadow as two lines, with the gap between them filled -
-              blue where you are ahead, red where you are behind. The range buttons (1W up to
-              All) change the window and how closely the chart zooms in on it; they never change
-              how anything is computed.
+              blue where you are ahead, red where you are behind. The range buttons (1W up to All)
+              change the window and how closely the chart zooms in on it; they never change how
+              anything is computed.
             </Term>
             <Term word="Rebuy opportunities">
               Each holding that has a fair value, ranked by discount, drawn as a meter with the zone
@@ -181,13 +190,16 @@ export default function Help() {
               is nothing to rank them by. Tap a meter or a ticker to open that stock.
             </Term>
             <Term word="Holdings">
-              One row per open position: shares, price, value, return, value added vs VOO, your
-              fair value, and the discount. Tap a column heading to sort, tap a row to open that
-              stock. Below 640px the table becomes one card per row.
+              One row per open position: shares, price, value, return, value added vs VOO, your fair
+              value, and the discount. Tap a column heading to sort, tap a row to open that stock.
+              Below 640px the table becomes one card per row. Every row carries a Close… button, for
+              a company that was bought out, merged, or that you simply want out of sight. If
+              anything is hidden, the line under the table says how many - and that they are still
+              counted in every total above.
             </Term>
             <Term word="Value creators and destroyers">
-              The positions you still hold and still have a price for, as bars either side of zero
-              - sorted by how much value each added or destroyed against VOO. Positions you have
+              The positions you still hold and still have a price for, as bars either side of zero -
+              sorted by how much value each added or destroyed against VOO. Positions you have
               closed are left out, and so is anything with no stored price, because a missing price
               counts as $0 and would draw a holding as a total loss; the subtitle says how many of
               each. That means these bars do not add up to the headline above, which still counts
@@ -210,17 +222,40 @@ export default function Help() {
               Value added vs VOO for this ticker, then the shares you hold, current value, its VOO
               equivalent, and both IRRs. If no price is stored for the ticker, the shares tile says
               so, because the current value beside it then reads as $0 rather than as a real
-              valuation. A position you have closed still has all of these: its current value is zero,
-              and the comparison is proceeds plus dividends against what VOO would have done with
-              the same cash flows. Closed positions are labelled.
+              valuation. A position you have closed still has all of these: its current value is
+              zero, and the comparison is proceeds plus dividends against what VOO would have done
+              with the same cash flows. Closed positions are labelled, and so are hidden ones.
+            </Term>
+            <Term word="Close or hide…">
+              Beside the ticker, for any position that still holds shares. Three choices, and only
+              the first two change a number:
+              <ul className="mt-1 ml-4 list-disc">
+                <li>
+                  <strong className="font-medium text-ink">Bought out for cash.</strong> Give the
+                  date it settled and the cash, as a total or per share. It writes one sell for
+                  every share you held that day, so the shares go to zero and the ticker reads as
+                  Closed from then on. The sheet says exactly what it will write before you confirm.
+                  Value added then compares the cash you actually got against the same dollars in
+                  VOO - a buyout above the market price shows up as outperformance.
+                </li>
+                <li>
+                  <strong className="font-medium text-ink">Became another ticker.</strong> Records
+                  the alias. If one old share became something other than one new share, give the
+                  ratio and it writes the share correction too.
+                </li>
+                <li>
+                  <strong className="font-medium text-ink">Just hide it.</strong> Takes it out of
+                  Holdings, Rebuy and Fair values and out of nothing else. Unhide in Settings.
+                </li>
+              </ul>
             </Term>
             <Term word="Your money">
               Invested, returned, and total return split into realized, unrealized and dividends.
             </Term>
             <Term word="Position versus VOO">
               This ticker against its own VOO bucket, with a marker at every buy and sell and the
-              same range buttons as the dashboard&rsquo;s History chart. A buy or sell from
-              outside the chosen window is left off rather than drawn on day one of it.
+              same range buttons as the dashboard&rsquo;s History chart. A buy or sell from outside
+              the chosen window is left off rather than drawn on day one of it.
             </Term>
             <Term word="Decisions">
               One row per buy: the dollars you put in, what those shares are worth now (or what they
@@ -399,7 +434,10 @@ export default function Help() {
             <Term word="Update market data">
               The one action that fetches prices: VOO plus every ticker ever held, one request each,
               with a progress count. A ticker that fails is named rather than silently skipped. The
-              header&rsquo;s Update control does the same thing from anywhere.
+              header&rsquo;s Update control does the same thing from anywhere. A closed position
+              whose symbol no longer trades is still asked for, but when it fails it is reported
+              under the list as expected rather than as a problem - there is nothing left to fetch,
+              and its stored history is untouched.
             </Term>
             <Term word="Manual fallback: upload a price CSV">
               For when a ticker cannot be fetched at all - delisted, renamed, or the free data
@@ -417,7 +455,17 @@ export default function Help() {
             <Term word="Ticker aliases">
               For a rename or a merger. Record the old ticker, the new one, and the date it took
               effect: transactions on or before that date keep the old symbol, and holdings and the
-              VOO comparison resolve them under the new one.
+              VOO comparison resolve them under the new one. An alias carries no exchange ratio, so
+              if one old share became something other than one new share, the share count needs a
+              correction too - the Close or hide… sheet on the stock screen writes both together.
+            </Term>
+            <Term word="Hidden tickers">
+              Everything you have hidden, with what the ledger still says it is worth, and an Unhide
+              button each. This is the only place a hidden ticker can be got back, since the other
+              screens have stopped showing it. Hiding leaves a ticker out of Holdings, Rebuy
+              opportunities and Fair values and out of nothing else -{' '}
+              <strong className="font-medium text-ink">it never changes a total</strong>. To take a
+              position out of the numbers as well, record its exit from the stock screen.
             </Term>
             <Term word="How this is calculated">
               The arithmetic behind every figure, and the list of things this code knowingly does
@@ -551,10 +599,32 @@ export default function Help() {
             the rest with an Adjust transaction - the mismatch row can prefill one for exactly the
             difference.
           </Faq>
+          <Faq q="A company I was bought out of still shows as a holding.">
+            The exit was never recorded. M1 pays a buyout out as cash, and the import drops cash
+            rows, so the shares are still in the ledger and no amount of filtering will move them.
+            Open that stock (or use the Close… button on its holdings row), choose{' '}
+            <strong className="font-medium text-ink">Bought out for cash</strong>, and give the date
+            it settled and the cash you received. That writes one sell for every share you held, the
+            position goes to zero, and it leaves Holdings, Rebuy and Fair values on its own - still
+            counted in the history, labelled Closed. Nothing is deleted.
+          </Faq>
+          <Faq q="A holding is flagged as looking delisted, but it is fine.">
+            That block is a question, not a verdict: all it knows is that no price has arrived, or
+            that the last close is over 30 days old. Fetch prices again, or set one by hand on
+            Settings, and the flag goes on its own. If you would rather not see it at all, hiding it
+            takes it out of the lists without changing a single number.
+          </Faq>
+          <Faq q="I want a holding out of my lists without touching the numbers.">
+            Hide it - from its stock screen, its holdings row, or the delisted prompt. It leaves
+            Holdings, Rebuy opportunities and Fair values, and nothing else changes: the headline,
+            the history chart and every per-ticker figure still count it in full. The screens that
+            hide it say how many are hidden, and Settings lists them with an Unhide button each.
+          </Faq>
           <Faq q="A ticker fails every time prices are fetched.">
             The data source is free and unofficial, and a delisted or renamed symbol often has
             nothing behind it. Record the rename as an alias on Settings if that is what happened,
-            otherwise use the manual price CSV or set a current price by hand.
+            otherwise use the manual price CSV or set a current price by hand. If the position is
+            closed, the failure is expected and is reported as such rather than as a problem.
           </Faq>
           <Faq q="A whole position shows a negative VOO equivalent.">
             That is real, not a bug: the stock has paid you back more cash than the same money would

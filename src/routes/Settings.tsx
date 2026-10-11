@@ -4,14 +4,17 @@ import { api, ApiError, NotAuthenticatedError } from '../api/client'
 import type { TickerAlias } from '../api/types'
 import { parseManualPriceCsv, withManualPrice } from '../data/marketData'
 import { usePortfolioData } from '../data/usePortfolioData'
+import { isClosedPosition } from '../engine'
 import {
   BottomSheet,
   Button,
   Card,
   DataTable,
   EmptyState,
+  money,
   PricesAsOfBadge,
   SectionHeading,
+  shares as formatShares,
   TextField,
   useToast,
   type Column,
@@ -178,6 +181,8 @@ export default function Settings() {
         </Button>
       </Card>
 
+      <HiddenTickersCard />
+
       <MarketDataCard />
 
       <Card>
@@ -206,6 +211,76 @@ export default function Settings() {
         <HowCalculatedContent />
       </BottomSheet>
     </div>
+  )
+}
+
+/**
+ * The Unhide list (task 18). Hidden tickers live in one `meta` row, so this is the only place
+ * that can get one back - and the only place that can tell you one is hidden at all once the
+ * screens have stopped showing it.
+ */
+function HiddenTickersCard() {
+  const toast = useToast()
+  const { hiddenTickers, result, setTickerHidden } = usePortfolioData()
+  const [busy, setBusy] = useState<string | null>(null)
+
+  async function unhide(ticker: string) {
+    setBusy(ticker)
+    try {
+      await setTickerHidden(ticker, false)
+      toast.show(`${ticker} is back in your lists.`, { status: 'good' })
+    } catch (err) {
+      if (err instanceof NotAuthenticatedError) toast.show(err.message, { status: 'critical' })
+      else if (err instanceof ApiError)
+        toast.show(`${err.status}: ${err.message}`, { status: 'critical' })
+      else toast.show(String(err), { status: 'critical' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /** What the ledger still says about a hidden ticker, so the list is not just symbols. */
+  const standing = (ticker: string) => {
+    const holding = result?.byTicker.find((t) => t.ticker === ticker)
+    if (!holding) return 'no position in the ledger'
+    if (isClosedPosition(holding)) return 'closed - it would be out of these lists anyway'
+    return `${formatShares(holding.shares)} shares, worth ${money(holding.currentValue)}`
+  }
+
+  return (
+    <Card>
+      <h2 className="mb-1 text-h3 font-semibold">Hidden tickers</h2>
+      <p className="mb-3 max-w-prose text-small text-ink-secondary">
+        Hidden tickers are left out of Holdings, Rebuy opportunities and Fair values.{' '}
+        <strong className="font-medium text-ink">Hiding never changes a total</strong> - portfolio
+        value, value added, the history chart and every per-ticker figure still count them in full.
+        To take a position out of the numbers as well, record its exit from the stock screen.
+      </p>
+
+      {hiddenTickers.length === 0 ? (
+        <EmptyState
+          title="Nothing hidden"
+          body="Hide a holding from its stock screen, or from the Dashboard's delisted prompt, and it shows up here."
+        />
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {hiddenTickers.map((ticker) => (
+            <li
+              key={ticker}
+              className="flex flex-wrap items-center justify-between gap-2 border-b border-rule pb-2 last:border-b-0 last:pb-0"
+            >
+              <span className="text-small text-ink-secondary">
+                <span className="font-mono font-medium text-ink">{ticker}</span> &middot;{' '}
+                {standing(ticker)}
+              </span>
+              <Button disabled={busy === ticker} onClick={() => void unhide(ticker)}>
+                {busy === ticker ? 'Saving…' : 'Unhide'}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   )
 }
 
@@ -307,6 +382,20 @@ function MarketDataCard() {
               </li>
             ))}
           </ul>
+        )}
+        {/*
+         * A closed position whose symbol no longer trades cannot be fetched and does not need
+         * to be - its history is already stored and nothing about it can change again. Task 18
+         * keeps it out of the list above, which is for things worth fixing, but still says so.
+         */}
+        {!update.running && update.tolerated.length > 0 && (
+          <p className="mt-3 max-w-prose text-small text-ink-muted">
+            {update.tolerated.length} closed position
+            {update.tolerated.length === 1 ? '' : 's'} could not be refreshed, which is expected for
+            a symbol that no longer trades:{' '}
+            <span className="font-mono">{update.tolerated.map((f) => f.ticker).join(', ')}</span>.
+            Their stored history is unchanged.
+          </p>
         )}
       </div>
 

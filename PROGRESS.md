@@ -745,7 +745,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 |---|------|-------|--------|
 | 16 | Quick fixes | Haiku | done |
 | 17 | Chart scaling and shorter ranges | Sonnet | done |
-| 18 | Close or hide defunct tickers | Opus | todo |
+| 18 | Close or hide defunct tickers | Opus | done |
 | 19 | Per-account drill-down | Opus | todo |
 | 20 | Watchlist | Sonnet | todo |
 | 21 | Rebuy visuals and fair-value entry | Sonnet | todo |
@@ -878,3 +878,105 @@ Open issues:
 - `StockDetail`'s range selector and marker-filtering were verified by code review and by the
   identical pattern already confirmed on `/kit`, not by driving `StockDetail` itself - that
   needs `wrangler dev` with real or seeded D1 data, which this session did not set up.
+
+## Task 18: Close or hide defunct tickers - 2026-10-11 - Opus
+Status: done.
+Built:
+- `src/engine/defunct.ts` + `defunct.test.ts`: the whole mechanism, pure.
+  - `isClosedPosition` is now the one definition of "closed" - `Dashboard`, `FairValues`,
+    `StockDetail` and `PortfolioData` all read it instead of each testing `shares` their own way
+    (three copies of `(toNumber(shares) ?? 0) === 0` are gone).
+  - `closeOutPlan` builds the single `sell` that closes a bought-out position. Two details make
+    it land on exactly zero: the share count is written in **its own trade date's** terms
+    (divided back by every later split, which the engine re-applies when it reads the row), and
+    a per-share figure multiplies that same count, the derived total rounded to the cent.
+  - `exchangePlan` builds a rename's alias plus the `adjust` it needs. See the bug below.
+  - `delistedCandidates` finds held tickers with no stored price or a close more than 30 days
+    behind `asOf`. See the second bug below.
+- `src/data/hiddenTickers.ts` + tests: `hidden_tickers` as a JSON array in one `meta` row - no
+  migration, and it rides along in `/api/export` already. Parsing is tolerant: a malformed row
+  costs a forgotten preference, not a screen that will not render.
+- `src/data/PortfolioData.tsx`: `hiddenTickers` and `setTickerHidden` on the context, so every
+  screen reads one source. `runUpdate` now passes `tolerateFailure` for closed positions that
+  already have stored history.
+- `src/data/marketData.ts`: `UpdateOutcome.tolerated`, a third bucket beside `succeeded` and
+  `failed`. The ticker is still fetched - only the reporting changes.
+- `src/routes/ClosePosition.tsx`: one `ClosePositionSheet` for all three choices (bought out for
+  cash / became another ticker / just hide it), opened from the Dashboard's delisted prompt, a
+  holdings row, and the stock detail heading. It reads back exactly what it will write before
+  writing it, recomputed live as the form is typed into.
+- `src/ui/DataTable.tsx`: new optional `rowAction`, rendering one control per row **outside** the
+  row's select target - its own cell in the table, a footer under the card on a phone.
+- Dashboard: delisted prompt in the warning block, `Close…` on every holdings row, hidden
+  excluded from Holdings and Rebuy with an "N hidden, and still counted in every total above"
+  line. Fair values: same exclusion and its own hidden line. Settings: a Hidden tickers card
+  with what each is still worth and an Unhide button, plus the tolerated-failure line under
+  Update. Help: the delisted prompt, the Close or hide… sheet, Hidden tickers, and three new
+  troubleshooting entries.
+
+Two bugs found by driving the app, both fixed and pinned by a test:
+- **`shares * (ratio - 1)` is the wrong exchange delta.** A row's share count is restated by the
+  splits of whatever ticker it resolves under, so the moment the alias moves those rows to the
+  new symbol they are restated by the *new* ticker's splits - and right after a rename the new
+  symbol usually has no stored history at all, so none apply. Aliasing the SPLT fixture (10
+  bought, shown as 20 after its 2:1 split) at ratio 0.5 wrote an adjust of -10 against a
+  post-alias count of 10 and zeroed the position out. `exchangePlan` now applies the alias
+  first, measures what the moved rows actually contribute, and writes only the gap - which for
+  that case is nothing, leaving the correct 10 shares.
+- **The delisted prompt fired on five of five holdings.** `asOf` is the newest close across
+  *every* stored ticker, so one leftover manual spot price on a symbol nobody holds dragged it
+  16 months past the real series and left every holding "484 days behind". `delistedCandidates`
+  now takes `benchmarkCloseDate`: when the benchmark is itself that stale the whole price set is
+  behind - "update your prices", not "these companies are gone" - and no stale-price candidate
+  is reported. A missing price still is, either way.
+
+Decisions:
+- **The sell is one pooled row, not one per account.** Basis is pooled across accounts (SPEC
+  section 4), so the engine reads one sell for the whole position whichever label it carries.
+  The sheet asks for the account only when the ticker has more than one.
+- **A non-1:1 exchange keeps using `adjust`,** as the task prescribed, rather than a
+  `share_ratio` column on `ticker_alias`. A negative adjust releases its basis as a realized
+  loss, so a shrinking ratio shifts the realized/unrealized split - `totalGain`, `valueAdded`
+  and the share count are all unaffected, and a tax-accurate basis is out of scope. Recorded in
+  the SPEC Decision log with the rest.
+- **Hidden tickers stay in the value-creators chart.** Task 18 named three surfaces - Holdings,
+  Rebuy, Fair values - and those are the "what should I do now" lists. The chart is a reading of
+  history, already filtered to open and priced, and in practice a hidden defunct holding is
+  unpriced and so already absent from it.
+- **`DataTable.rowAction` rather than an actions column.** With `onRowSelect` set the whole phone
+  card is a `<button>`, so a control rendered by a column would be a button nested in a button -
+  invalid, and unreachable by keyboard. Mobile-first means the action has to work at 390px, so
+  the frame moved out to the `<li>` and the action sits in a footer under the select target.
+
+Verified:
+- `npm run check`: typecheck + lint + 442 tests (was 406; `defunct.test.ts` 26,
+  `hiddenTickers.test.ts` 12, two more in `marketData.test.ts`).
+- The acceptance check, in `defunct.test.ts`: after a close-out sell, shares are `0`,
+  `isClosedPosition` is true, `costBasis` is `0` and `averageCost` null, and the value added uses
+  the cash received. BETA is the instrument that makes that exact - it is worth precisely half
+  the benchmark every day, so a buyout at the market price has to come out at `valueAdded` 0,
+  and $2,500 for a position the market priced at $2,000 has to come out at exactly +$625: the
+  $500 extra, carried 400 -> 500 by the benchmark from the buyout date to the valuation date.
+  The shortfall case is the same figure with the sign flipped.
+- End to end against `npx wrangler dev` on the local QA fixture, driven with the Chrome
+  extension. Added a `GONE` holding with no price through Activity: it appeared in both the
+  missing-price block and the delisted prompt. Closed it out at $48/share - the sheet previewed
+  "one sell of 25 shares on 2024-06-03 for $1,200", and after confirming, GONE left Holdings,
+  Rebuy and both warnings, read as Closed with 0 shares and $1,200 returned, and value added
+  moved $13,487 -> $14,785 off the cash. Hid WEAK: it left Holdings and Rebuy, Holdings read
+  "4 open positions. 1 hidden, and still counted in every total above", Fair values said the
+  same, and **the headline was byte-identical before and after** - $14,785 and $17.2K. Unhid it
+  from Settings. Exercised the exchange path on SPLT at ratio 0.5 and confirmed SPLTNEW ends on
+  10 shares. The fixture database was restored to its original 8 transactions, no aliases, and
+  an empty hidden list.
+- Tasks 16 and 17 both logged that the sandbox browser would not go below ~555px. It resized to
+  390px this time, and the Add-transaction and close-out sheets were confirmed laying out
+  correctly there.
+Open issues:
+- The close-out sheet's phone layout was confirmed at 390px, but the Holdings `rowAction` footer
+  was only read back as text at that width, not screenshotted - `resize_window` reported success
+  while leaving the page at desktop width on the second attempt, and a resized tab later stopped
+  accepting clicks and timed out on screenshots until it was replaced. Worth one look on a real
+  phone before the release in task 23.
+- `hidden_tickers` is written as `[]` rather than removed when the last ticker is unhidden. The
+  parser treats both the same; it is only slightly untidy in an export.

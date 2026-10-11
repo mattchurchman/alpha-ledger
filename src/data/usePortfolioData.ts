@@ -15,6 +15,8 @@ export interface UpdateState {
   done: number
   total: number
   failures: UpdateFailure[]
+  /** Failures that are expected: closed positions whose symbol no longer trades (task 18). */
+  tolerated: UpdateFailure[]
   lastRunAt: string | null
 }
 
@@ -27,12 +29,19 @@ export interface PortfolioData {
   /** `priceHistory` reshaped to `{ ticker: history }`, the same map `analyze` was built from. */
   prices: Record<string, PriceHistory>
   meta: MetaMap
+  /**
+   * Tickers the user has hidden from Holdings, Rebuy and Fair values (task 18). Presentation
+   * only: no total or chart changes, and `result` never knows about it.
+   */
+  hiddenTickers: string[]
   /** null until VOO has a stored history - there is nothing to compare against before that. */
   result: AnalyzeResult | null
   pricesAsOf: PricesAsOf
   update: UpdateState
   /** Fetches VOO plus every ticker ever held and stores each series. SPEC 8's one action. */
   runUpdate: () => Promise<UpdateOutcome>
+  /** Adds or removes one ticker from `hiddenTickers`, then reloads. */
+  setTickerHidden: (ticker: string, hidden: boolean) => Promise<void>
   /** Re-fetches transactions/prices/aliases/meta and re-runs `analyze`. Call after any edit. */
   reload: () => Promise<void>
   /** The manual fallback: stores a ticker's history as-is, marked `source: 'manual'`. */

@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api } from '../api/client'
 import type { MetaMap, StoredPriceHistory, TickerAlias, TransactionRow } from '../api/types'
-import { analyze, DEFAULT_BENCHMARK, type AnalyzeResult } from '../engine'
+import { analyze, DEFAULT_BENCHMARK, isClosedPosition, type AnalyzeResult } from '../engine'
 import type { PriceHistory } from '../engine/prices/types'
+import {
+  HIDDEN_TICKERS_KEY,
+  parseHiddenTickers,
+  serializeHiddenTickers,
+  withHidden,
+} from './hiddenTickers'
 import {
   isStale,
   priceFetchFrom,
@@ -25,6 +31,7 @@ const IDLE_UPDATE: UpdateState = {
   done: 0,
   total: 0,
   failures: [],
+  tolerated: [],
   lastRunAt: null,
 }
 
@@ -105,6 +112,17 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
     }
   }, [transactions, prices, aliases])
 
+  const hiddenTickers = useMemo(() => parseHiddenTickers(meta[HIDDEN_TICKERS_KEY]), [meta])
+
+  const setTickerHidden = useCallback(
+    async (ticker: string, hidden: boolean) => {
+      const next = withHidden(hiddenTickers, ticker, hidden)
+      await api.meta.put(HIDDEN_TICKERS_KEY, serializeHiddenTickers(next))
+      await reload()
+    },
+    [hiddenTickers, reload],
+  )
+
   const pricesAsOf = useMemo(() => {
     const date = prices[DEFAULT_BENCHMARK]?.asOf ?? null
     return {
@@ -122,15 +140,33 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
     [reload],
   )
 
+  /**
+   * A closed position whose history is already stored: Yahoo cannot serve a symbol that
+   * stopped trading, and there is nothing left to learn about it, so task 18 keeps its
+   * failure out of the list of things worth fixing. It is still fetched - a symbol that
+   * comes back is stored like any other.
+   */
+  const toleratedTickers = useMemo(() => {
+    const closed = (result?.byTicker ?? []).filter(isClosedPosition).map((t) => t.ticker)
+    return new Set(closed.filter((ticker) => prices[ticker] !== undefined))
+  }, [result, prices])
+
   const runUpdate = useCallback(async (): Promise<UpdateOutcome> => {
-    if (update.running) return { succeeded: [], failed: [] }
+    if (update.running) return { succeeded: [], failed: [], tolerated: [] }
 
     const tickers = [
       DEFAULT_BENCHMARK,
       ...tickersEverHeld(transactions, aliases).filter((t) => t !== DEFAULT_BENCHMARK),
     ]
     const from = priceFetchFrom(transactions, todayDate())
-    setUpdate({ running: true, done: 0, total: tickers.length, failures: [], lastRunAt: null })
+    setUpdate({
+      running: true,
+      done: 0,
+      total: tickers.length,
+      failures: [],
+      tolerated: [],
+      lastRunAt: null,
+    })
 
     const outcome = await runMarketUpdate({
       tickers,
@@ -139,6 +175,7 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
         await api.priceHistory.put(ticker, { source: 'yahoo', history })
       },
       onProgress: (done, total) => setUpdate((prev) => ({ ...prev, done, total })),
+      tolerateFailure: (ticker) => toleratedTickers.has(ticker),
     })
 
     if (outcome.succeeded.length > 0) {
@@ -150,10 +187,11 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
       done: tickers.length,
       total: tickers.length,
       failures: outcome.failed,
+      tolerated: outcome.tolerated,
       lastRunAt: new Date().toISOString(),
     })
     return outcome
-  }, [update.running, transactions, aliases, reload])
+  }, [update.running, transactions, aliases, reload, toleratedTickers])
 
   const value: PortfolioData = {
     loading,
@@ -163,10 +201,12 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
     priceHistory,
     prices,
     meta,
+    hiddenTickers,
     result,
     pricesAsOf,
     update,
     runUpdate,
+    setTickerHidden,
     reload,
     putPriceHistory,
   }

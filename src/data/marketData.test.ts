@@ -120,6 +120,29 @@ describe('runMarketUpdate', () => {
     })
     expect(outcome.succeeded).toEqual(['ACME', 'BETA'])
     expect(outcome.failed).toEqual([{ ticker: 'ZZZZQQ', error: 'Unknown ticker "ZZZZQQ"' }])
+    expect(outcome.tolerated).toEqual([])
+  })
+
+  it('reports a tolerated ticker as tolerated rather than failed', async () => {
+    const attempted: string[] = []
+    const outcome = await runMarketUpdate({
+      tickers: ['ACME', 'GONE', 'ZZZZQQ'],
+      fetchPrice: (ticker) => {
+        attempted.push(ticker)
+        return ticker === 'ACME'
+          ? Promise.resolve(history('2026-10-08'))
+          : Promise.reject(new Error(`Unknown ticker "${ticker}"`))
+      },
+      storePrice: () => Promise.resolve(),
+      tolerateFailure: (ticker) => ticker === 'GONE',
+    })
+
+    expect(outcome.succeeded).toEqual(['ACME'])
+    expect(outcome.failed).toEqual([{ ticker: 'ZZZZQQ', error: 'Unknown ticker "ZZZZQQ"' }])
+    expect(outcome.tolerated).toEqual([{ ticker: 'GONE', error: 'Unknown ticker "GONE"' }])
+    // Tolerating a failure must not mean skipping the fetch: a symbol that comes back is
+    // stored like any other. Each failing ticker is tried twice, by the retry above.
+    expect(attempted.filter((t) => t === 'GONE')).toHaveLength(2)
   })
 
   it('respects the concurrency limit', async () => {
@@ -147,7 +170,7 @@ describe('runMarketUpdate', () => {
       fetchPrice: vi.fn(),
       storePrice: vi.fn(),
     })
-    expect(outcome).toEqual({ succeeded: [], failed: [] })
+    expect(outcome).toEqual({ succeeded: [], failed: [], tolerated: [] })
   })
 })
 

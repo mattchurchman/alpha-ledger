@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { api, ApiError, NotAuthenticatedError } from '../api/client'
 import type { FairValueRow } from '../api/types'
 import { usePortfolioData } from '../data/usePortfolioData'
+import { delistedCandidates, isClosedPosition } from '../engine'
 import { discountFrom, latestFairValues, splitAdjustedValue } from '../engine/fairValue'
+import { ClosePositionSheet } from './ClosePosition'
 import {
   Button,
   Card,
@@ -24,7 +26,6 @@ import {
   SignedDelta,
   StatTile,
   StatusBadge,
-  toNumber,
   useToast,
   type ChartRange,
   type Column,
@@ -40,16 +41,13 @@ import type { TickerAnalysis } from '../engine'
  * domain entirely.
  */
 
-function isClosed(ticker: TickerAnalysis): boolean {
-  return (toNumber(ticker.shares) ?? 0) === 0
-}
-
 export default function Dashboard() {
   const navigate = useNavigate()
   const toast = useToast()
-  const { loading, error, result, prices } = usePortfolioData()
+  const { loading, error, result, prices, hiddenTickers } = usePortfolioData()
   const [fairValueRows, setFairValueRows] = useState<FairValueRow[] | null>(null)
   const [range, setRange] = useState<ChartRange>('1Y')
+  const [closing, setClosing] = useState<string | null>(null)
 
   const report = useCallback(
     (err: unknown) => {
@@ -90,10 +88,39 @@ export default function Dashboard() {
     return current
   }, [latestFairValue, prices])
 
+  /**
+   * Open positions the user has not hidden. Hiding is presentation only (task 18) - the
+   * headline above, the history chart and the totals all still count a hidden ticker in full,
+   * which is why this filter lives here and not in the engine.
+   */
   const heldTickers = useMemo(
-    () => (result ? result.byTicker.filter((t) => !isClosed(t)) : []),
-    [result],
+    () =>
+      result
+        ? result.byTicker.filter((t) => !isClosedPosition(t) && !hiddenTickers.includes(t.ticker))
+        : [],
+    [result, hiddenTickers],
   )
+
+  const hiddenOpenCount = useMemo(
+    () =>
+      (result?.byTicker ?? []).filter(
+        (t) => !isClosedPosition(t) && hiddenTickers.includes(t.ticker),
+      ).length,
+    [result, hiddenTickers],
+  )
+
+  /**
+   * Looks delisted, so prompt - never act. A quiet data-source outage and a real buyout are
+   * indistinguishable from here, and only one of them should change the ledger. Anything
+   * already hidden is left out: the user has said they do not want to see it.
+   */
+  const delisted = useMemo(() => {
+    if (!result) return []
+    return delistedCandidates({
+      ...result,
+      benchmarkCloseDate: prices[result.benchmark]?.asOf ?? null,
+    }).filter((c) => !hiddenTickers.includes(c.ticker))
+  }, [result, prices, hiddenTickers])
 
   const rebuy = useMemo(() => {
     const ranked: { ticker: string; discount: string; price: string; fairValue: string }[] = []
@@ -139,7 +166,7 @@ export default function Dashboard() {
    */
   const creators = useMemo(() => {
     const rows = result?.byTicker ?? []
-    const open = rows.filter((t) => !isClosed(t))
+    const open = rows.filter((t) => !isClosedPosition(t))
     return {
       items: open
         .filter((t) => t.latestClose !== null)
@@ -350,6 +377,47 @@ export default function Dashboard() {
               </p>
             </div>
           )}
+          {/*
+           * Task 18's prompt, never an auto-removal. A bought-out company keeps showing shares
+           * because the ledger never recorded the exit, and no price arriving for it looks
+           * exactly like the free data source having a bad day - so this asks rather than
+           * deciding.
+           */}
+          {delisted.length > 0 && (
+            <div className="mt-4 border-t border-rule pt-4">
+              <StatusBadge status="serious">
+                {delisted.length === 1
+                  ? 'A holding looks delisted'
+                  : `${delisted.length} holdings look delisted`}
+              </StatusBadge>
+              <ul className="mt-2 flex flex-col gap-2">
+                {delisted.map((candidate) => (
+                  <li
+                    key={candidate.ticker}
+                    className="flex flex-wrap items-center justify-between gap-2"
+                  >
+                    <span className="text-small text-ink-secondary">
+                      <span className="font-mono font-medium text-ink">{candidate.ticker}</span>{' '}
+                      {candidate.reason === 'no-price'
+                        ? 'has no stored price at all'
+                        : `last traded ${candidate.daysBehind} days before the valuation date`}
+                      .
+                    </span>
+                    <Button
+                      onClick={() => setClosing(candidate.ticker)}
+                      aria-label={`Close or hide ${candidate.ticker}`}
+                    >
+                      Close or hide…
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 max-w-prose text-small text-ink-secondary">
+                If one of these was bought out or merged, record the exit and it leaves these lists
+                on its own. Nothing is ever removed for you.
+              </p>
+            </div>
+          )}
         </Card>
       </section>
 
@@ -438,6 +506,14 @@ export default function Dashboard() {
             caption="Current holdings"
             initialSort={{ key: 'valueAdded', direction: 'desc' }}
             onRowSelect={(row) => navigate(`/stocks/${row.ticker}`)}
+            rowAction={(row) => (
+              <Button
+                onClick={() => setClosing(row.ticker)}
+                aria-label={`Close or hide ${row.ticker}`}
+              >
+                Close…
+              </Button>
+            )}
             empty={
               <EmptyState
                 title="No holdings yet"
@@ -447,6 +523,20 @@ export default function Dashboard() {
           />
           <p className="mt-3 text-small text-ink-muted">
             {heldTickers.length} open position{heldTickers.length === 1 ? '' : 's'}.
+            {hiddenOpenCount > 0 && (
+              <>
+                {' '}
+                {hiddenOpenCount} hidden, and still counted in every total above - unhide in{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings')}
+                  className="underline decoration-rule underline-offset-4 hover:text-ink"
+                >
+                  Settings
+                </button>
+                .
+              </>
+            )}
           </p>
         </Card>
       </section>
@@ -459,6 +549,8 @@ export default function Dashboard() {
           onSelect={(ticker) => navigate(`/stocks/${ticker}`)}
         />
       </section>
+
+      <ClosePositionSheet ticker={closing} onClose={() => setClosing(null)} />
     </div>
   )
 }

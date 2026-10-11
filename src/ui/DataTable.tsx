@@ -31,6 +31,15 @@ export interface DataTableProps<T> {
   caption: string
   initialSort?: { key: string; direction: 'asc' | 'desc' }
   onRowSelect?: (row: T) => void
+  /**
+   * A control for one row, rendered **outside** the row's own select target: its own cell in
+   * the table, and a footer under the card on a phone. A `render` column cannot do this when
+   * `onRowSelect` is set, because the whole phone card is then a `<button>` and a control
+   * inside it would be a button nested in a button - invalid, and unreachable by keyboard.
+   */
+  rowAction?: (row: T) => ReactNode
+  /** Column heading for the `rowAction` cell. Visually a label; always announced. */
+  rowActionHeader?: string
   empty?: ReactNode
 }
 
@@ -43,6 +52,8 @@ export function DataTable<T>({
   caption,
   initialSort,
   onRowSelect,
+  rowAction,
+  rowActionHeader = 'Actions',
   empty,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(initialSort?.key ?? null)
@@ -131,19 +142,26 @@ export function DataTable<T>({
               </dl>
             </>
           )
+          // With a row action the frame moves out to the `<li>`, so the action can sit in a
+          // footer under the select target rather than inside it.
+          const framed = rowAction ? '' : 'rounded-control border border-rule bg-surface'
           return (
-            <li key={rowKey(row)}>
+            <li
+              key={rowKey(row)}
+              className={rowAction ? 'rounded-control border border-rule bg-surface' : ''}
+            >
               {onRowSelect ? (
                 <button
                   type="button"
                   onClick={() => onRowSelect(row)}
-                  className="w-full rounded-control border border-rule bg-surface p-3 text-left transition-colors duration-[120ms] hover:bg-sunken"
+                  className={`w-full p-3 text-left transition-colors duration-[120ms] hover:bg-sunken ${framed}`.trimEnd()}
                 >
                   {body}
                 </button>
               ) : (
-                <div className="rounded-control border border-rule bg-surface p-3">{body}</div>
+                <div className={`p-3 ${framed}`.trimEnd()}>{body}</div>
               )}
+              {rowAction && <div className="border-t border-rule px-3 py-2">{rowAction(row)}</div>}
             </li>
           )
         })}
@@ -186,6 +204,11 @@ export function DataTable<T>({
                   )}
                 </th>
               ))}
+              {rowAction && (
+                <th scope="col" className="px-1.5 py-2 text-right last:pr-0">
+                  <Label>{rowActionHeader}</Label>
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -207,6 +230,16 @@ export function DataTable<T>({
                     {column.render(row)}
                   </td>
                 ))}
+                {rowAction && (
+                  // The row itself is clickable, so the action's cell swallows the click -
+                  // otherwise pressing it would also navigate away from what it just changed.
+                  <td
+                    className="px-1.5 py-2 text-right last:pr-0"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {rowAction(row)}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
