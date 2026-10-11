@@ -892,3 +892,47 @@ Open issues:
   finds nothing and reads as a failed deploy. Cost a few minutes here.
 - Per the service-worker entry further up, an already-open tab still needs one reload to pick
   up the new shell. Nothing new.
+
+## Aliases entered, and creators/destroyers narrowed to live positions - 2026-10-11 - Opus
+Status: done. Two user requests: enter the two aliases for them, and drop closed and
+merged-away tickers from the value creators/destroyers chart.
+Built:
+- Two rows written straight to the **remote** `ticker_alias` (no auth token to hand for the
+  API, same shape and conflict clause `createAlias` uses): `BRK.B` to `BRK-B` effective
+  `2099-12-31`, `CP.OLD` to `CP` effective `2022-11-21`.
+- `src/routes/Dashboard.tsx`: `creators` now returns `{ items, closed, unpriced }` and filters
+  to positions that are open *and* priced; `creatorsSubtitle` names the excluded counts. The
+  per-bar `note: 'Closed'` is gone with the closed bars.
+Decisions:
+- **The user's existing alias was inert and was replaced, not added to.** They had entered
+  `BRK.B` to `BRK-B` effective `2020-01-11`, which is *before* all 50 BRK.B trades
+  (2022-08-02 onward); `resolveTicker` matches `trade_date <= effective_date`, so it resolved
+  nothing. The PK is `(from_ticker, effective_date)`, so inserting the 2099 row would have left
+  the dead 2020 row beside it rather than updating it - deleted explicitly.
+- **`CP.OLD` is a closed round trip, not a live rename.** Bought 1.39569 shares 2022-07-06,
+  sold all of them by 2022-11-21; the current CP position is separate, starting 2023-07-13.
+  The alias is still right - the implied prices ($71.65 and $78.54 a share) track real CP
+  quotes for those dates, so CP's history prices those months instead of counting them at $0 -
+  and it is safe because the two never overlap: the old position releases all of its basis
+  before the first 2023 buy, so pooling cannot contaminate the open position's average cost.
+- **The chart no longer sums to the headline, and says so.** This is the cost of the request
+  and is the reason the subtitle prints the counts rather than filtering silently. See open
+  issues - a closed position's `valueAdded` is real, realized, and SPEC 6 defines it for
+  exactly this case.
+Verified:
+- `npm run check`: typecheck + lint + 396 tests.
+- Shot against `wrangler dev`: the fixture's closed `SOLD` bar is gone, five bars remain for
+  five open positions, subtitle reads "Open positions, against the same dollars in VOO.
+  1 closed not shown." No console errors.
+- Counted against the real ledger (aliases applied, splits ignored - a zero/non-zero count only):
+  34 closed, 6 open with no stored price, 64 open and priced. So the chart drops from 104 bars
+  to 64 and the subtitle will name 40.
+Open issues:
+- **The unpriced exclusion is a workaround for missing data, not a view preference.** Those 6
+  are drawn at $0 because nothing priced them, and hiding them means a genuinely large holding
+  can now vanish from the chart entirely. If their histories ever land (manual
+  `putPriceHistory`), they should come back - this filter will silently start including them,
+  which is the right behaviour but worth knowing.
+- **Closed positions were a deliberate part of SPEC 9**, and dropping them hides realized
+  outperformance - the thing the app exists to measure. Reversing it is a two-line change to
+  `creators`. SPEC 9 was not edited; if this is permanent it belongs in the Decision log.

@@ -133,15 +133,34 @@ export default function Dashboard() {
     }
   }, [result, range])
 
-  const creators = useMemo(
-    () =>
-      result?.byTicker.map((t) => ({
-        label: t.ticker,
-        value: t.valueAdded,
-        note: isClosed(t) ? 'Closed' : undefined,
-      })) ?? [],
-    [result],
-  )
+  /**
+   * SPEC 9 put every ticker ever held in this chart. Narrowed at the user's request to
+   * positions that are both still open and still priced. A closed position's bar is settled
+   * history rather than a live decision, and an unpriced one's bar is not a reading at all:
+   * `analyze` counts a missing price as $0, so a merged or delisted holding draws as a total
+   * loss. The counts come back with the rows so the subtitle can say what was left out -
+   * these bars no longer sum to the headline above, and silently dropping them would hide
+   * that.
+   */
+  const creators = useMemo(() => {
+    const rows = result?.byTicker ?? []
+    const open = rows.filter((t) => !isClosed(t))
+    return {
+      items: open
+        .filter((t) => t.latestClose !== null)
+        .map((t) => ({ label: t.ticker, value: t.valueAdded })),
+      closed: rows.length - open.length,
+      unpriced: open.filter((t) => t.latestClose === null).length,
+    }
+  }, [result])
+
+  const creatorsSubtitle = useMemo(() => {
+    const hidden: string[] = []
+    if (creators.closed > 0) hidden.push(`${creators.closed} closed`)
+    if (creators.unpriced > 0) hidden.push(`${creators.unpriced} with no stored price`)
+    const base = 'Open positions, against the same dollars in VOO.'
+    return hidden.length === 0 ? base : `${base} ${hidden.join(' and ')} not shown.`
+  }, [creators])
 
   const columns: Column<TickerAnalysis>[] = useMemo(
     () => [
@@ -440,8 +459,8 @@ export default function Dashboard() {
       <section>
         <SectionHeading>Value creators and destroyers</SectionHeading>
         <DivergingBars
-          items={creators}
-          subtitle="Every ticker ever held, closed positions marked."
+          items={creators.items}
+          subtitle={creatorsSubtitle}
           onSelect={(ticker) => navigate(`/stocks/${ticker}`)}
         />
       </section>
