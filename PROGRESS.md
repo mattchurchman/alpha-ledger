@@ -744,7 +744,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | # | Task | Model | Status |
 |---|------|-------|--------|
 | 16 | Quick fixes | Haiku | done |
-| 17 | Chart scaling and shorter ranges | Sonnet | todo |
+| 17 | Chart scaling and shorter ranges | Sonnet | done |
 | 18 | Close or hide defunct tickers | Opus | todo |
 | 19 | Per-account drill-down | Opus | todo |
 | 20 | Watchlist | Sonnet | todo |
@@ -809,3 +809,72 @@ Open issues:
   The fix was verified at the code level (computed style, correct property, same pattern as the
   already-shipped bottom-inset) and by the six-character typing test, but a device or DevTools
   mobile-emulation screenshot is worth taking before the next release to see it rendered.
+
+## Task 17: Chart scaling and shorter ranges - 2026-10-11 - Sonnet
+Status: done.
+Built:
+- `src/ui/charts/chartRange.ts`: the range maths, moved out of `Dashboard.tsx` and made generic.
+  `ChartRange` is `1W | 1M | 3M | 6M | YTD | 1Y | 3Y | All`; `rangeStart(dates, range)` returns
+  the first index to keep, by trading-day count for the fixed ranges and by calendar year for
+  `YTD`, clamped to 0 (the whole series) when the range is longer than the data. `SHORT_RANGES`
+  marks the four ranges short enough to need a day on the x-axis rather than just a month.
+  Covered by `chartRange.test.ts` (empty series, exact-length and longer-than-data clamping, a
+  year-crossing YTD series, YTD already inside the final year).
+- `src/ui/charts/RangeSelector.tsx`: the eight-stop segmented control, `role="group"`, 44px
+  (`min-h-11 min-w-11`) targets in a horizontally scrollable row rather than shrunk to fit -
+  DESIGN 3.3's touch-target floor wins over cramming all eight in at 390px.
+- `src/ui/charts/HistoryChart.tsx`: the y-domain fix - `paddedDomain(...)` dropped
+  `includeZero: true`, so the axis now fits the values actually on screen instead of pinning to
+  $0 and flattening both lines at every range where the portfolio is nowhere near zero. New
+  required `range: ChartRange` prop picks the x-axis label format: `monthDay` (`Oct 3`) for the
+  four short ranges, `monthYear` (`Oct 2026`) for `YTD`/`1Y`/`3Y`/`All`, applied to both end
+  labels and the dropped-below-320px middle one. The gap band keeps filling correctly since it
+  was already built from the two series' own points (`areaBetweenPath`), never from a zero
+  baseline.
+- `src/ui/format.ts`: two new formatters behind the label switch, `monthDay` and `monthYear`,
+  each with `format.test.ts` cases alongside the existing `dateShort`/`dateFull` ones.
+- `src/routes/Dashboard.tsx`: the old inline `Range` type, `RANGE_DAYS` and `sliceRange` are
+  gone, replaced by `chartRange.ts` and `RangeSelector` moved out of `SectionHeading`'s action
+  slot into its own full-width row (eight buttons do not fit squeezed next to a heading at
+  390px).
+- `src/routes/StockDetail.tsx`: the position-vs-VOO chart gets its own `RangeSelector` and
+  `range` state, independent of the dashboard's. `markers` is now filtered to the visible window
+  - without that, a buy or sell from before the window would still render, snapped to the
+  window's left edge by `HistoryChart`'s own forward-snap logic, which reads as a trade that
+  happened on day one of a range it never touched.
+- `src/routes/Kit.tsx`: `RangeSelector` demoed live on the main History chart (synthetic,
+  `src/kit/synthetic.ts`) so the control has a design-system reference like every other chart
+  piece; the "Last six months" refetching demo now passes `range="6M"` to match its existing
+  120-day slice.
+- `docs/DESIGN.md` section 5.3's axis-labels bullet rewritten for the new adaptive format, and a
+  `RangeSelector` row added to the 5.5 components table.
+- `src/routes/Help.tsx`: the "History" and "Position versus VOO" terms updated for the new range
+  set and the marker-filtering behaviour.
+Decisions:
+- **`HistoryChart.range` is required, not inferred from the data.** The component could guess
+  short-vs-long from the displayed span instead, but tying the label format to the caller's
+  explicit selection is simpler to reason about and matches what task 17 asked for; all three
+  call sites (`Dashboard`, `StockDetail`, `Kit`) always have a range to pass.
+- **`RangeSelector` lives below `SectionHeading`, not in its `action` slot.** The old 1Y/3Y/All
+  row fit squeezed next to the heading; eight buttons at a 44px floor do not, so it is now a
+  full-width row that can use the whole card width before it needs to scroll.
+Verified:
+- `npm run check`: typecheck + lint + 406 tests (was 396; `chartRange.test.ts` and two new
+  `format.test.ts` cases).
+- `npm run build` succeeds. Served the build with `vite preview` and drove it with the Chrome
+  extension: on `/kit`, clicking through the range row changes the window and the handoff is
+  checked at both ends asked for in the acceptance criteria. At `1M` the y-axis reads
+  $40K-$46K and both lines fill most of the plot height; at `All` it reads near-$0 to $45K,
+  using the full six-year synthetic series, with the gap band still correctly split blue/red at
+  its crossings. X-axis labels confirmed adaptive: `Sep 7 / Sep 21 / Oct 5` at `1M`, `Oct 2020 /
+  Oct 2023 / Oct 2026` at `All`.
+Open issues:
+- Same sandbox limit task 16 hit: the browser window here will not go below ~555px CSS width
+  (was ~1256px last time), so a literal 390px screenshot could not be captured. 555px still
+  exercises the same mobile-first CSS path (`md:` only kicks in at 768px) and all eight range
+  buttons visibly fit without needing to scroll at that width - the scrolling behaviour at a
+  true 390px is unverified by screenshot, but relies on plain `overflow-x-auto` plus `shrink-0`
+  buttons, not on anything scaling with viewport.
+- `StockDetail`'s range selector and marker-filtering were verified by code review and by the
+  identical pattern already confirmed on `/kit`, not by driving `StockDetail` itself - that
+  needs `wrangler dev` with real or seeded D1 data, which this session did not set up.

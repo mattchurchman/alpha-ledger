@@ -4,6 +4,8 @@ import {
   dateShort,
   money,
   moneyAxis,
+  monthDay,
+  monthYear,
   signedMoney,
   toNumber,
   type Numeric,
@@ -11,6 +13,7 @@ import {
 import { EmptyState } from '../States'
 import { useElementWidth } from '../useElementWidth'
 import { ChartFrame, Readout } from './ChartFrame'
+import { SHORT_RANGES, type ChartRange } from './chartRange'
 import {
   areaBetweenPath,
   decimate,
@@ -60,6 +63,12 @@ export interface HistoryChartProps {
   busy?: boolean
   /** Triangles on the "you" line: up for a buy, down for a sell. Shape carries the meaning, not colour. */
   markers?: readonly HistoryChartMarker[]
+  /**
+   * The caller's selected window - `src/ui/charts/chartRange.ts`. Decides only the x-axis
+   * label density (day-and-month for a short window, month-and-year for a long one); the caller
+   * is the one that actually slices `dates`/`you`/`benchmark` down to this range.
+   */
+  range: ChartRange
 }
 
 const MARGIN = { top: 18, right: 14, bottom: 20, left: 46 }
@@ -91,6 +100,7 @@ export function HistoryChart({
   height = 220,
   busy = false,
   markers = [],
+  range,
 }: HistoryChartProps) {
   const [wrapperRef, width] = useElementWidth<HTMLDivElement>(340)
   const [openMarker, setOpenMarker] = useState<number | null>(null)
@@ -120,10 +130,10 @@ export function HistoryChart({
     const bottom = Math.max(top + 1, height - MARGIN.bottom)
 
     const x = linearScale([0, Math.max(1, count - 1)], [left, right])
-    const y = linearScale(paddedDomain([...real, ...shadow], { pad: 0.1, includeZero: true }), [
-      bottom,
-      top,
-    ])
+    // Fit to the values actually on screen rather than pinning to $0 - a dollar amount has no
+    // meaningful zero to anchor to here, and forcing one flattens both lines at every range
+    // where the portfolio and its VOO shadow are both far from zero (task 17).
+    const y = linearScale(paddedDomain([...real, ...shadow], { pad: 0.1 }), [bottom, top])
 
     const xs = Array.from({ length: count }, (_, i) => x(i))
     const youPoints: Point[] = real.map((value, i) => ({ x: xs[i], y: y(value) }))
@@ -187,6 +197,10 @@ export function HistoryChart({
   const { index, handlers } = useScrub(plot.xs)
   const { real, shadow, days } = series
   const active = index ?? real.length - 1
+  // Short window: day and month, close enough together that the year is never in question.
+  // Long window: month and year, since the day is too fine to read at that scale and the year
+  // is what actually tells the two ends apart (docs/DESIGN.md section 5.3).
+  const axisLabel = SHORT_RANGES.has(range) ? monthDay : monthYear
 
   if (real.length < 2) {
     return (
@@ -419,7 +433,7 @@ export function HistoryChart({
           ))}
 
           <text x={plot.left} y={height - 6} className="fill-ink-muted font-mono text-micro">
-            {dateFull(days[0])}
+            {axisLabel(days[0])}
           </text>
           {/*
             The middle date only when there is room for three dates: at 390px the first and
@@ -432,7 +446,7 @@ export function HistoryChart({
               textAnchor="middle"
               className="fill-ink-muted font-mono text-micro"
             >
-              {dateShort(days[Math.floor((days.length - 1) / 2)])}
+              {axisLabel(days[Math.floor((days.length - 1) / 2)])}
             </text>
           )}
           <text
@@ -441,7 +455,7 @@ export function HistoryChart({
             textAnchor="end"
             className="fill-ink-muted font-mono text-micro"
           >
-            {dateFull(days[days.length - 1])}
+            {axisLabel(days[days.length - 1])}
           </text>
 
           {index !== null && (

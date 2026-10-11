@@ -10,6 +10,8 @@ import {
   EmptyState,
   HistoryChart,
   Label,
+  rangeStart,
+  RangeSelector,
   SectionHeading,
   SignedDelta,
   Sparkline,
@@ -21,6 +23,7 @@ import {
   percent,
   useToast,
   zoneFor,
+  type ChartRange,
   type Column,
 } from '../ui'
 import {
@@ -45,6 +48,8 @@ import {
 export default function Kit() {
   const toast = useToast()
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [historyRange, setHistoryRange] = useState<ChartRange>('1Y')
+  const historyStart = rangeStart(history.dates, historyRange)
 
   const columns: Column<DemoHolding>[] = [
     {
@@ -154,10 +159,14 @@ export default function Kit() {
 
       <section>
         <SectionHeading>History, with the gap shaded</SectionHeading>
+        <div className="mb-3">
+          <RangeSelector value={historyRange} onChange={setHistoryRange} />
+        </div>
         <HistoryChart
-          dates={history.dates}
-          you={history.you}
-          benchmark={history.shadow}
+          dates={history.dates.slice(historyStart)}
+          you={history.you.slice(historyStart)}
+          benchmark={history.shadow.slice(historyStart)}
+          range={historyRange}
           subtitle="Drag across the chart, or focus it and use the arrow keys."
         />
       </section>
@@ -326,6 +335,7 @@ export default function Kit() {
               dates={history.dates.slice(-120)}
               you={history.you.slice(-120)}
               benchmark={history.shadow.slice(-120)}
+              range="6M"
               title="Last six months"
               height={140}
               busy

@@ -171,8 +171,9 @@ export default function Help() {
             </Term>
             <Term word="History">
               Your portfolio and its VOO shadow as two lines, with the gap between them filled -
-              blue where you are ahead, red where you are behind. The 1Y / 3Y / All buttons change
-              the window only; they never change how anything is computed.
+              blue where you are ahead, red where you are behind. The range buttons (1W up to
+              All) change the window and how closely the chart zooms in on it; they never change
+              how anything is computed.
             </Term>
             <Term word="Rebuy opportunities">
               Each holding that has a fair value, ranked by discount, drawn as a meter with the zone
@@ -217,7 +218,9 @@ export default function Help() {
               Invested, returned, and total return split into realized, unrealized and dividends.
             </Term>
             <Term word="Position versus VOO">
-              This ticker against its own VOO bucket, with a marker at every buy and sell.
+              This ticker against its own VOO bucket, with a marker at every buy and sell and the
+              same range buttons as the dashboard&rsquo;s History chart. A buy or sell from
+              outside the chosen window is left off rather than drawn on day one of it.
             </Term>
             <Term word="Decisions">
               One row per buy: the dollars you put in, what those shares are worth now (or what they

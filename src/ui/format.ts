@@ -178,6 +178,28 @@ export function dateFull(value: string | null | undefined): string {
   return `${MONTHS[parsed.month - 1]} ${parsed.day}, ${parsed.year}`
 }
 
+/**
+ * `Oct 3`, never the year. For a short chart range, where the two end labels are close enough
+ * together that the year is never in question.
+ */
+export function monthDay(value: string | null | undefined): string {
+  if (!value) return NA
+  const parsed = parseDay(value)
+  if (!parsed) return NA
+  return `${MONTHS[parsed.month - 1]} ${parsed.day}`
+}
+
+/**
+ * `Oct 2026`, never the day. For a long chart range, where the day is too fine to read off the
+ * axis and the year is what actually disambiguates the two ends.
+ */
+export function monthYear(value: string | null | undefined): string {
+  if (!value) return NA
+  const parsed = parseDay(value)
+  if (!parsed) return NA
+  return `${MONTHS[parsed.month - 1]} ${parsed.year}`
+}
+
 /** For the "updated …" half of the prices-as-of slot. Falls back to a date past a week. */
 export function relativeTime(value: string | number | Date | null | undefined, now = new Date()) {
   if (value === null || value === undefined) return NA

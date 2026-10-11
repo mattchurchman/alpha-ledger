@@ -37,6 +37,7 @@ export { applyTheme, readStoredTheme, useTheme, THEME_STORAGE_KEY, type Theme } 
 export { DEEP_DISCOUNT, WELL_ABOVE, zoneFor, type Zone, type ZoneId } from './zones'
 
 export { ChartFrame, Readout, type ChartFrameProps } from './charts/ChartFrame'
+export { CHART_RANGES, SHORT_RANGES, rangeStart, type ChartRange } from './charts/chartRange'
 export { DiscountMeter, type DiscountMeterProps } from './charts/DiscountMeter'
 export { DivergingBars, type DivergingBarsProps } from './charts/DivergingBars'
 export {
@@ -44,6 +45,7 @@ export {
   type HistoryChartMarker,
   type HistoryChartProps,
 } from './charts/HistoryChart'
+export { RangeSelector, type RangeSelectorProps } from './charts/RangeSelector'
 export { Sparkline, type SparklineProps } from './charts/Sparkline'
 export { StepLineChart, type EstimateChange, type StepLineChartProps } from './charts/StepLineChart'
 

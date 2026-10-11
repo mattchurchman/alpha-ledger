@@ -8,6 +8,8 @@ import {
   moneyAxis,
   moneyCompact,
   moneyExact,
+  monthDay,
+  monthYear,
   percent,
   relativeTime,
   shares,
@@ -186,6 +188,18 @@ describe('dates', () => {
     expect(dateShort('not-a-date')).toBe(NA)
     expect(dateShort('2026-13-01')).toBe(NA)
     expect(dateFull(undefined)).toBe(NA)
+  })
+
+  it('never carries the year in the day-month form, for a short chart range', () => {
+    expect(monthDay('2026-10-03')).toBe('Oct 3')
+    expect(monthDay('2024-12-31')).toBe('Dec 31')
+    expect(monthDay(null)).toBe(NA)
+  })
+
+  it('never carries the day in the month-year form, for a long chart range', () => {
+    expect(monthYear('2026-10-03')).toBe('Oct 2026')
+    expect(monthYear('2024-12-31')).toBe('Dec 2024')
+    expect(monthYear(undefined)).toBe(NA)
   })
 })
 

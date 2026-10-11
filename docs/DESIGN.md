@@ -294,8 +294,12 @@ Taken from the skill and applied everywhere without exception:
   with a 3px stroke in the surface colour, so a direct label stays readable where it crosses a
   line. That is what lets `You` and `VOO` sit next to their own line ends instead of being
   nudged away from the thing they label.
-- **Axis labels are unambiguous.** Both ends of a time axis carry the year (`dateFull`); the
-  middle label is dropped below a 320px plot, where it collides with the left one at 390px.
+- **Axis labels are unambiguous, and adapt to the window.** `HistoryChart` picks the format from
+  the selected range (`src/ui/charts/chartRange.ts`): 6 months or less shows day and month
+  (`monthDay`) - close enough together that the year is never in question - and past that it
+  shows month and year (`monthYear`) instead, since a day is too fine to read at that scale and
+  the year is what actually tells the two ends apart. The middle label is dropped below a 320px
+  plot, where it collides with the left one at 390px.
 
 ### 5.4 Interaction
 
@@ -324,6 +328,7 @@ All in `src/ui/`, all demoed at `/kit` against synthetic data from `src/kit/synt
 | `StatTile`                               | figure                     | label · value · optional `SignedDelta` · optional sparkline · footnote. `hero` variant for the one headline number.                                                |
 | `SignedDelta`                            | figure                     | glyph + sign + value, `ahead`/`behind` hue, spelled-out `aria-label`. `goodWhenUp={false}` for the cases where down is good.                                       |
 | `HistoryChart`                           | two lines + diverging area | you (blue) vs VOO (graphite); the gap filled blue where ahead, red where behind, **split at every crossing**. Crosshair, touch scrub, table view.                  |
+| `RangeSelector`                          | segmented control          | 1W/1M/3M/6M/YTD/1Y/3Y/All for `HistoryChart`'s window; horizontally scrollable at 44px targets rather than shrinking below the floor at 390px.                      |
 | `DivergingBars`                          | diverging bars             | value creators and destroyers across every ticker ever held; blue right of zero, red left, neutral zero rule. Sorted by magnitude, top-N on phone with "Show all". |
 | `DiscountMeter`                          | meter                      | discount vs your fair value. Neutral track, boundary ticks at −15 / 0 / +15%, fill from zero in the pole hue, zone name as text. `—` when there is no estimate.    |
 | `StepLineChart`                          | line + step overlay        | price (blue) with the fair-value history as a **step-after** line (green) and a marker at each change carrying its note.                                           |

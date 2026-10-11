@@ -17,6 +17,8 @@ import {
   money,
   moneyCompact,
   percent,
+  rangeStart,
+  RangeSelector,
   SectionHeading,
   shares as formatShares,
   SignedDelta,
@@ -24,6 +26,7 @@ import {
   StepLineChart,
   toNumber,
   useToast,
+  type ChartRange,
   type Column,
   type HistoryChartMarker,
 } from '../ui'
@@ -48,6 +51,7 @@ export default function StockDetail() {
 
   const [fairValueRows, setFairValueRows] = useState<FairValueRow[] | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+  const [range, setRange] = useState<ChartRange>('1Y')
 
   const report = useCallback(
     (err: unknown) => {
@@ -147,19 +151,36 @@ export default function StockDetail() {
 
   const series = useMemo(() => (result ? tickerSeries(result, ticker) : null), [result, ticker])
 
+  /** `series`, windowed to the selected range - same helper and behaviour as the Dashboard chart. */
+  const windowedSeries = useMemo(() => {
+    if (!series) return null
+    const start = rangeStart(series.dates, range)
+    return {
+      dates: series.dates.slice(start),
+      value: series.value.slice(start),
+      shadow: series.shadow.slice(start),
+    }
+  }, [series, range])
+
   const decisions = useMemo(() => (result ? tickerDecisions(result, ticker) : []), [result, ticker])
 
   const markers = useMemo<HistoryChartMarker[]>(() => {
+    // A buy or sell from before the visible window would otherwise snap to the window's left
+    // edge (HistoryChart's forward-snap), which reads as a trade that happened on day one of a
+    // range it never touched.
+    const windowStart = windowedSeries?.dates[0]
+    const inWindow = (date: string) => windowStart === undefined || date >= windowStart
     const out: HistoryChartMarker[] = []
     for (const decision of decisions) {
-      out.push({ date: decision.trade_date, kind: 'buy', amount: decision.amount })
+      if (inWindow(decision.trade_date))
+        out.push({ date: decision.trade_date, kind: 'buy', amount: decision.amount })
       for (const exit of decision.exits) {
-        if (exit.kind === 'sell')
+        if (exit.kind === 'sell' && inWindow(exit.trade_date))
           out.push({ date: exit.trade_date, kind: 'sell', amount: exit.proceeds })
       }
     }
     return out
-  }, [decisions])
+  }, [decisions, windowedSeries])
 
   const decisionColumns: Column<BuyDecision>[] = useMemo(
     () => [
@@ -346,11 +367,15 @@ export default function StockDetail() {
 
       <section>
         <SectionHeading>Position versus VOO</SectionHeading>
+        <div className="mb-3">
+          <RangeSelector value={range} onChange={setRange} />
+        </div>
         <HistoryChart
-          dates={series.dates}
-          you={series.value}
-          benchmark={series.shadow}
+          dates={windowedSeries?.dates ?? series.dates}
+          you={windowedSeries?.value ?? series.value}
+          benchmark={windowedSeries?.shadow ?? series.shadow}
           markers={markers}
+          range={range}
           title={`${ticker} versus its VOO bucket`}
           subtitle="Drag across the chart, or focus it and use the arrow keys."
         />

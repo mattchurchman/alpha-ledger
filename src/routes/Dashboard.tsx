@@ -14,10 +14,11 @@ import {
   EmptyState,
   HistoryChart,
   Label,
-  MiniButton,
   money,
   moneyCompact,
   percent,
+  rangeStart,
+  RangeSelector,
   SectionHeading,
   shares as formatShares,
   SignedDelta,
@@ -25,6 +26,7 @@ import {
   StatusBadge,
   toNumber,
   useToast,
+  type ChartRange,
   type Column,
 } from '../ui'
 import type { TickerAnalysis } from '../engine'
@@ -38,13 +40,6 @@ import type { TickerAnalysis } from '../engine'
  * domain entirely.
  */
 
-type Range = '1Y' | '3Y' | 'All'
-const RANGE_DAYS: Record<Range, number> = { '1Y': 252, '3Y': 756, All: Infinity }
-
-function sliceRange<T>(values: readonly T[], days: number): T[] {
-  return Number.isFinite(days) ? values.slice(-days) : [...values]
-}
-
 function isClosed(ticker: TickerAnalysis): boolean {
   return (toNumber(ticker.shares) ?? 0) === 0
 }
@@ -54,7 +49,7 @@ export default function Dashboard() {
   const toast = useToast()
   const { loading, error, result, prices } = usePortfolioData()
   const [fairValueRows, setFairValueRows] = useState<FairValueRow[] | null>(null)
-  const [range, setRange] = useState<Range>('1Y')
+  const [range, setRange] = useState<ChartRange>('1Y')
 
   const report = useCallback(
     (err: unknown) => {
@@ -125,11 +120,11 @@ export default function Dashboard() {
 
   const series = useMemo(() => {
     if (!result?.series) return { dates: [], value: [], shadow: [] }
-    const days = RANGE_DAYS[range]
+    const start = rangeStart(result.series.dates, range)
     return {
-      dates: sliceRange(result.series.dates, days),
-      value: sliceRange(result.series.value, days),
-      shadow: sliceRange(result.series.shadow, days),
+      dates: result.series.dates.slice(start),
+      value: result.series.value.slice(start),
+      shadow: result.series.shadow.slice(start),
     }
   }, [result, range])
 
@@ -359,23 +354,15 @@ export default function Dashboard() {
       </section>
 
       <section>
-        <SectionHeading
-          action={
-            <div className="flex gap-1">
-              {(['1Y', '3Y', 'All'] as const).map((r) => (
-                <MiniButton key={r} pressed={range === r} onClick={() => setRange(r)}>
-                  {r}
-                </MiniButton>
-              ))}
-            </div>
-          }
-        >
-          History
-        </SectionHeading>
+        <SectionHeading>History</SectionHeading>
+        <div className="mb-3">
+          <RangeSelector value={range} onChange={setRange} />
+        </div>
         <HistoryChart
           dates={series.dates}
           you={series.value}
           benchmark={series.shadow}
+          range={range}
           subtitle="Drag across the chart, or focus it and use the arrow keys."
         />
       </section>
