@@ -4,10 +4,21 @@ Personal web app: did my stock picks beat buying VOO with the same dollars on th
 
 ## How a session works
 
-1. Read `PROGRESS.md`, then the one task file the user names in `tasks/`. Read `docs/SPEC.md` sections the task lists, not the whole file, unless told.
+1. Read `PROGRESS.md` from the `# Rev 2` heading down (everything above it is rev 1 history; grep it only when a task points there), then the one task file the user names in `tasks/`. Read `docs/SPEC.md` sections the task lists, not the whole file, unless told.
 2. Do only that task. Respect its "Out of scope" list. Do not start the next task.
 3. Run the acceptance checks. Fix failures before finishing.
-4. Append a handoff entry to `PROGRESS.md` (format is in that file), commit, and stop. The user will clear context.
+4. Update the task's row in the status table and append a handoff entry to `PROGRESS.md` (format is in that file), commit, `git push`, and stop.
+5. End with exactly this message, filled in from the task file's **Next** line, so the user knows what to do:
+
+   ```
+   Task NN is done and pushed.
+   Next: tasks/<next file> on <Model>.
+   1. Type /clear
+   2. Type /model and pick <Model>
+   3. Type: Do tasks/<next file>
+   ```
+
+If a task changes what a screen does, update that screen's section in `src/routes/Help.tsx` in the same task.
 
 If the task conflicts with the spec or reality (an API changed, a file is missing), stop and tell the user rather than improvising a redesign. Record spec changes in `docs/SPEC.md` under "Decision log".
 

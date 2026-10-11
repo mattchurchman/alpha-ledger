@@ -735,3 +735,21 @@ Open issues:
   `/api/*` still 401 (403 on a wrong bearer), and the served bundle hash matches the local
   build. `/help` itself could not be shot live: it sits inside the auth gate, so a signed-out
   request gets the unlock screen. The 390px/1280px shots were taken against `wrangler dev`.
+
+# Rev 2
+
+Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; task 15's real-data validation is still partial. Rev 2 is polish plus five features, planned 2026-10-11. How to run it: `docs/REV2_START.md`.
+
+## Rev 2 task status
+| # | Task | Model | Status |
+|---|------|-------|--------|
+| 16 | Quick fixes | Haiku | todo |
+| 17 | Chart scaling and shorter ranges | Sonnet | todo |
+| 18 | Close or hide defunct tickers | Opus | todo |
+| 19 | Per-account drill-down | Opus | todo |
+| 20 | Watchlist | Sonnet | todo |
+| 21 | Rebuy visuals and fair-value entry | Sonnet | todo |
+| 22 | Visual refresh | Opus | todo |
+| 23 | Release rev 2 | Haiku | todo |
+
+## Rev 2 entries
