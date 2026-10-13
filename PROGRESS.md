@@ -751,6 +751,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 21 | Rebuy visuals and fair-value entry | Sonnet | done |
 | 22 | Visual refresh | Opus | done |
 | 23 | Release rev 2 | Haiku | done |
+| 24 | Tighten the Rebuy row / Edit button pair | Sonnet | done |
 
 ## Rev 2 entries
 
@@ -1386,3 +1387,27 @@ Verified:
 Open issues: none. Per the task's "You do" line, the owner should open the app on iPhone,
 confirm the header clears the status bar, set a fair value without the field dropping focus,
 and open a ticker from Rebuy opportunities - that's manual testing outside the release task.
+
+## Task 24: Tighten the Rebuy row / Edit button pair - 2026-10-12 - Sonnet
+
+Status: done.
+
+Built:
+- `src/ui/charts/RebuyBars.tsx`: the `<li>` wrapping each row and its sibling Edit button went
+  from `gap-1` to `gap-0.5`, and the Edit button's own horizontal padding from `px-2` to
+  `px-1.5`, so the pair reads as one compact unit instead of two full-width targets. Both stay
+  at the `min-h-11` (44px) touch-target floor - only the horizontal space was trimmed.
+- No change to DESIGN 5.5's `RebuyBars` row description - the layout (row button + sibling Edit
+  control) is unchanged, only the spacing between them.
+
+Verified:
+- `npm run check`: typecheck + lint + 487 tests, all pass (no new tests needed - geometry and
+  behavior are unchanged, only Tailwind spacing classes).
+- `npm run build`: succeeds, same >500KB chunk warning as task 22 (unrelated).
+- `npm run screenshots -- --route /kit`: all 4 PNGs written with no console error. Cropped and
+  reviewed the Rebuy opportunities section by eye at 390px (light and dark) with the synthetic
+  data's longest tickers (5 characters, e.g. `DVN29`): rows are tighter, Edit button not
+  clipped, ticker/bar/percentage/Edit all legible, no horizontal scroll. Desktop (1280px) has
+  more room than mobile so was not a concern.
+
+Open issues: none.

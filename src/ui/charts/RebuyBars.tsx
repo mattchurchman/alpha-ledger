@@ -137,7 +137,7 @@ export function RebuyBars({
           const rowClassName =
             'grid min-h-11 flex-1 grid-cols-[4.5rem_1fr_4.5rem] items-center gap-2 rounded-[6px] py-1 text-left transition-colors duration-[120ms] hover:bg-sunken sm:grid-cols-[5.5rem_1fr_4.5rem_8rem]'
           return (
-            <li key={item.ticker} className="flex items-center gap-1">
+            <li key={item.ticker} className="flex items-center gap-0.5">
               <button
                 type="button"
                 onClick={() => onSelect?.(item.ticker)}
@@ -197,7 +197,7 @@ export function RebuyBars({
                   variant="ghost"
                   aria-label={`Set ${item.ticker}'s fair value`}
                   onClick={() => onEdit(item.ticker)}
-                  className="shrink-0 px-2"
+                  className="shrink-0 px-1.5"
                 >
                   Edit
                 </Button>
