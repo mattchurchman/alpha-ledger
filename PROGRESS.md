@@ -752,6 +752,8 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 22 | Visual refresh | Opus | done |
 | 23 | Release rev 2 | Haiku | done |
 | 24 | Tighten the Rebuy row / Edit button pair | Sonnet | done |
+| 25 | Finish task 15: real-data validation | Opus | blocked - needs the owner's CSVs in `private/m1/` |
+| 26 | Make `npm run check` a trustworthy gate | Opus | done |
 
 ## Rev 2 entries
 
@@ -1411,3 +1413,61 @@ Verified:
   more room than mobile so was not a concern.
 
 Open issues: none.
+
+## Task 26: Make `npm run check` a trustworthy gate - 2026-10-12 - Opus
+
+Status: done.
+
+Built:
+- `src/engine/index.test.ts`: the single `BUDGET_MS = 1000` shared by both performance tests is
+  replaced by `ANALYZE_BUDGET_MS = 4000` and `DETAIL_BUDGET_MS = 400`, with a comment block
+  stating what the numbers defend against (an accidentally quadratic `analyze`, which misses by
+  an order of magnitude) and what they are explicitly *not* (a target - that is still task 05's
+  ~410ms baseline and SPEC's "roughly 1-3s on a phone"). The second test was sharing the
+  1000ms figure despite reading an already-computed result in ~15ms, so it got its own number.
+- Both tests now call a small `report()` helper that logs the measured milliseconds and what
+  share of the budget they used, every run, pass or fail. That line is the perf signal; the
+  assertions are a tripwire behind it.
+- `vite.config.ts`: `test.silent: false`. Vitest 5 hides logs from passing tests, so without
+  this the `report()` line never reaches a plain `npm run check`. Two other channels were tried
+  first and rejected: `annotate()` (the API exists in Vitest 5 but the default reporter does not
+  surface it) and `process.stderr.write` (visible, but `process` is not in the app tsconfig's
+  types, so `npm run typecheck` fails - correctly, the engine is browser-targeted). The setting
+  has to live at the root config: `silent` inside `vitest.engine.config.ts` is ignored, which is
+  why the comment there points here.
+- Deleted `src/engine/placeholder.test.ts`. Eight tasks declined to; made it this task's call.
+  Test count is 486 (was 487), and the deleted assertion - that `decimal.js` adds 0.1 and 0.2 to
+  exactly 0.3 - is covered many times over by the cent-exact expectations in the engine suite.
+
+Decisions:
+- **Raised the budget rather than moving the assertion out of the blocking suite.** Both options
+  were open per the assessment. A `bench`/tagged run that has to be invoked deliberately is a
+  run nobody invokes, whereas a 4x-headroom assertion inside `check` still catches the only
+  regression worth catching and now cannot fail on machine load. The printed measurement is what
+  makes the loose budget acceptable: a creep from ~400ms to ~2s is visible in the output long
+  before the assertion fires.
+- **4000ms was measured, not guessed.** `analyze` on this generated input: 418ms for the file
+  alone, ~700-770ms in the full suite (the extra cost is the worker project running alongside -
+  and the reason the old 1000ms budget was marginal: the reported 1069ms failure was a full-suite
+  run), and **1457ms (36% of budget) with all 8 cores saturated** by busy loops. 4000ms sits
+  above the worst number this machine could produce on purpose, and a quadratic `analyze` would
+  be far past it. `DETAIL_BUDGET_MS = 400` keeps the same ~10x shape over a 14-30ms measurement.
+
+Verified:
+- `npm run check` **five consecutive times, all pass**: typecheck + lint + 486 tests. Runs 1-4
+  idle (`perf: analyze` 773 / 737 / 717 / 703ms), run 5 with two parallel `npm run build`
+  processes (711ms, load average 3.4).
+- Sixth run under deliberate full saturation (8 busy loops on 8 cores, load average 7.4):
+  passes at 1457ms, 36% of budget. The load generators were killed afterwards; nothing left
+  running.
+- The `perf:` lines appear in plain `npm run check` output with no other new noise - the worker
+  project's pre-existing "Using secrets defined in .dev.vars" lines are the only other stdout.
+- `git status` reviewed before commit: nothing from `private/` or the database in the diff.
+
+Open issues:
+- The budgets are tuned to this laptop. A CI box slower than ~3x this machine under full load
+  would need the number raised again - the comment in the test says what the number is for, so
+  that is a decision a future session can make without re-deriving it.
+- `vite.config.ts` now un-silences logs for the whole suite, worker project included. No worker
+  test logs today; if one starts logging noisily, the fix is to quiet that test rather than to
+  re-silence the suite and lose the perf line.

@@ -12,5 +12,7 @@ export default defineProject({
     name: 'engine',
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    // `silent: false` - needed so the `analyze performance` block's measurement reaches a plain
+    // `npm run check` - lives in `vite.config.ts`, not here: Vitest only honours it at the root.
   },
 })

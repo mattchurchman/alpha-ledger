@@ -20,14 +20,18 @@ defects are confirmed and reproducible, and a handful of deliberate deferrals ha
 
 ### Current check status
 
-`npm run check` **fails intermittently** on this machine: `src/engine/index.test.ts > analyze
+~~`npm run check` **fails intermittently** on this machine: `src/engine/index.test.ts > analyze
 performance > handles six years of sixty tickers in under 1000ms` measured 1069ms in a full-suite
 run, then passed three times out of three when that file was run alone. 486 of 487 tests pass; the
-failure is the wall-clock budget, not a wrong number. See task 26.
+failure is the wall-clock budget, not a wrong number. See task 26.~~
+
+**Fixed by task 26 (2026-10-12).** `npm run check` passes typecheck + lint + 486 tests, verified
+five consecutive times including under parallel-build load and once under full CPU saturation.
+The perf budget is now a documented tripwire (4000ms) with the measured time printed every run.
 
 ---
 
-## Task 25 - Finish task 15: real-data validation
+## Task 25 - Finish task 15: real-data validation - BLOCKED on the owner
 **Model:** Opus. **Read:** CLAUDE.md, `tasks/15-validation.md`, SPEC sections 4, 5, 6,
 `docs/ENGINE_API.md`, `docs/M1_FORMAT.md`.
 
@@ -54,8 +58,8 @@ Run `tasks/15-validation.md` as written. Specifically:
 
 **Out of scope:** new features, redesigns.
 
-## Task 26 - Make `npm run check` a trustworthy gate
-**Model:** Sonnet. **Read:** `src/engine/index.test.ts` (the `analyze performance` block),
+## Task 26 - Make `npm run check` a trustworthy gate - DONE 2026-10-12
+**Model:** Sonnet (done on Opus). **Read:** `src/engine/index.test.ts` (the `analyze performance` block),
 `vitest.engine.config.ts`, CLAUDE.md's Commands section.
 
 CLAUDE.md requires `npm run check` before every commit, so a gate that fails on machine load is a
