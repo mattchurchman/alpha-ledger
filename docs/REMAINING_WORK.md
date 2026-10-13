@@ -78,7 +78,7 @@ full suite, passing alone three times running.
 **Acceptance:** `npm run check` passes five consecutive times, including once under load (e.g.
 with a parallel `npm run build`).
 
-## Task 27 - Keyboard access for desktop table rows
+## Task 27 - Keyboard access for desktop table rows - DONE 2026-10-12
 **Model:** Sonnet. **Read:** `src/ui/DataTable.tsx` (lines ~153 and ~215), `docs/DESIGN.md`
 section 3.3.
 

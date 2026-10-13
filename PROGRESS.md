@@ -754,6 +754,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 24 | Tighten the Rebuy row / Edit button pair | Sonnet | done |
 | 25 | Finish task 15: real-data validation | Opus | blocked - needs the owner's CSVs in `private/m1/` |
 | 26 | Make `npm run check` a trustworthy gate | Opus | done |
+| 27 | Keyboard access for desktop table rows | Sonnet | done |
 
 ## Rev 2 entries
 
@@ -1471,3 +1472,38 @@ Open issues:
 - `vite.config.ts` now un-silences logs for the whole suite, worker project included. No worker
   test logs today; if one starts logging noisily, the fix is to quiet that test rather than to
   re-silence the suite and lose the perf line.
+
+## Task 27: Keyboard access for desktop table rows - 2026-10-12 - Sonnet
+
+Status: done.
+
+Built:
+- `src/ui/DataTable.tsx`: the desktop `<tr>` (rendered when `onRowSelect` is passed) now gets
+  `tabIndex={0}`, `role="button"`, and an `onKeyDown` that activates `onRowSelect` on Enter or
+  Space (with `preventDefault` so Space doesn't also scroll the page). The phone layout already
+  used a real `<button>`, so this only touches the `sm:block` table path.
+- The `rowAction` `<td>` already stopped its own `onClick` from bubbling to the row; it now also
+  stops `onKeyDown`, so pressing Enter/Space on the action button (e.g. Close) doesn't also fire
+  `onRowSelect` on the row it sits in.
+- No change to focus styling: the app already has one global rule, `:focus-visible { outline: 2px
+  solid var(--al-focus) }` (`src/index.css`), so the newly-focusable row picks it up for free and
+  it reads clearly against the new `hover:bg-accent-wash`.
+- `tasks/27-table-keyboard.md` written from `docs/REMAINING_WORK.md`'s task 27 entry - no task
+  file existed yet for this one, only the proposal.
+
+Verified:
+- `npm run check`: typecheck + lint + 486 tests, all pass.
+- `npm run build`: succeeds (same >500KB warning as task 22/28's open item - unrelated).
+- Keyboard-only walkthrough against `npx wrangler dev` with the qa-fixture data, at the real
+  desktop breakpoint (CSS-forced, since this sandbox's viewport tops out around 555px - the same
+  constraint task 16-18 hit): clicked the `Ticker` sort header to establish a known focus start,
+  then `Tab`-only from there. Landed on a holdings `<tr>` with `tabIndex=0`/`role="button"`; the
+  browser auto-scrolled the table horizontally to keep it in view and the `:focus-visible` outline
+  was visible as the row's top/bottom border. `Enter` on the row navigated to `/stocks/WEAK`.
+  Separately, tabbing one more step from a focused row (without pressing Enter/Space on it first)
+  landed directly on that row's `Close…` rowAction button - confirming the row need not be
+  "selected" to tab past it. Pressing `Enter` on `Close…` opened the close-or-hide sheet and the
+  URL stayed on `/` - the row's own `onRowSelect` did not also fire. Cancelled the sheet;
+  confirmed via `GET /api/transactions` that no close transaction was written.
+
+Open issues: none.

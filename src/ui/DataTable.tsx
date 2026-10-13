@@ -216,6 +216,17 @@ export function DataTable<T>({
               <tr
                 key={rowKey(row)}
                 onClick={onRowSelect ? () => onRowSelect(row) : undefined}
+                onKeyDown={
+                  onRowSelect
+                    ? (event) => {
+                        if (event.key !== 'Enter' && event.key !== ' ') return
+                        event.preventDefault()
+                        onRowSelect(row)
+                      }
+                    : undefined
+                }
+                tabIndex={onRowSelect ? 0 : undefined}
+                role={onRowSelect ? 'button' : undefined}
                 className={`border-b border-rule/70 last:border-0 ${
                   onRowSelect ? 'cursor-pointer hover:bg-accent-wash' : ''
                 }`}
@@ -231,11 +242,13 @@ export function DataTable<T>({
                   </td>
                 ))}
                 {rowAction && (
-                  // The row itself is clickable, so the action's cell swallows the click -
-                  // otherwise pressing it would also navigate away from what it just changed.
+                  // The row itself is clickable (and, now, keyboard-activatable), so the
+                  // action's cell swallows both the click and the key that would otherwise
+                  // bubble up to the row and fire onRowSelect as well.
                   <td
                     className="px-2 py-2.5 text-right last:pr-0"
                     onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
                   >
                     {rowAction(row)}
                   </td>
