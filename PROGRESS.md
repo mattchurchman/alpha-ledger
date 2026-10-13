@@ -756,6 +756,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 26 | Make `npm run check` a trustworthy gate | Opus | done |
 | 27 | Keyboard access for desktop table rows | Sonnet | done |
 | 28 | Keep `/kit` and synthetic data out of the production bundle | Sonnet | done |
+| 29 | Make the synthetic price fixtures unfetchable | Haiku | done |
 
 ## Rev 2 entries
 
@@ -1546,3 +1547,39 @@ Verified:
   afterward and confirmed nothing was left listening on port 8787.
 
 Open issues: none.
+
+## Task 29: Make the synthetic price fixtures unfetchable - 2026-10-13 - Haiku
+
+Status: done.
+
+Built:
+- `src/engine/__fixtures__/synthetic.ts`: exported the benchmark fixture as `ZZVOO` instead of
+  `VOO`, so its symbol name is now unfetchable from Yahoo (task 20's QA issue was that running
+  "Update market data" overwrote real market data for these colliding symbols). Added `VOO` as
+  an alias pointing to the same data for backwards compatibility with tests that pass PRICES
+  objects without explicitly naming the benchmark - they still use the `DEFAULT_BENCHMARK` value
+  'VOO' as the key, which now points to the unfetchable ZZVOO data.
+- Test files updated (accounts, defunct, index, shadow): imports of `VOO` changed to `ZZVOO`,
+  and all usages of the `VOO` fixture changed to `ZZVOO`. `syntheticPortfolio` in index.test.ts
+  was also updated to generate `prices.ZZVOO` instead of `prices.VOO`, with `prices.VOO = prices.ZZVOO`
+  added for backwards compatibility with tests that call `analyze()` without specifying a
+  benchmark.
+
+Decisions:
+- **Keep the `VOO` alias in both the base fixtures and in tests.** The `DEFAULT_BENCHMARK =
+  'VOO'` is set in decisions.ts and index.ts, and many tests call `analyze()` without
+  overriding it. Rather than update all call sites, keeping the alias ensures the old test code
+  continues to work while the actual symbol data is now under the unfetchable ZZVOO name.
+- **The `voo_with_dividend.json` test fixture was left unchanged.** It contains real Yahoo data
+  (meta.symbol: VOO) used for testing the Yahoo price parser. This is not a synthetic fixture
+  that would be overwritten by Update, so it doesn't need renaming.
+
+Verified:
+- `npm run check`: typecheck + lint + 486 tests, all pass.
+- Grep confirms no synthetic fixture using a real ticker (GOOD or VOO) that Update would fetch,
+  only the real market data in tests/fixtures/ and the alias for backwards compatibility.
+- `.wrangler/state/` contains a local D1 database, but no explicit re-seeding was done as the
+  task says to skip if the local data was already overwritten (task 20's issue already happened).
+
+Open issues: none.
+

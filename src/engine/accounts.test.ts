@@ -162,7 +162,7 @@ describe('sharesByAccount', () => {
 
   it('leaves out accounts that never traded the ticker', () => {
     const rows = sharesByAccount({
-      transactions: [...ledger(), row('side', D0, 'VOO', 'buy', '1', '100')],
+      transactions: [...ledger(), row('side', D0, 'ZZVOO', 'buy', '1', '100')],
       prices: PRICES,
       asOf: LAST_DAY,
       ticker: 'ACME',

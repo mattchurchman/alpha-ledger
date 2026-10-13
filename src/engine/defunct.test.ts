@@ -11,7 +11,7 @@ import {
   type ExchangeInput,
 } from './defunct'
 import { analyze } from './index'
-import { buy, DATES, history, LAST_DAY, PRICES, row, VOO } from './__fixtures__/synthetic'
+import { buy, DATES, history, LAST_DAY, PRICES, row, ZZVOO } from './__fixtures__/synthetic'
 import type { Transaction } from './types'
 
 /**
@@ -170,9 +170,9 @@ describe('closeOutPlan', () => {
       expect(beta.averageCost).toBeNull()
     })
 
-    it('values it at the market price as exactly matching VOO', () => {
+    it('values it at the market price as exactly matching ZZVOO', () => {
       // BETA is half the benchmark every day, so buying it and being bought out at its own
-      // close can only ever tie with putting the same dollars in VOO on the same dates.
+      // close can only ever tie with putting the same dollars in ZZVOO on the same dates.
       expect(closedOut('2000').valueAdded).toBe('0')
       expect(closedOut('2000').shadowValue).toBe('0')
     })
@@ -180,7 +180,7 @@ describe('closeOutPlan', () => {
     it('carries a premium over the market price through to value added', () => {
       // $2,500 for a position the market priced at $2,000 is $500 extra on DATES[4]. The
       // benchmark's adjusted close goes 400 -> 500 from there to the valuation date, so the
-      // extra cash left the VOO bucket $625 short of zero - and value added is 0 - (-625).
+      // extra cash left the ZZVOO bucket $625 short of zero - and value added is 0 - (-625).
       const beta = closedOut('2500')
 
       expect(beta.returned).toBe('2500')
@@ -416,7 +416,7 @@ describe('delistedCandidates', () => {
     })
 
     expect(result.asOf).toBe(LAST_DAY)
-    expect(VOO.asOf).toBe(LAST_DAY)
+    expect(ZZVOO.asOf).toBe(LAST_DAY)
     expect(delistedCandidates(result)).toEqual([])
   })
 })

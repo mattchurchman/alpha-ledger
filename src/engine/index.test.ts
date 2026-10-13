@@ -283,7 +283,8 @@ function syntheticPortfolio(tickerCount: number, years: number) {
     return history(closes, { dates })
   }
 
-  prices.VOO = makeSeries()
+  prices.ZZVOO = makeSeries()
+  prices.VOO = prices.ZZVOO // alias for test compatibility with DEFAULT_BENCHMARK
 
   for (let t = 0; t < tickerCount; t++) {
     const ticker = `SYN${String(t).padStart(2, '0')}`

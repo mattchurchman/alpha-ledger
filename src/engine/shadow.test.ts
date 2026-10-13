@@ -4,7 +4,7 @@ import {
   FIRST_DAY,
   LAST_DAY,
   PRICES,
-  VOO,
+  ZZVOO,
   WEEKEND_DAY,
   adjust,
   buy,
@@ -25,39 +25,39 @@ import {
 import type { Transaction } from './types'
 
 function flowsFor(transactions: Transaction[]) {
-  return shadowFlows(splitAdjustTransactions(transactions, PRICES), VOO)
+  return shadowFlows(splitAdjustTransactions(transactions, PRICES), ZZVOO)
 }
 
 function bucket(transactions: Transaction[], ticker: string, date = LAST_DAY) {
   return (
-    (shadowBucketsOn(flowsFor(transactions), VOO, date).get(ticker) ?? null)?.toFixed(2) ?? null
+    (shadowBucketsOn(flowsFor(transactions), ZZVOO, date).get(ticker) ?? null)?.toFixed(2) ?? null
   )
 }
 
 describe('benchmarkPricingDate', () => {
   it('prices a trade on its own day when the market traded', () => {
-    expect(benchmarkPricingDate(VOO, '2025-01-06')).toBe('2025-01-06')
+    expect(benchmarkPricingDate(ZZVOO, '2025-01-06')).toBe('2025-01-06')
   })
 
   it('prices a weekend trade on the next trading day', () => {
     // 2025-01-04 is a Saturday; the next day in the series is Monday the 6th.
-    expect(benchmarkPricingDate(VOO, WEEKEND_DAY)).toBe('2025-01-06')
+    expect(benchmarkPricingDate(ZZVOO, WEEKEND_DAY)).toBe('2025-01-06')
   })
 
   it('returns null past the end of the series', () => {
-    expect(benchmarkPricingDate(VOO, '2026-06-01')).toBeNull()
+    expect(benchmarkPricingDate(ZZVOO, '2026-06-01')).toBeNull()
   })
 })
 
 describe('benchmarkGrowth', () => {
   it('is the ratio of adjusted closes', () => {
     // adj 100 -> 500.
-    expect(benchmarkGrowth(VOO, FIRST_DAY, LAST_DAY)?.toFixed(4)).toBe('5.0000')
+    expect(benchmarkGrowth(ZZVOO, FIRST_DAY, LAST_DAY)?.toFixed(4)).toBe('5.0000')
   })
 
   it('measures from the next trading day when the start is not one', () => {
     // Saturday the 4th prices on Monday the 6th: adj 200 -> 500 = 2.5, not 5.
-    expect(benchmarkGrowth(VOO, WEEKEND_DAY, LAST_DAY)?.toFixed(4)).toBe('2.5000')
+    expect(benchmarkGrowth(ZZVOO, WEEKEND_DAY, LAST_DAY)?.toFixed(4)).toBe('2.5000')
   })
 })
 
@@ -84,9 +84,9 @@ describe('shadowFlows', () => {
     const flows = shadowFlows(
       splitAdjustTransactions(
         [buy(FIRST_DAY, 'ACME', '10', '1000'), adjust('2025-01-08', 'ACME', '3')],
-        { VOO, ACME: splitAware },
+        { ZZVOO, ACME: splitAware },
       ),
-      VOO,
+      ZZVOO,
     )
 
     expect(flows).toHaveLength(1)
@@ -108,26 +108,26 @@ describe('shadowFlows', () => {
       buy(FIRST_DAY, 'ACME', '10', '1000'),
       buy('2025-01-08', 'ACME', '1', '200'),
     ]
-    const flows = shadowFlows(splitAdjustTransactions(transactions, PRICES), VOO, '2025-01-07')
+    const flows = shadowFlows(splitAdjustTransactions(transactions, PRICES), ZZVOO, '2025-01-07')
     expect(flows).toHaveLength(1)
   })
 })
 
 describe('shadowCoverageWarnings', () => {
   it('is empty when the benchmark series covers every flow', () => {
-    expect(shadowCoverageWarnings(flowsFor([buy(FIRST_DAY, 'ACME', '10', '1000')]), VOO)).toEqual(
+    expect(shadowCoverageWarnings(flowsFor([buy(FIRST_DAY, 'ACME', '10', '1000')]), ZZVOO)).toEqual(
       [],
     )
   })
 
   it('flags a flow dated before the benchmark series starts', () => {
-    const warnings = shadowCoverageWarnings(flowsFor([buy('2024-06-03', 'ACME', '1', '100')]), VOO)
+    const warnings = shadowCoverageWarnings(flowsFor([buy('2024-06-03', 'ACME', '1', '100')]), ZZVOO)
     expect(warnings).toHaveLength(1)
     expect(warnings[0].kind).toBe('before-benchmark-series')
   })
 
   it('flags a flow dated after the benchmark series ends', () => {
-    const warnings = shadowCoverageWarnings(flowsFor([buy('2026-03-02', 'ACME', '1', '100')]), VOO)
+    const warnings = shadowCoverageWarnings(flowsFor([buy('2026-03-02', 'ACME', '1', '100')]), ZZVOO)
     expect(warnings).toHaveLength(1)
     expect(warnings[0].kind).toBe('after-benchmark-series')
   })
@@ -184,14 +184,14 @@ describe('shadowBucketsOn', () => {
 
   it('is empty before the benchmark series starts', () => {
     expect(
-      shadowBucketsOn(flowsFor([buy(FIRST_DAY, 'ACME', '10', '1000')]), VOO, '2024-01-01').size,
+      shadowBucketsOn(flowsFor([buy(FIRST_DAY, 'ACME', '10', '1000')]), ZZVOO, '2024-01-01').size,
     ).toBe(0)
   })
 
   it('keeps one bucket per ticker', () => {
     const buckets = shadowBucketsOn(
       flowsFor([buy(FIRST_DAY, 'ACME', '10', '1000'), buy(FIRST_DAY, 'BETA', '20', '1000')]),
-      VOO,
+      ZZVOO,
       LAST_DAY,
     )
     expect([...buckets.keys()].sort()).toEqual(['ACME', 'BETA'])
@@ -210,8 +210,8 @@ describe('shadowTotalOn', () => {
 
     // ACME keeps 4 units and BETA gains 1200/200 = 6: the portfolio still holds 10 units,
     // so the total shadow is identical to never having made the swap.
-    expect(shadowTotalOn(flowsFor(swapped), VOO, LAST_DAY).toFixed(2)).toBe('5000.00')
-    expect(shadowTotalOn(flowsFor(held), VOO, LAST_DAY).toFixed(2)).toBe('5000.00')
+    expect(shadowTotalOn(flowsFor(swapped), ZZVOO, LAST_DAY).toFixed(2)).toBe('5000.00')
+    expect(shadowTotalOn(flowsFor(held), ZZVOO, LAST_DAY).toFixed(2)).toBe('5000.00')
   })
 })
 
@@ -222,7 +222,7 @@ describe('shadowUnitsByDay', () => {
       buy('2025-01-08', 'ACME', '1', '200'),
     ])
     // 10 units from 01-02; the 01-08 buy adds 200/400 = 0.5.
-    expect(shadowUnitsByDay(flows, VOO, DATES).map((units) => units.toFixed(1))).toEqual([
+    expect(shadowUnitsByDay(flows, ZZVOO, DATES).map((units) => units.toFixed(1))).toEqual([
       '10.0',
       '10.0',
       '10.0',
@@ -238,7 +238,7 @@ describe('shadowUnitsByDay', () => {
       buy(FIRST_DAY, 'ACME', '10', '1000'),
       buy(FIRST_DAY, 'BETA', '20', '1000'),
     ])
-    expect(shadowUnitsByDay(flows, VOO, DATES, 'BETA').at(-1)!.toFixed(1)).toBe('10.0')
-    expect(shadowUnitsByDay(flows, VOO, DATES).at(-1)!.toFixed(1)).toBe('20.0')
+    expect(shadowUnitsByDay(flows, ZZVOO, DATES, 'BETA').at(-1)!.toFixed(1)).toBe('10.0')
+    expect(shadowUnitsByDay(flows, ZZVOO, DATES).at(-1)!.toFixed(1)).toBe('20.0')
   })
 })

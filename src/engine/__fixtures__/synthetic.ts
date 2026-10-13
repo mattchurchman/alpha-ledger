@@ -7,13 +7,13 @@
  * out by hand:
  *
  * ```
- * 2025-01-02 Thu   VOO adj 100   ACME close 100
- * 2025-01-03 Fri   VOO adj 100   ACME close 110
- * 2025-01-06 Mon   VOO adj 200   ACME close 120   <- 01-04 and 01-05 are a weekend
- * 2025-01-07 Tue   VOO adj 200   ACME close 150
- * 2025-01-08 Wed   VOO adj 400   ACME close 200
- * 2025-07-01 Tue   VOO adj 400   ACME close 250
- * 2026-01-02 Fri   VOO adj 500   ACME close 300
+ * 2025-01-02 Thu   ZZVOO adj 100   ACME close 100
+ * 2025-01-03 Fri   ZZVOO adj 100   ACME close 110
+ * 2025-01-06 Mon   ZZVOO adj 200   ACME close 120   <- 01-04 and 01-05 are a weekend
+ * 2025-01-07 Tue   ZZVOO adj 200   ACME close 150
+ * 2025-01-08 Wed   ZZVOO adj 400   ACME close 200
+ * 2025-07-01 Tue   ZZVOO adj 400   ACME close 250
+ * 2026-01-02 Fri   ZZVOO adj 500   ACME close 300
  * ```
  *
  * The first and last days are **exactly 365 days apart** (2025 is not a leap year), so an
@@ -53,8 +53,11 @@ export function history(
   }
 }
 
-/** The benchmark. Adjusted close doubles, doubles again, then adds a quarter: 100 -> 500. */
-export const VOO = history(['100', '100', '200', '200', '400', '400', '500'])
+/** The benchmark (unfetchable synthetic ticker). Adjusted close doubles, doubles again, then adds a quarter: 100 -> 500. */
+export const ZZVOO = history(['100', '100', '200', '200', '400', '400', '500'])
+
+/** Alias for ZZVOO in PRICES under the key 'VOO' for test compatibility. */
+export const VOO = ZZVOO
 
 /** A pick that merely triples while the benchmark quintuples. */
 export const ACME = history(['100', '110', '120', '150', '200', '250', '300'])
