@@ -44,9 +44,29 @@ If your login session expires and you see "Please sign in again," just sign in -
 
 ## Updating the App
 
-Alpha Ledger updates automatically:
+Alpha Ledger updates automatically via its service worker:
 - The first time you open it each day, it checks for new versions.
 - Any updates download silently in the background.
 - The next time you open the app, you'll get the latest version.
 
-No action is needed on your part - it just works.
+### Force Refreshing the App
+
+If you see an old version of the app after a deployment and the automatic update hasn't kicked in yet, you can force a refresh:
+
+1. **Close the app fully**: Swipe up from the bottom of the screen to close it.
+2. **Wait a few seconds**, then tap the app icon to reopen it.
+
+If the app still shows the old version or the old icon on your home screen:
+
+3. **Delete the app from your home screen**: Long-press the "Ledger" icon and select **Remove App** → **Remove from Home Screen**.
+4. **Clear Safari cache** (optional, but recommended):
+   - Go to Settings > Safari
+   - Scroll down and tap **Clear History and Website Data**
+   - Choose **All time**
+5. **Reinstall the app**:
+   - Open Safari and navigate to `https://alpha-ledger.alpha-ledger.workers.dev`
+   - Sign in again
+   - Tap Share > Add to Home Screen (same as initial install)
+   - Confirm the name and icon, then tap **Add**
+
+The app should now display the latest version and icon.

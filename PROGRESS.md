@@ -738,7 +738,7 @@ Open issues:
 
 # Rev 2
 
-Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; task 15's real-data validation is still partial. Rev 2 is polish plus five features, planned 2026-10-11. How to run it: `docs/REV2_START.md`.
+Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; task 15's real-data validation is still partial. Rev 2 (tasks 16-23) is complete and deployed as of 2026-10-12; see `docs/REV2_START.md` for what shipped.
 
 ## Rev 2 task status
 | # | Task | Model | Status |
@@ -750,7 +750,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 20 | Watchlist | Sonnet | done |
 | 21 | Rebuy visuals and fair-value entry | Sonnet | done |
 | 22 | Visual refresh | Opus | done |
-| 23 | Release rev 2 | Haiku | todo |
+| 23 | Release rev 2 | Haiku | done |
 
 ## Rev 2 entries
 
@@ -1358,3 +1358,31 @@ Open issues:
   wants the two scripts to have stayed untouched.
 - Per the task's "You do" line: **the owner should look at the 8 screenshots in `screenshots/`
   and say yes or ask for changes before task 23 deploys this.**
+
+## Task 23: Release rev 2 - 2026-10-12 - Haiku
+
+Status: done. Rev 2 is live and deployed.
+
+Built:
+- Bumped `CACHE_NAME` in `public/sw.js` from `alpha-ledger-v2` to `alpha-ledger-v3` so
+  installed phones pick up the new visual-refresh shell on next open.
+- Updated `docs/INSTALL_IPHONE.md` with instructions for force-refreshing the app when needed,
+  including the full remove-and-reinstall path for clearing cached icons.
+- Verified `src/routes/Help.tsx` for any statements made untrue by rev 2 (task 22's visual
+  refresh): the only color reference is "blue where you are ahead, red where you are behind",
+  which is still accurate. No changes needed.
+
+Verified:
+- `npm run check`: typecheck + lint + 487 tests, all pass.
+- `npm run build`: succeeds.
+- `npx wrangler deploy`: deployed to https://alpha-ledger.alpha-ledger.workers.dev
+  (commit `296b3f5`, Cloudflare version `3d4d5f38`).
+- **Smoke checks**:
+  - `GET /`: 200 ✓
+  - `GET /api/transactions` (unsigned): 401 ✓
+- Live site serves the new bundle (`index.html` contains the new theme-color meta with rev 2's
+  plane hex `#f1f4f8`/`#0d1117`, `sw.js` has the new cache name).
+
+Open issues: none. Per the task's "You do" line, the owner should open the app on iPhone,
+confirm the header clears the status bar, set a fair value without the field dropping focus,
+and open a ticker from Rebuy opportunities - that's manual testing outside the release task.
