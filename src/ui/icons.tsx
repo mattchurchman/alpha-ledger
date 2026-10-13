@@ -1,23 +1,35 @@
 /**
  * Every icon in the app, hand-written. No icon package: SPEC 10 forbids anything fetched at
- * runtime, and a 20-line file beats 300 KB of glyphs we would use eight of.
+ * runtime, and one file beats 300 KB of glyphs we would use eighteen of.
  *
- * All of them are 20x20, 1.5px stroke, `currentColor`, and purely decorative - each one sits
- * beside a word, never alone (docs/DESIGN.md section 6).
+ * One family, drawn to one set of rules (docs/DESIGN.md section 1):
+ *
+ * - **24-unit grid, 1.75px stroke, round caps and joins.** The grid is the modern-icon default,
+ *   and it is what lets these shapes keep a 2-unit margin and still have room for detail. The
+ *   rendered size is unchanged (`width`/`height` default to 20), so every existing `size-*`
+ *   caller is untouched.
+ * - **`currentColor` only**, never a token - an icon takes the colour of the text it sits beside.
+ * - **A duotone active state.** The five navigation glyphs accept `active`, which fills their one
+ *   enclosing shape with `currentColor` at 22%. That is a *shape* change, not a colour change, so
+ *   the tab bar's selected item survives being read in grayscale (DESIGN section 6).
+ *
+ * Everything else here is decorative and sits beside a word.
  */
 import type { SVGProps } from 'react'
 
-type IconProps = SVGProps<SVGSVGElement>
+export type IconProps = SVGProps<SVGSVGElement>
+/** The navigation glyphs: `active` is the tab bar's selected state. */
+export type NavIconProps = IconProps & { active?: boolean }
 
 function Icon({ children, ...props }: IconProps) {
   return (
     <svg
-      viewBox="0 0 20 20"
+      viewBox="0 0 24 24"
       width="20"
       height="20"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
+      strokeWidth="1.75"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -29,52 +41,72 @@ function Icon({ children, ...props }: IconProps) {
   )
 }
 
-/** Dashboard: the gap band, which is the product's one shape. */
-export function DashboardIcon(props: IconProps) {
+/** The plate a duotone icon fills when it is the active destination. */
+const plate = (active: boolean) => ({
+  fill: active ? 'currentColor' : 'none',
+  fillOpacity: active ? 0.22 : 0,
+  stroke: 'none' as const,
+})
+
+/** Dashboard: the gap band between your line and VOO's, which is the product's one shape. */
+export function DashboardIcon({ active = false, ...props }: NavIconProps) {
   return (
     <Icon {...props}>
-      <path d="M2.5 13.5 6 8l4 3 7.5-8.5" />
-      <path d="M2.5 17.5 6 12l4 3 7.5-8.5" />
+      <path d="M3 15.5 8.6 9.8l4.5 3.3L21 4.8V11l-7.9 8.3L8.6 16 3 21.7Z" {...plate(active)} />
+      <path d="M3 15.5 8.6 9.8l4.5 3.3L21 4.8" />
+      <path d="M3 21.7 8.6 16l4.5 3.3L21 11" />
     </Icon>
   )
 }
 
-/** Fair values: a price tag. */
-export function FairValueIcon(props: IconProps) {
+/** Fair values: a price tag - a level you set, hung on the holding. */
+export function FairValueIcon({ active = false, ...props }: NavIconProps) {
+  const tag =
+    'M12.6 3h6.3A2.1 2.1 0 0 1 21 5.1v6.3a2.1 2.1 0 0 1-.62 1.49l-7.5 7.5a2.1 2.1 0 0 1-2.97 0l-6.3-6.3a2.1 2.1 0 0 1 0-2.97l7.5-7.5A2.1 2.1 0 0 1 12.6 3Z'
   return (
     <Icon {...props}>
-      <path d="M10.6 2.5H16a1.5 1.5 0 0 1 1.5 1.5v5.4a1.5 1.5 0 0 1-.44 1.06l-6.1 6.1a1.5 1.5 0 0 1-2.12 0l-5.4-5.4a1.5 1.5 0 0 1 0-2.12l6.1-6.1a1.5 1.5 0 0 1 1.06-.44Z" />
-      <circle cx="13.5" cy="6.5" r="1.25" />
+      <path d={tag} {...plate(active)} />
+      <path d={tag} />
+      <circle cx="16.4" cy="7.6" r="1.5" />
     </Icon>
   )
 }
 
-/** Activity: ledger rows. */
-export function ActivityIcon(props: IconProps) {
+/** Activity: the ledger itself - a sheet of rows. */
+export function ActivityIcon({ active = false, ...props }: NavIconProps) {
   return (
     <Icon {...props}>
-      <path d="M3 5.5h14M3 10h14M3 14.5h9" />
+      <rect x="4" y="3" width="16" height="18" rx="2.5" {...plate(active)} />
+      <rect x="4" y="3" width="16" height="18" rx="2.5" />
+      <path d="M8 8.5h8M8 12.5h8M8 16.5h4.5" />
     </Icon>
   )
 }
 
-/** Import: a file going into a tray. */
-export function ImportIcon(props: IconProps) {
+/** Import: a statement dropping into a tray. */
+export function ImportIcon({ active = false, ...props }: NavIconProps) {
+  const tray =
+    'M3.25 14.5h4.4l1.3 2.1h6.1l1.3-2.1h4.4v3.9A2.1 2.1 0 0 1 18.65 20.5H5.35A2.1 2.1 0 0 1 3.25 18.4Z'
   return (
     <Icon {...props}>
-      <path d="M10 2.5v8" />
-      <path d="M6.75 7.25 10 10.5l3.25-3.25" />
-      <path d="M3 13v3.5h14V13" />
+      <path d={tray} {...plate(active)} />
+      <path d={tray} />
+      <path d="M12 3.5v8.2" />
+      <path d="M8.6 8.3 12 11.7l3.4-3.4" />
     </Icon>
   )
 }
 
-export function SettingsIcon(props: IconProps) {
+/** Settings: two sliders, because everything here is a preference with a position. */
+export function SettingsIcon({ active = false, ...props }: NavIconProps) {
   return (
     <Icon {...props}>
-      <path d="M3 6h7M14 6h3M3 14h3M10 14h7" />
-      <circle cx="12" cy="6" r="2" />
-      <circle cx="8" cy="14" r="2" />
+      <circle cx="9.5" cy="8" r="2.4" {...plate(active)} />
+      <circle cx="15.5" cy="16" r="2.4" {...plate(active)} />
+      <path d="M3.5 8h3.6M11.9 8h8.6" />
+      <path d="M3.5 16h9.6M17.9 16h2.6" />
+      <circle cx="9.5" cy="8" r="2.4" />
+      <circle cx="15.5" cy="16" r="2.4" />
     </Icon>
   )
 }
@@ -83,21 +115,21 @@ export function SettingsIcon(props: IconProps) {
 export function HelpIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <circle cx="10" cy="10" r="7" />
-      <path d="M8.1 7.9a2 2 0 1 1 2.9 1.85c-.6.35-1 .8-1 1.5v.25" />
-      <path d="M10 14.25h.01" />
+      <circle cx="12" cy="12" r="8.6" />
+      <path d="M9.6 9.6a2.45 2.45 0 1 1 3.55 2.27c-.73.43-1.22.98-1.22 1.83v.3" />
+      <path d="M11.93 17.1h.01" />
     </Icon>
   )
 }
 
-/** Update market data: a refresh arrow. */
+/** Update market data: a refresh arc. */
 export function RefreshIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M16 10a6 6 0 0 1-10.5 4" />
-      <path d="M4 10a6 6 0 0 1 10.5-4" />
-      <path d="M4.3 16v-3.2h3.2" />
-      <path d="M15.7 4v3.2h-3.2" />
+      <path d="M20.3 12a8.3 8.3 0 0 1-14.4 5.6" />
+      <path d="M3.7 12a8.3 8.3 0 0 1 14.4-5.6" />
+      <path d="M4 19.5V15h4.5" />
+      <path d="M20 4.5V9h-4.5" />
     </Icon>
   )
 }
@@ -106,9 +138,9 @@ export function RefreshIcon(props: IconProps) {
 export function WarningIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M10 3.5 2.8 16h14.4L10 3.5Z" />
-      <path d="M10 8v3.5" />
-      <path d="M10 14h.01" />
+      <path d="M10.65 4.15a1.55 1.55 0 0 1 2.7 0l7.5 13.4a1.55 1.55 0 0 1-1.35 2.3H4.5a1.55 1.55 0 0 1-1.35-2.3Z" />
+      <path d="M12 9.5v4.2" />
+      <path d="M12 16.9h.01" />
     </Icon>
   )
 }
@@ -116,8 +148,8 @@ export function WarningIcon(props: IconProps) {
 export function GoodIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <circle cx="10" cy="10" r="7" />
-      <path d="M6.75 10.25 9 12.5l4.25-4.5" />
+      <circle cx="12" cy="12" r="8.6" />
+      <path d="M8.1 12.3 10.8 15l5.1-5.4" />
     </Icon>
   )
 }
@@ -125,9 +157,9 @@ export function GoodIcon(props: IconProps) {
 export function CriticalIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <circle cx="10" cy="10" r="7" />
-      <path d="M10 6.5v4.25" />
-      <path d="M10 13.5h.01" />
+      <circle cx="12" cy="12" r="8.6" />
+      <path d="M12 7.7v5.1" />
+      <path d="M12 16.3h.01" />
     </Icon>
   )
 }
@@ -135,7 +167,7 @@ export function CriticalIcon(props: IconProps) {
 export function BackIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M12.5 4.5 6.5 10l6 5.5" />
+      <path d="M14.8 4.8 7.6 12l7.2 7.2" />
     </Icon>
   )
 }
@@ -143,7 +175,7 @@ export function BackIcon(props: IconProps) {
 export function CloseIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" />
+      <path d="M6.6 6.6l10.8 10.8M17.4 6.6 6.6 17.4" />
     </Icon>
   )
 }
@@ -151,8 +183,8 @@ export function CloseIcon(props: IconProps) {
 export function TableIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <rect x="3" y="4" width="14" height="12" rx="1.5" />
-      <path d="M3 8h14M8.5 8v8" />
+      <rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.5" />
+      <path d="M3.4 9.6h17.2M10.2 9.6v9.8" />
     </Icon>
   )
 }
@@ -160,7 +192,7 @@ export function TableIcon(props: IconProps) {
 export function ChartIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M3 16.5V9M8.33 16.5V4.5M13.67 16.5v-5M19 16.5v-9" />
+      <path d="M4 19.8V11.4M9.3 19.8V5.2M14.7 19.8v-6.2M20 19.8V8.6" />
     </Icon>
   )
 }
@@ -169,8 +201,8 @@ export function ChartIcon(props: IconProps) {
 export function SystemThemeIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <rect x="2.5" y="4" width="15" height="10" rx="1.5" />
-      <path d="M7 17h6" />
+      <rect x="2.8" y="4.4" width="18.4" height="12.2" rx="2.4" />
+      <path d="M8.6 20.2h6.8" />
     </Icon>
   )
 }
@@ -178,8 +210,8 @@ export function SystemThemeIcon(props: IconProps) {
 export function LightThemeIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <circle cx="10" cy="10" r="3.5" />
-      <path d="M10 2.5v1.75M10 15.75v1.75M2.5 10h1.75M15.75 10h1.75M4.7 4.7l1.25 1.25M14.05 14.05l1.25 1.25M15.3 4.7l-1.25 1.25M5.95 14.05 4.7 15.3" />
+      <circle cx="12" cy="12" r="4.2" />
+      <path d="M12 2.8v2.1M12 19.1v2.1M2.8 12h2.1M19.1 12h2.1M5.5 5.5l1.5 1.5M17 17l1.5 1.5M18.5 5.5 17 7M7 17l-1.5 1.5" />
     </Icon>
   )
 }
@@ -187,20 +219,20 @@ export function LightThemeIcon(props: IconProps) {
 export function DarkThemeIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M15.5 12.4A6.5 6.5 0 0 1 7.6 4.5a6.5 6.5 0 1 0 7.9 7.9Z" />
+      <path d="M19 15.1A7.9 7.9 0 0 1 8.9 5a8.1 8.1 0 1 0 10.1 10.1Z" />
     </Icon>
   )
 }
 
 export function SortIcon({ direction, ...props }: IconProps & { direction?: 'asc' | 'desc' }) {
   return (
-    <Icon {...props} width="12" height="12" viewBox="0 0 12 12">
+    <Icon {...props} width="12" height="12" viewBox="0 0 24 24">
       {direction === 'asc' ? (
-        <path d="M6 9.5V2.5M3 5.5 6 2.5l3 3" />
+        <path d="M12 19.5V5.4M6.2 11.2 12 5.4l5.8 5.8" />
       ) : direction === 'desc' ? (
-        <path d="M6 2.5v7M3 6.5 6 9.5l3-3" />
+        <path d="M12 4.5v14.1M6.2 12.8 12 18.6l5.8-5.8" />
       ) : (
-        <path d="M4 4.75 6 2.75l2 2M4 7.25 6 9.25l2-2" />
+        <path d="M7.2 9.8 12 5l4.8 4.8M7.2 14.2 12 19l4.8-4.8" />
       )}
     </Icon>
   )

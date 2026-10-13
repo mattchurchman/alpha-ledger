@@ -20,10 +20,10 @@ export function RangeSelector({ value, onChange, label = 'Chart range' }: RangeS
           type="button"
           aria-pressed={value === range}
           onClick={() => onChange(range)}
-          className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-control border px-3 text-small font-medium transition-colors duration-[120ms] ease-out ${
+          className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full border px-3 text-small font-medium transition-colors duration-[120ms] ease-out ${
             value === range
-              ? 'border-rule bg-sunken text-ink'
-              : 'border-transparent text-ink-secondary hover:bg-sunken'
+              ? 'border-transparent bg-accent-wash text-accent'
+              : 'border-transparent text-ink-secondary hover:bg-sunken hover:text-ink'
           }`}
         >
           {range}

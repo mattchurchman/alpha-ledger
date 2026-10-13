@@ -749,7 +749,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 19 | Per-account drill-down | Opus | done |
 | 20 | Watchlist | Sonnet | done |
 | 21 | Rebuy visuals and fair-value entry | Sonnet | done |
-| 22 | Visual refresh | Opus | todo |
+| 22 | Visual refresh | Opus | done |
 | 23 | Release rev 2 | Haiku | todo |
 
 ## Rev 2 entries
@@ -1257,3 +1257,104 @@ Open issues:
 - `DiscountMap` has no table-view row for a watched tile's position value (there is none to
   show) - the table twin prints an em dash there, which is correct but was not called out
   explicitly as a case to check; worth a glance next time that screen is touched.
+
+## Task 22: Visual refresh - 2026-10-12 - Opus
+
+Status: done.
+
+Built:
+- New palette as `--al-*` tokens in `src/index.css` only: cooler neutral surfaces (white card on
+  a tinted-gray plane, dark mode a desaturated near-black), one confident accent
+  (`--al-accent`/`-ink`/`-wash`, the same hue as `--al-viz-ahead`), soft elevation
+  (`--al-shadow-card`/`-raised`/`-sheet`), a larger card radius (16px, up from 12px), and the
+  ahead/behind/estimate trio moved to `#0b67d9`/`#d7393b`/`#008b74` (light) and
+  `#4e90f0`/`#e4605b`/`#00ab92` (dark) - the fair-value line is now a teal rather than a pure
+  green, so it reads less like a status-good chip. Status colors (`--al-status-*`) now have
+  their own light and dark values instead of one hex for both. No screen gained a hand-rolled
+  color; every new need became a token.
+- `src/ui/icons.tsx` redrawn as one consistent family with a **duotone active state** - the tab
+  bar and side rail glyphs switch to a filled variant when active, instead of the old left-edge
+  border, so the active state is never color alone even with the border gone.
+- `src/ui/AppShell.tsx`, `BottomSheet.tsx`, `DataTable.tsx`, `Toast.tsx`, `AccountStrip.tsx`,
+  `AccountSwitcher.tsx`, `primitives.tsx`, and the chart components (`AllocationStrip.tsx`,
+  `DiscountMap.tsx`, `RangeSelector.tsx`) restyled through the new tokens: the side rail widened
+  to 248px with an accent-badged logo mark, the active nav state is an accent-wash background,
+  buttons/fields/cards pick up the new radius and shadow.
+- `src/ui/zones.ts` thresholds re-expressed against the new ramp (`zones.test.ts` added,
+  covering `zoneFor` at every boundary).
+- `public/manifest.json`, `index.html`'s `theme-color` metas, and `public/icon.svg` /
+  `icon-maskable.svg` updated to the new plane/ink/accent colors. **Icon artwork itself is
+  unchanged** - same ledger-lines-plus-rising-chart-line mark, only its three fill colors moved
+  to the new tokens, per the task's "keep the home-screen icon artwork" instruction. The
+  rasterized PNGs (`public/icons/*.png`) were regenerated from the updated SVGs via
+  `scripts/gen-icon.ts`, which now reads the palette from `src/index.css` instead of
+  hardcoding the old hexes.
+- `scripts/screenshots.ts` extended to take one or more `--route` args (default `/kit` and `/`)
+  and a `--server vite|wrangler` flag - `/kit` runs on synthetic data over `vite preview`, but
+  the Dashboard needs the API, so a route list that includes it switches the default server to
+  `wrangler dev`. Shots are named by route stem (`/` → `home`).
+- `docs/DESIGN.md` sections 1 and 2 rewritten for the new direction and token tables; 5.6
+  updated for the duotone active state; 6 gained the one-accent rule; 7's validator table
+  replaced wholesale with fresh runs against the new hexes (see Decisions). `docs/SPEC.md`
+  Decision log has a 2026-10-12 entry summarizing the change.
+
+Decisions:
+- **The fair-value estimate line moved from pure green (`#008300`) to teal
+  (`#008b74`/`#00ab92`).** Re-validated against the new ahead/behind pair it clears every check
+  (CVD ΔE 10.3 light / 8.6 dark, normal-vision floor 20.9 / 18.4), and moving off a pure green
+  also puts daylight between it and `--al-status-good`, which the old shared-hex palette never
+  had to worry about since status was a single color reused everywhere.
+- **The accent and `--al-viz-you`/`--al-viz-ahead` stay the same hue, deliberately.** One blue
+  now means both "your line" on a chart and "this is interactive" app-wide, which is the
+  "confident" half of the brief's "calm, confident, current" - a second accent hue would have
+  diluted the one pair the product is actually about.
+- **Status colors split into light/dark values** instead of staying one hex for both modes,
+  because the warm palette's `warning`/`serious` lived under 3:1 in light mode by design (icon +
+  label was the whole mitigation). The new per-mode values clear 4.0:1+ in light and 5.4:1+ in
+  dark on their own, so the icon + label pairing is now a redundant second channel rather than
+  the only thing making the color legal - kept it anyway per DESIGN 2.4 and 6, since dropping it
+  would be a scope change the task did not ask for.
+- **Green/red was re-checked against the new red, not assumed still bad.** It is - a harder
+  fail than before, in fact (ΔE 3.6/3.9, under the 6.0 CVD floor, not just in the old 6-8 warn
+  band) - so blue/red stays the ahead/behind pair for the reason DESIGN 2.2 already gave.
+- **Orange VOO and violet-estimate were re-run against the new palette rather than copying the
+  old numbers forward.** Orange still fails for the same reason (confusable with the new red,
+  ΔE 1.8 CVD). Violet now fails for a *different* reason than before - the old doc's violet hex
+  specifically collapsed against the old blue; against the new blue it actually clears CVD
+  separation, but it falls outside the dark lightness band and drops under 3:1 contrast on the
+  new dark surface. Recorded honestly rather than reusing a stale claim.
+- `npm run icons:gen` and `npm run screenshots` both needed updating because they hardcoded or
+  implicitly depended on the old palette and `/kit`-only assumption; both are now token/route
+  driven so the next palette or route change does not require touching the scripts again.
+
+Verified:
+- `npm run check`: typecheck + lint + **487 tests** (was 482; 5 new, `zones.test.ts`).
+- `npm run build`: succeeds, no new warnings beyond the pre-existing >500KB chunk notice.
+- `npm run screenshots` (default routes, `/kit` + `/`, against `wrangler dev` since the
+  Dashboard route needs the API): all 8 PNGs written with **no console error or failed
+  request** (the script's own gate) - `screenshots/{home,kit}-{390,1280}-{light,dark}.png`.
+  Reviewed all 8 by eye: no horizontal scroll at 390px on either route, text and status colors
+  read clearly in both themes, the gap band and rebuy bars keep blue-ahead/red-behind legible
+  next to the teal fair-value line, the side rail's accent-wash active state and duotone icons
+  render correctly at 1280px, and the dark surface is a selected palette (not light inverted) -
+  it does not wash out or clip anywhere in the screenshots.
+- `node scripts/validate_palette.js` (the `dataviz` skill's script) re-run against every pairing
+  this file's palette makes, not just the ones already shipped in rev 1: ahead/behind/estimate
+  all-pairs (light and dark), ahead/behind alone, green/red convention, orange-VOO, and
+  violet-estimate. Results and exact commands are in `docs/DESIGN.md` section 7.
+- Text contrast computed via the WCAG relative-luminance formula for every ink and status token
+  against its own surface in both modes: everything is at or above the numbers DESIGN 2.1/2.4
+  record, all well past 3:1 and most past 4.5:1.
+
+Open issues:
+- Build output is 514 KB / 157 KB gzip, up from task 07's baseline (324 KB / 100 KB) across all
+  the rev 2 feature tasks combined, not just this one - still comfortably under a budget that
+  would need code-splitting; noted since this task's build is the one that crossed the Vite
+  500 KB warning line for the first time.
+- `scripts/gen-icon.ts` and `scripts/screenshots.ts` were both widened beyond a literal reading
+  of "extend `scripts/screenshots.ts`" in the task text - `gen-icon.ts` needed the same
+  treatment so the generated PNGs would not silently keep shipping the old palette's hexes. Not
+  out of scope (no new dependency, no feature, no layout rewrite) but worth a look if a reviewer
+  wants the two scripts to have stayed untouched.
+- Per the task's "You do" line: **the owner should look at the 8 screenshots in `screenshots/`
+  and say yes or ask for changes before task 23 deploys this.**

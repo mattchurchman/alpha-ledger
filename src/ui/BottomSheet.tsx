@@ -72,7 +72,7 @@ export function BottomSheet({
         // Decorative: the dialog's own Escape and close button are the accessible affordances.
         aria-hidden="true"
         onClick={onClose}
-        className="absolute inset-0 bg-[color-mix(in_oklab,black_45%,transparent)] [animation:al-fade_220ms_cubic-bezier(.2,.8,.2,1)]"
+        className="absolute inset-0 bg-[color-mix(in_oklab,black_50%,transparent)] backdrop-blur-[2px] [animation:al-fade_220ms_cubic-bezier(.2,.8,.2,1)]"
       />
       <div
         ref={panelRef}
@@ -80,15 +80,15 @@ export function BottomSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-[16px] border border-rule bg-surface p-4 [animation:al-rise_220ms_cubic-bezier(.2,.8,.2,1)] sm:max-w-lg sm:rounded-card"
-        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-[24px] border border-rule bg-surface p-5 shadow-sheet [animation:al-rise_220ms_cubic-bezier(.2,.8,.2,1)] sm:max-w-lg sm:rounded-card sm:shadow-raised"
+        style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
       >
         {/* The grab handle: a phone affordance, meaningless to a pointer, so it is decorative. */}
         <span
           aria-hidden="true"
-          className="mx-auto mb-3 block h-1 w-10 rounded-full bg-rule sm:hidden"
+          className="mx-auto mb-4 block h-1 w-10 rounded-full bg-axis sm:hidden"
         />
-        <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <h2 id={titleId} className="text-h2 font-semibold">
             {title}
           </h2>
@@ -96,13 +96,13 @@ export function BottomSheet({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-m-2 inline-flex size-11 items-center justify-center rounded-control text-ink-secondary hover:bg-sunken"
+            className="-m-2 inline-flex size-11 items-center justify-center rounded-full text-ink-secondary transition-colors duration-[120ms] hover:bg-sunken hover:text-ink"
           >
             <CloseIcon />
           </button>
         </div>
         <div>{children}</div>
-        {footer && <div className="mt-4 flex gap-2 border-t border-rule pt-3">{footer}</div>}
+        {footer && <div className="mt-5 flex gap-2 border-t border-rule pt-4">{footer}</div>}
       </div>
     </div>
   )

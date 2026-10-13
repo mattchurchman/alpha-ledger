@@ -101,13 +101,13 @@ export function AllocationStrip({ items, onSelect }: AllocationStripProps) {
               role="listitem"
               onClick={() => onSelect?.(item.ticker)}
               style={{ flexGrow: share, flexBasis: 0 }}
-              className="min-w-[3px] overflow-hidden bg-you opacity-80 transition-opacity duration-[120ms] hover:opacity-100"
+              className="min-w-[3px] overflow-hidden bg-you opacity-85 transition-opacity duration-[120ms] hover:opacity-100"
               aria-label={`${item.ticker}, ${percent(share, { sign: false })} of your holdings, ${money(item.number)}`}
             >
               {share >= 0.08 && (
                 <span
                   aria-hidden="true"
-                  className="block truncate px-1 text-micro font-mono font-medium text-white"
+                  className="block truncate px-1 text-micro font-mono font-medium text-accent-ink"
                 >
                   {item.ticker}
                 </span>

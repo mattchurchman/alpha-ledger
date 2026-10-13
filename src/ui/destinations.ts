@@ -14,7 +14,8 @@ import { ActivityIcon, DashboardIcon, FairValueIcon, ImportIcon, SettingsIcon } 
 export interface Destination {
   to: string
   label: string
-  icon: ComponentType<{ className?: string }>
+  /** `active` is the tab bar's selected state - the glyph's filled variant, not a colour. */
+  icon: ComponentType<{ className?: string; active?: boolean }>
 }
 
 export const DESTINATIONS: Destination[] = [

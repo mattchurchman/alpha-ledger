@@ -8,8 +8,8 @@ import {
 } from 'react'
 
 /**
- * The surfaces and controls everything else is built from. Hairlines and warm paper, no
- * shadows - docs/DESIGN.md section 1.
+ * The surfaces and controls everything else is built from: cool neutral planes, one accent, and
+ * soft elevation - docs/DESIGN.md section 1.
  */
 
 /**
@@ -27,7 +27,9 @@ export function Card({
   as?: 'section' | 'div' | 'article'
 }) {
   return (
-    <Tag className={`rounded-card border border-rule bg-surface p-4 md:p-5 ${className}`.trimEnd()}>
+    <Tag
+      className={`rounded-card border border-rule bg-surface p-5 shadow-card md:p-6 ${className}`.trimEnd()}
+    >
       {children}
     </Tag>
   )
@@ -39,14 +41,14 @@ export function Label({ children, className = '' }: { children: ReactNode; class
 }
 
 /**
- * A section heading with the 2px accent edge that the active nav item also uses - the one
+ * A section heading with the accent tick that the active nav item's wash also echoes - the one
  * recurring piece of chrome that carries the brand colour.
  */
 export function SectionHeading({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
-    <div className="mb-3 flex items-end justify-between gap-3">
-      <h2 className="flex items-center gap-2.5 text-h2 font-semibold">
-        <span aria-hidden="true" className="h-[1.1em] w-[2px] shrink-0 rounded-full bg-you" />
+    <div className="mb-4 flex items-end justify-between gap-3">
+      <h2 className="flex items-center gap-3 text-h2 font-semibold">
+        <span aria-hidden="true" className="h-[1.05em] w-[3px] shrink-0 rounded-full bg-accent" />
         {children}
       </h2>
       {action}
@@ -57,9 +59,9 @@ export function SectionHeading({ children, action }: { children: ReactNode; acti
 type ButtonVariant = 'primary' | 'secondary' | 'ghost'
 
 const BUTTON_STYLES: Record<ButtonVariant, string> = {
-  primary: 'bg-you text-white border-transparent hover:opacity-90',
-  secondary: 'bg-surface text-ink border-rule hover:bg-sunken',
-  ghost: 'bg-transparent text-ink-secondary border-transparent hover:bg-sunken',
+  primary: 'bg-accent text-accent-ink border-transparent shadow-card hover:opacity-90',
+  secondary: 'bg-surface text-ink border-rule shadow-card hover:bg-sunken',
+  ghost: 'bg-transparent text-ink-secondary border-transparent hover:bg-sunken hover:text-ink',
 }
 
 export function Button({
@@ -71,7 +73,7 @@ export function Button({
     <button
       type="button"
       // min-h-11 is the 44px touch target docs/DESIGN.md section 3.3 requires.
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-control border px-3.5 text-small font-medium transition-[background-color,opacity,color] duration-[120ms] ease-out disabled:opacity-45 ${BUTTON_STYLES[variant]} ${className}`.trimEnd()}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-control border px-4 text-small font-medium transition-[background-color,opacity,color] duration-[120ms] ease-out disabled:opacity-45 ${BUTTON_STYLES[variant]} ${className}`.trimEnd()}
       {...props}
     />
   )
@@ -87,10 +89,10 @@ export function MiniButton({
     <button
       type="button"
       aria-pressed={pressed}
-      className={`inline-flex min-h-8 items-center gap-1.5 rounded-control border px-2.5 text-micro font-medium uppercase transition-colors duration-[120ms] ease-out ${
+      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-micro font-medium uppercase transition-colors duration-[120ms] ease-out ${
         pressed
-          ? 'border-rule bg-sunken text-ink'
-          : 'border-transparent text-ink-muted hover:bg-sunken'
+          ? 'border-transparent bg-accent-wash text-accent'
+          : 'border-transparent text-ink-muted hover:bg-sunken hover:text-ink'
       } ${className}`.trimEnd()}
       {...props}
     />
@@ -126,8 +128,12 @@ export function SeriesKey({
   )
 }
 
+/**
+ * Fields sit in the sunken plane rather than on the card: on a white card a bordered white
+ * input has nothing to distinguish it, and the well is what makes it read as somewhere to type.
+ */
 const FIELD_STYLES =
-  'min-h-11 w-full rounded-control border border-rule bg-surface px-2.5 text-small text-ink placeholder:text-ink-muted disabled:opacity-45'
+  'min-h-11 w-full rounded-control border border-rule bg-sunken px-3 text-small text-ink transition-colors duration-[120ms] placeholder:text-ink-muted focus:bg-surface disabled:opacity-45'
 
 /**
  * A labelled text/date/number input. `hint` and `error` are mutually exclusive - an error wins.
@@ -205,7 +211,7 @@ export function Checkbox({
       <input
         id={id}
         type="checkbox"
-        className="size-4 shrink-0 rounded-[4px] border border-rule accent-you"
+        className="size-4 shrink-0 rounded-[5px] border border-rule accent-accent"
         {...props}
       />
       {label}

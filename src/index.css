@@ -18,84 +18,171 @@
 :root {
   color-scheme: light;
 
-  /* Surfaces and ink */
-  --al-plane: #f3f1e9;
-  --al-surface: #fcfbf7;
-  --al-surface-sunken: #efece2;
-  --al-ink: #14140f;
-  --al-ink-secondary: #4f4e46;
-  --al-ink-muted: #837f73;
-  --al-rule: #ddd9cb;
-  --al-grid: #e6e3d8;
-  --al-axis: #c7c3b4;
-  --al-focus: #2a78d6;
+  /* Surfaces and ink: cool neutrals, a white card lifted off a tinted plane. */
+  --al-plane: #f1f4f8;
+  --al-surface: #ffffff;
+  --al-surface-sunken: #ebf0f6;
+  --al-ink: #1c2331;
+  --al-ink-secondary: #4f5764;
+  --al-ink-muted: #666d79;
+  --al-rule: #dae0e8;
+  --al-grid: #e5eaf0;
+  --al-axis: #c9d0d9;
+  --al-focus: #0b67d9;
+
+  /* The one accent, and the ink that reads on top of it. */
+  --al-accent: #0b67d9;
+  --al-accent-ink: #ffffff;
+  /* The accent at poster weight, for a tint behind an active control. */
+  --al-accent-wash: color-mix(in oklab, var(--al-accent) 10%, var(--al-surface));
+
+  /* Soft elevation. Hairlines still exist; the shadow is what makes a card float. */
+  --al-shadow-card: 0 1px 2px rgb(28 35 49 / 0.04), 0 2px 8px rgb(28 35 49 / 0.05);
+  --al-shadow-raised: 0 2px 4px rgb(28 35 49 / 0.05), 0 10px 28px rgb(28 35 49 / 0.09);
+  --al-shadow-sheet: 0 -1px 2px rgb(28 35 49 / 0.05), 0 -14px 44px rgb(28 35 49 / 0.16);
 
   /* The pair that matters: beat VOO vs trailed VOO. Blue ahead, red behind - never green/red. */
-  --al-viz-ahead: #2a78d6;
-  --al-viz-behind: #e34948;
-  --al-viz-neutral: #ece9e0;
+  --al-viz-ahead: #0b67d9;
+  --al-viz-behind: #d7393b;
+  --al-viz-neutral: #e2e7ed;
 
   /* Series identity */
-  --al-viz-you: #2a78d6;
-  --al-viz-voo: #78766d;
-  --al-viz-estimate: #008300;
-  --al-viz-dim: #86b6ef;
+  --al-viz-you: #0b67d9;
+  --al-viz-voo: #71767e;
+  --al-viz-estimate: #008b74;
+  --al-viz-dim: #73a3eb;
+
+  /*
+   * The sequential ramp, seven steps, one hue. Light mode reads more magnitude as darker; each
+   * step ships the ink that clears 4.5:1 on it, so a label never has to guess (DESIGN 2.5).
+   */
+  --al-ramp-1: #97b8e8;
+  --al-ramp-2: #73a3eb;
+  --al-ramp-3: #4d8eee;
+  --al-ramp-4: #1069da;
+  --al-ramp-5: #0c58b9;
+  --al-ramp-6: #094798;
+  --al-ramp-7: #04377a;
+  --al-ramp-1-ink: #1c2331;
+  --al-ramp-2-ink: #1c2331;
+  --al-ramp-3-ink: #1c2331;
+  --al-ramp-4-ink: #ffffff;
+  --al-ramp-5-ink: #ffffff;
+  --al-ramp-6-ink: #ffffff;
+  --al-ramp-7-ink: #ffffff;
 
   /* Status - reserved, never a series color, always shipped with an icon and a word */
-  --al-status-good: #0ca30c;
-  --al-status-warning: #fab219;
-  --al-status-serious: #ec835a;
-  --al-status-critical: #d03b3b;
+  --al-status-good: #119245;
+  --al-status-warning: #a7760f;
+  --al-status-serious: #cd570f;
+  --al-status-critical: #cc2823;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --al-plane: #0f100e;
-    --al-surface: #1a1b19;
-    --al-surface-sunken: #141512;
-    --al-ink: #f7f6f1;
-    --al-ink-secondary: #c0bfb4;
-    --al-ink-muted: #8b8a80;
-    --al-rule: #2a2b27;
-    --al-grid: #2a2b27;
-    --al-axis: #3a3b36;
-    --al-focus: #3987e5;
+    --al-plane: #0d1117;
+    --al-surface: #181e25;
+    --al-surface-sunken: #12161d;
+    --al-ink: #f1f4f7;
+    --al-ink-secondary: #b9c0c9;
+    --al-ink-muted: #7e8590;
+    --al-rule: #282e37;
+    --al-grid: #252b32;
+    --al-axis: #404750;
+    --al-focus: #4e90f0;
 
-    --al-viz-ahead: #3987e5;
-    --al-viz-behind: #e66767;
-    --al-viz-neutral: #2e2f2b;
+    --al-accent: #4e90f0;
+    --al-accent-ink: #0d1117;
+    --al-accent-wash: color-mix(in oklab, var(--al-accent) 10%, var(--al-surface));
 
-    --al-viz-you: #3987e5;
-    --al-viz-voo: #9b9a92;
-    --al-viz-estimate: #008300;
-    --al-viz-dim: #1c5cab;
+    --al-shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 10px rgb(0 0 0 / 0.3);
+    --al-shadow-raised: 0 2px 6px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.5);
+    --al-shadow-sheet: 0 -1px 2px rgb(0 0 0 / 0.4), 0 -16px 48px rgb(0 0 0 / 0.6);
+
+    --al-viz-ahead: #4e90f0;
+    --al-viz-behind: #e4605b;
+    --al-viz-neutral: #232830;
+
+    --al-viz-you: #4e90f0;
+    --al-viz-voo: #969ca4;
+    --al-viz-estimate: #00ab92;
+    --al-viz-dim: #1d60bc;
+
+    /* Dark is a selected ramp, not an inverted one: more magnitude reads brighter here. */
+    --al-ramp-1: #074da5;
+    --al-ramp-2: #1d60bc;
+    --al-ramp-3: #5f89c7;
+    --al-ramp-4: #749dd9;
+    --al-ramp-5: #88b1ee;
+    --al-ramp-6: #a1c6fd;
+    --al-ramp-7: #c4dbfc;
+    --al-ramp-1-ink: #f1f4f7;
+    --al-ramp-2-ink: #f1f4f7;
+    --al-ramp-3-ink: #0d1117;
+    --al-ramp-4-ink: #0d1117;
+    --al-ramp-5-ink: #0d1117;
+    --al-ramp-6-ink: #0d1117;
+    --al-ramp-7-ink: #0d1117;
+
+    --al-status-good: #54b66e;
+    --al-status-warning: #ddb049;
+    --al-status-serious: #ef8448;
+    --al-status-critical: #ea6b5e;
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --al-plane: #0f100e;
-  --al-surface: #1a1b19;
-  --al-surface-sunken: #141512;
-  --al-ink: #f7f6f1;
-  --al-ink-secondary: #c0bfb4;
-  --al-ink-muted: #8b8a80;
-  --al-rule: #2a2b27;
-  --al-grid: #2a2b27;
-  --al-axis: #3a3b36;
-  --al-focus: #3987e5;
+  --al-plane: #0d1117;
+  --al-surface: #181e25;
+  --al-surface-sunken: #12161d;
+  --al-ink: #f1f4f7;
+  --al-ink-secondary: #b9c0c9;
+  --al-ink-muted: #7e8590;
+  --al-rule: #282e37;
+  --al-grid: #252b32;
+  --al-axis: #404750;
+  --al-focus: #4e90f0;
 
-  --al-viz-ahead: #3987e5;
-  --al-viz-behind: #e66767;
-  --al-viz-neutral: #2e2f2b;
+  --al-accent: #4e90f0;
+  --al-accent-ink: #0d1117;
+  --al-accent-wash: color-mix(in oklab, var(--al-accent) 10%, var(--al-surface));
 
-  --al-viz-you: #3987e5;
-  --al-viz-voo: #9b9a92;
-  --al-viz-estimate: #008300;
-  --al-viz-dim: #1c5cab;
+  --al-shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 10px rgb(0 0 0 / 0.3);
+  --al-shadow-raised: 0 2px 6px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.5);
+  --al-shadow-sheet: 0 -1px 2px rgb(0 0 0 / 0.4), 0 -16px 48px rgb(0 0 0 / 0.6);
+
+  --al-viz-ahead: #4e90f0;
+  --al-viz-behind: #e4605b;
+  --al-viz-neutral: #232830;
+
+  --al-viz-you: #4e90f0;
+  --al-viz-voo: #969ca4;
+  --al-viz-estimate: #00ab92;
+  --al-viz-dim: #1d60bc;
+
+  --al-ramp-1: #074da5;
+  --al-ramp-2: #1d60bc;
+  --al-ramp-3: #5f89c7;
+  --al-ramp-4: #749dd9;
+  --al-ramp-5: #88b1ee;
+  --al-ramp-6: #a1c6fd;
+  --al-ramp-7: #c4dbfc;
+  --al-ramp-1-ink: #f1f4f7;
+  --al-ramp-2-ink: #f1f4f7;
+  --al-ramp-3-ink: #0d1117;
+  --al-ramp-4-ink: #0d1117;
+  --al-ramp-5-ink: #0d1117;
+  --al-ramp-6-ink: #0d1117;
+  --al-ramp-7-ink: #0d1117;
+
+  --al-status-good: #54b66e;
+  --al-status-warning: #ddb049;
+  --al-status-serious: #ef8448;
+  --al-status-critical: #ea6b5e;
 }
 
 /*
@@ -115,6 +202,10 @@
   --color-axis: var(--al-axis);
   --color-focus: var(--al-focus);
 
+  --color-accent: var(--al-accent);
+  --color-accent-ink: var(--al-accent-ink);
+  --color-accent-wash: var(--al-accent-wash);
+
   --color-ahead: var(--al-viz-ahead);
   --color-behind: var(--al-viz-behind);
   --color-mid: var(--al-viz-neutral);
@@ -127,6 +218,10 @@
   --color-warning: var(--al-status-warning);
   --color-serious: var(--al-status-serious);
   --color-critical: var(--al-status-critical);
+
+  --shadow-card: var(--al-shadow-card);
+  --shadow-raised: var(--al-shadow-raised);
+  --shadow-sheet: var(--al-shadow-sheet);
 
   --font-sans: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
@@ -153,8 +248,10 @@
   --text-micro--line-height: 1.3;
   --text-micro--letter-spacing: 0.08em;
 
-  --radius-card: 12px;
-  --radius-control: 8px;
+  /* Rounder than rev 1's ledger card: 16px reads as a phone-app surface, 10px as a control. */
+  --radius-card: 16px;
+  --radius-control: 10px;
+  --radius-tile: 8px;
 }
 
 @layer base {

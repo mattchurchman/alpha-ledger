@@ -39,10 +39,10 @@ export function AccountSwitcher({
           type="button"
           aria-pressed={value === stop.account}
           onClick={() => onChange(stop.account)}
-          className={`inline-flex min-h-11 max-w-56 shrink-0 items-center justify-center rounded-control border px-3 text-small font-medium transition-colors duration-[120ms] ease-out ${
+          className={`inline-flex min-h-11 max-w-56 shrink-0 items-center justify-center rounded-full border px-4 text-small font-medium transition-colors duration-[120ms] ease-out ${
             value === stop.account
-              ? 'border-rule bg-sunken text-ink'
-              : 'border-transparent text-ink-secondary hover:bg-sunken'
+              ? 'border-transparent bg-accent-wash text-accent'
+              : 'border-transparent text-ink-secondary hover:bg-sunken hover:text-ink'
           }`}
         >
           <span className="truncate">{stop.name}</span>

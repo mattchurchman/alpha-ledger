@@ -1,7 +1,7 @@
 /**
- * Task 16's favicon/apple-touch-icon fix: rasterize public/icon.svg into the PNG fallbacks
- * index.html references, so the existing artwork - not a new icon - backs the browser tab and
- * the iPhone home screen.
+ * Rasterize the home-screen artwork into every PNG the app references, so a palette change
+ * never leaves the icons behind. Task 16 added the favicon and apple-touch sizes; task 22 added
+ * the four manifest icons, which until then had been produced by hand.
  *
  *   npm run icons:gen
  *
@@ -14,22 +14,24 @@ import { chromium } from 'playwright-core'
 import { resolve } from 'node:path'
 
 const CHROMIUM = process.env.CHROMIUM ?? '/usr/bin/chromium'
-const SVG_PATH = resolve('public/icon.svg')
 const SIZES = [
-  { size: 32, out: 'public/icons/icon-32.png' },
-  { size: 180, out: 'public/icons/icon-180.png' },
+  { size: 32, out: 'public/icons/icon-32.png', svg: 'public/icon.svg' },
+  { size: 180, out: 'public/icons/icon-180.png', svg: 'public/icon.svg' },
+  { size: 192, out: 'public/icons/app-192.png', svg: 'public/icon.svg' },
+  { size: 512, out: 'public/icons/app-512.png', svg: 'public/icon.svg' },
+  // The maskable pair carries its own artwork: the same drawing inset into the safe zone.
+  { size: 192, out: 'public/icons/app-maskable-192.png', svg: 'public/icon-maskable.svg' },
+  { size: 512, out: 'public/icons/app-maskable-512.png', svg: 'public/icon-maskable.svg' },
 ]
 
 async function generateIcons() {
   const browser = await chromium.launch({ executablePath: CHROMIUM })
   const page = await browser.newPage()
 
-  // Read the SVG once.
-  const svg = readFileSync(SVG_PATH, 'utf-8')
-  const svgB64 = Buffer.from(svg).toString('base64')
-  const dataUrl = `data:image/svg+xml;base64,${svgB64}`
-
-  for (const { size, out } of SIZES) {
+  for (const { size, out, svg: svgPath } of SIZES) {
+    const svg = readFileSync(resolve(svgPath), 'utf-8')
+    const svgB64 = Buffer.from(svg).toString('base64')
+    const dataUrl = `data:image/svg+xml;base64,${svgB64}`
     await page.setViewportSize({ width: size, height: size })
     await page.setContent(`
       <html style="margin:0;padding:0;width:${size}px;height:${size}px">

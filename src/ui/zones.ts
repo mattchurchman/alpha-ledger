@@ -33,41 +33,34 @@ export function zoneFor(discount: Numeric): Zone | null {
   return id === null ? null : ZONES[id]
 }
 
-/** DESIGN section 2.5's documented blue ramp, light to dark - nothing eyeballed. */
-export const SEQUENTIAL_RAMP = [
-  '#cde2fb',
-  '#b7d3f6',
-  '#9ec5f4',
-  '#86b6ef',
-  '#6da7ec',
-  '#5598e7',
-  '#3987e5',
-  '#2a78d6',
-  '#256abf',
-  '#1c5cab',
-  '#184f95',
-  '#104281',
-  '#0d366b',
-] as const
+/**
+ * DESIGN section 2.5's sequential ramp, as **token references** rather than hexes: the two
+ * themes hold different steps (light reads more magnitude as darker, dark as brighter), so the
+ * values cannot live in TypeScript. Each step also names the ink that clears 4.5:1 on it, which
+ * is why a caller never has to decide between white and ink itself.
+ */
+export const SEQUENTIAL_RAMP = [1, 2, 3, 4, 5, 6, 7].map((step) => ({
+  color: `var(--al-ramp-${step})`,
+  ink: `var(--al-ramp-${step}-ink)`,
+})) as readonly RampStep[]
 
 export interface RampStep {
+  /** A `var(--al-ramp-N)` reference - usable anywhere a CSS colour is. */
   color: string
-  /** True once the step is dark enough that a label inside it should be white, not ink. */
-  dark: boolean
+  /** The ink token that meets AA on `color`, in whichever theme is live. */
+  ink: string
 }
 
 /**
  * `DiscountMap`'s shading: a discount mapped onto the ramp by magnitude, clamped to `±range` -
- * a deep discount (cheap) lands darkest, a price well above fair value lands lightest. This
- * reuses the one ramp DESIGN 2.5 already validated rather than inventing a second, red-tinted
- * one - a real palette addition is task 22's job, not this one's.
+ * a deep discount (cheap) lands on the strongest step, a price well above fair value on the
+ * faintest. One hue, magnitude by lightness; a second, red-tinted ramp would turn a magnitude
+ * encoding into a diverging one, which the zone label already carries.
  */
 export function rampStepFor(discount: Numeric, range = 0.3): RampStep {
   const value = toNumber(discount)
-  if (value === null || range <= 0) return { color: SEQUENTIAL_RAMP[0], dark: false }
+  if (value === null || range <= 0) return SEQUENTIAL_RAMP[0]
   const clamped = Math.max(-range, Math.min(range, value))
   const fraction = (clamped + range) / (2 * range)
-  const index = Math.round(fraction * (SEQUENTIAL_RAMP.length - 1))
-  // Steps 450 and up (index 7+) are dark enough that white reads better than ink (DESIGN 5.3).
-  return { color: SEQUENTIAL_RAMP[index], dark: index >= 7 }
+  return SEQUENTIAL_RAMP[Math.round(fraction * (SEQUENTIAL_RAMP.length - 1))]
 }

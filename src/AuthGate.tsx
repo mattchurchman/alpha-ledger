@@ -75,7 +75,10 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   if (status === 'locked') {
     return (
       <main className="flex min-h-screen items-start justify-center bg-plane p-6 sm:items-center">
-        <form onSubmit={unlock} className="w-full max-w-sm">
+        <form
+          onSubmit={unlock}
+          className="w-full max-w-sm rounded-card border border-rule bg-surface p-6 shadow-raised"
+        >
           <h1 className="text-h1 font-semibold">Alpha Ledger</h1>
           <p className="label-micro mt-1">vs VOO</p>
           <label htmlFor="token" className="mt-6 block text-small font-medium">
@@ -90,12 +93,12 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             autoComplete="current-password"
             autoFocus
             spellCheck={false}
-            className="mt-1 min-h-11 w-full rounded-control border border-rule bg-surface px-3 font-mono text-base"
+            className="mt-1 min-h-11 w-full rounded-control border border-rule bg-sunken px-3 font-mono text-base transition-colors duration-[120ms] focus:bg-surface"
           />
           <button
             type="submit"
             disabled={busy || token.trim() === ''}
-            className="mt-4 min-h-11 w-full rounded-control bg-you px-3 font-medium text-white transition-opacity duration-[120ms] hover:opacity-90 disabled:opacity-45"
+            className="mt-5 min-h-11 w-full rounded-control bg-accent px-3 font-medium text-accent-ink shadow-card transition-opacity duration-[120ms] hover:opacity-90 disabled:opacity-45"
           >
             {busy ? 'Unlocking…' : 'Unlock'}
           </button>

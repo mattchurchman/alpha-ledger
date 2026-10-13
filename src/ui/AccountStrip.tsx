@@ -45,8 +45,8 @@ export function AccountStrip({
             onClick={() => onSelect(row.account)}
             aria-label={describe(row.account)}
             aria-current={row.selected ? 'true' : undefined}
-            className={`-mx-2 flex min-h-11 w-[calc(100%+1rem)] items-center gap-3 rounded-control border px-2 text-left transition-colors duration-[120ms] ease-out hover:bg-sunken ${
-              row.selected ? 'border-rule bg-sunken' : 'border-transparent'
+            className={`-mx-2 flex min-h-11 w-[calc(100%+1rem)] items-center gap-3 rounded-control border px-2.5 text-left transition-colors duration-[120ms] ease-out hover:bg-sunken ${
+              row.selected ? 'border-transparent bg-accent-wash' : 'border-transparent'
             }`}
           >
             <span className="min-w-0 flex-1 truncate text-small text-ink">{row.account}</span>

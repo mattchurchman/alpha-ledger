@@ -1,12 +1,22 @@
 /**
- * Task 07's acceptance check: screenshot `/kit` at 390px and 1280px, in light and dark, and
- * look at the results.
+ * Task 07's acceptance check, widened by task 22: screenshot each route at 390px and 1280px, in
+ * light and dark, and look at the results.
  *
  * Builds nothing and serves nothing permanently - it starts `vite preview` against `dist/`,
- * shoots four full-page PNGs, and shuts the server down. Run `npm run build` first.
+ * shoots four full-page PNGs per route, and shuts the server down. Run `npm run build` first.
  *
- *   npm run screenshots              # -> screenshots/
+ *   npm run screenshots                        # /kit and / -> screenshots/
+ *   npm run screenshots -- --route /fair-values
+ *   npm run screenshots -- --route /kit --server vite
  *   npm run screenshots -- --out tmp
+ *
+ * `--route` may be repeated and replaces the default list. A route's file-name stem is the path
+ * with slashes turned into dashes (`/` itself becomes `home`), so the four shots of a route sit
+ * together alphabetically.
+ *
+ * Every route but `/kit` reads the API, so the default server is `wrangler dev` (which serves
+ * `dist/` *and* answers `/api/*`, and needs `.dev.vars` - see docs/SETUP.md). `--server vite`
+ * forces the lighter `vite preview`, which is all `/kit` needs since it runs on synthetic data.
  *
  * It uses `playwright-core` plus the browser already on this machine rather than Playwright's
  * own 150 MB download: `CHROMIUM=/path/to/chrome npm run screenshots` overrides the default.
@@ -16,42 +26,87 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { chromium, type Browser } from 'playwright-core'
 
 const PORT = 4173
-const URL = `http://localhost:${PORT}/kit`
+const ORIGIN = `http://localhost:${PORT}`
 const CHROMIUM = process.env.CHROMIUM ?? '/usr/bin/chromium'
 
 const outIndex = process.argv.indexOf('--out')
 const OUT_DIR = outIndex === -1 ? 'screenshots' : process.argv[outIndex + 1]
 
-const SHOTS = [
-  { name: 'kit-390-light', width: 390, height: 844, theme: 'light' },
-  { name: 'kit-390-dark', width: 390, height: 844, theme: 'dark' },
-  { name: 'kit-1280-light', width: 1280, height: 900, theme: 'light' },
-  { name: 'kit-1280-dark', width: 1280, height: 900, theme: 'dark' },
+/** The component kit, and the Dashboard - the screen the whole palette has to hold up on. */
+const DEFAULT_ROUTES = ['/kit', '/']
+const routeArgs = process.argv.flatMap((arg, index) =>
+  arg === '--route' ? [process.argv[index + 1]] : [],
+)
+const ROUTES = routeArgs.length > 0 ? routeArgs : DEFAULT_ROUTES
+
+const serverIndex = process.argv.indexOf('--server')
+const SERVER =
+  serverIndex === -1
+    ? ROUTES.every((route) => route === '/kit')
+      ? 'vite'
+      : 'wrangler'
+    : process.argv[serverIndex + 1]
+if (SERVER !== 'vite' && SERVER !== 'wrangler') {
+  throw new Error(`--server must be "vite" or "wrangler", got ${SERVER}`)
+}
+
+/** `/` -> `home`, `/fair-values` -> `fair-values`, `/stocks/GOOD` -> `stocks-GOOD`. */
+function stemFor(route: string): string {
+  const trimmed = route.replace(/^\/+|\/+$/g, '')
+  return trimmed === '' ? 'home' : trimmed.replace(/\//g, '-')
+}
+
+const VIEWPORTS = [
+  { width: 390, height: 844 },
+  { width: 1280, height: 900 },
 ] as const
+const THEMES = ['light', 'dark'] as const
+
+interface Shot {
+  name: string
+  route: string
+  width: number
+  height: number
+  theme: (typeof THEMES)[number]
+}
+
+const SHOTS: Shot[] = ROUTES.flatMap((route) =>
+  VIEWPORTS.flatMap(({ width, height }) =>
+    THEMES.map((theme) => ({
+      name: `${stemFor(route)}-${width}-${theme}`,
+      route,
+      width,
+      height,
+      theme,
+    })),
+  ),
+)
 
 function startPreview(): ChildProcess {
-  const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], {
-    stdio: ['ignore', 'pipe', 'inherit'],
-  })
-  server.stdout?.on('data', (chunk: Buffer) => process.stdout.write(`  preview: ${chunk}`))
+  const command =
+    SERVER === 'wrangler'
+      ? ['wrangler', 'dev', '--port', String(PORT), '--local']
+      : ['vite', 'preview', '--port', String(PORT), '--strictPort']
+  const server = spawn('npx', command, { stdio: ['ignore', 'pipe', 'inherit'] })
+  server.stdout?.on('data', (chunk: Buffer) => process.stdout.write(`  ${SERVER}: ${chunk}`))
   return server
 }
 
-async function waitForServer(timeoutMs = 20_000): Promise<void> {
+async function waitForServer(timeoutMs = 60_000): Promise<void> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(URL)
+      const response = await fetch(`${ORIGIN}${ROUTES[0]}`)
       if (response.ok) return
     } catch {
       // Not up yet.
     }
     await new Promise((resolve) => setTimeout(resolve, 250))
   }
-  throw new Error(`vite preview did not come up on port ${PORT}`)
+  throw new Error(`${SERVER} did not come up on port ${PORT}`)
 }
 
-async function shoot(browser: Browser, shot: (typeof SHOTS)[number]): Promise<void> {
+async function shoot(browser: Browser, shot: Shot): Promise<void> {
   const context = await browser.newContext({
     viewport: { width: shot.width, height: shot.height },
     deviceScaleFactor: 2,
@@ -63,8 +118,8 @@ async function shoot(browser: Browser, shot: (typeof SHOTS)[number]): Promise<vo
   const page = await context.newPage()
   const problems: string[] = []
   /**
-   * Chromium asks for /favicon.ico on its own and there is no icon set yet - that is task 13's
-   * deliverable, not a fault in the page.
+   * Chromium asks for /favicon.ico on its own. `index.html` points at the SVG and PNG icons
+   * instead, so the bare `.ico` is absent by design, not a fault in the page.
    */
   const isFavicon = (url: string) => url.includes('favicon.ico')
 
@@ -86,7 +141,7 @@ async function shoot(browser: Browser, shot: (typeof SHOTS)[number]): Promise<vo
     if (!isFavicon(request.url())) problems.push(`failed ${request.url()}`)
   })
 
-  await page.goto(URL, { waitUntil: 'networkidle' })
+  await page.goto(`${ORIGIN}${shot.route}`, { waitUntil: 'networkidle' })
   // Passed as a string, not a closure: this file is typechecked without the DOM lib (it runs in
   // node), and the expression is evaluated in the page.
   await page.evaluate('document.fonts.ready')
@@ -112,6 +167,7 @@ async function main(): Promise<void> {
   }
   mkdirSync(OUT_DIR, { recursive: true })
 
+  console.log(`serving dist/ with ${SERVER}`)
   const server = startPreview()
   let browser: Browser | undefined
   try {

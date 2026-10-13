@@ -58,7 +58,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           return (
             <div
               key={toast.id}
-              className="pointer-events-auto flex w-full max-w-sm items-start gap-2.5 rounded-control border border-rule bg-surface px-3 py-2.5 text-small [animation:al-rise_220ms_cubic-bezier(.2,.8,.2,1)]"
+              className="pointer-events-auto flex w-full max-w-sm items-start gap-2.5 rounded-card border border-rule bg-surface px-4 py-3 text-small shadow-raised [animation:al-rise_220ms_cubic-bezier(.2,.8,.2,1)]"
             >
               <Glyph className={`${TONES[status]} mt-px size-[1.15em] shrink-0`} />
               <p className="flex-1">{toast.message}</p>
@@ -66,7 +66,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={() => dismiss(toast.id)}
                 aria-label="Dismiss"
-                className="-m-1 inline-flex size-7 shrink-0 items-center justify-center rounded text-ink-muted hover:text-ink"
+                className="-m-1 inline-flex size-7 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors duration-[120ms] hover:text-ink"
               >
                 <CloseIcon className="size-4" />
               </button>

@@ -9,8 +9,8 @@ import { ChartFrame } from './ChartFrame'
  * The toggle beside `RebuyBars`: the same ranked tickers, as tiles sized by position value
  * instead of rows ordered by discount - good for spotting "which big holding is cheap" rather
  * than "which holding is cheapest". Tile side length comes from `tileSizes` (`geometry.ts`), and
- * shading from the DESIGN 2.5 blue ramp (`rampStepFor`) - darker means a bigger discount, not a
- * second hue, since a red-tinted ramp would be a palette addition this task is not scoped for.
+ * shading from the DESIGN 2.5 sequential ramp (`rampStepFor`), which hands back both the fill
+ * and the ink that clears AA on it, so a tile label never has to pick between white and ink.
  *
  * A watched ticker has no position value to size by, so it gets the fixed small weight
  * `WATCHED_WEIGHT` and an outlined, unshaded tile - visually "not a real position", same idea
@@ -132,25 +132,19 @@ export function DiscountMap({ items, range = 0.3, onSelect }: DiscountMapProps) 
                 style={
                   item.watching
                     ? { width: size, height: size }
-                    : { width: size, height: size, backgroundColor: step.color }
+                    : { width: size, height: size, backgroundColor: step.color, color: step.ink }
                 }
-                className={`flex flex-col items-center justify-center gap-0.5 overflow-hidden rounded-[6px] p-1 text-center transition-opacity duration-[120ms] hover:opacity-90 ${
+                className={`flex flex-col items-center justify-center gap-0.5 overflow-hidden rounded-tile p-1 text-center transition-opacity duration-[120ms] hover:opacity-90 ${
                   item.watching ? 'border border-rule bg-surface text-ink-secondary' : ''
                 }`}
                 aria-label={`${item.ticker}, ${percent(item.number, { sign: false })} ${zone?.label ?? ''}${
                   item.watching ? ', watching' : `, ${money(item.value)}`
                 }`}
               >
-                <span
-                  className={`truncate font-mono text-micro font-medium ${
-                    item.watching ? '' : step.dark ? 'text-white' : 'text-ink'
-                  }`}
-                >
-                  {item.ticker}
-                </span>
+                <span className="truncate font-mono text-micro font-medium">{item.ticker}</span>
                 {size >= 60 && (
                   <span
-                    className={`text-[0.625rem] ${item.watching ? 'text-ink-muted' : step.dark ? 'text-white/85' : 'text-ink/70'}`}
+                    className={`text-[0.625rem] ${item.watching ? 'text-ink-muted' : 'opacity-80'}`}
                   >
                     {percent(item.number, { sign: false })}
                   </span>

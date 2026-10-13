@@ -102,7 +102,7 @@ export function DataTable<T>({
             id={`${caption}-sort`}
             value={sortKey ?? ''}
             onChange={(event) => setSortKey(event.target.value || null)}
-            className="min-h-11 flex-1 rounded-control border border-rule bg-surface px-2 text-small"
+            className="min-h-11 flex-1 rounded-control border border-rule bg-sunken px-3 text-small"
           >
             <option value="">Unsorted</option>
             {sortable.map((column) => (
@@ -114,7 +114,7 @@ export function DataTable<T>({
           <button
             type="button"
             onClick={() => setDirection(direction === 'asc' ? 'desc' : 'asc')}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-control border border-rule text-ink-secondary"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-control border border-rule bg-surface text-ink-secondary shadow-card transition-colors duration-[120ms] hover:bg-sunken hover:text-ink"
             aria-label={direction === 'asc' ? 'Sort descending' : 'Sort ascending'}
           >
             <SortIcon direction={direction} />
@@ -123,7 +123,7 @@ export function DataTable<T>({
       )}
 
       {/* Phone: one card per row. */}
-      <ul className="flex flex-col gap-2 sm:hidden">
+      <ul className="flex flex-col gap-2.5 sm:hidden">
         {sorted.map((row) => {
           const body = (
             <>
@@ -144,24 +144,24 @@ export function DataTable<T>({
           )
           // With a row action the frame moves out to the `<li>`, so the action can sit in a
           // footer under the select target rather than inside it.
-          const framed = rowAction ? '' : 'rounded-control border border-rule bg-surface'
+          const framed = rowAction ? '' : 'rounded-card border border-rule bg-surface shadow-card'
           return (
             <li
               key={rowKey(row)}
-              className={rowAction ? 'rounded-control border border-rule bg-surface' : ''}
+              className={rowAction ? 'rounded-card border border-rule bg-surface shadow-card' : ''}
             >
               {onRowSelect ? (
                 <button
                   type="button"
                   onClick={() => onRowSelect(row)}
-                  className={`w-full p-3 text-left transition-colors duration-[120ms] hover:bg-sunken ${framed}`.trimEnd()}
+                  className={`w-full p-4 text-left transition-colors duration-[120ms] hover:bg-sunken ${framed}`.trimEnd()}
                 >
                   {body}
                 </button>
               ) : (
-                <div className={`p-3 ${framed}`.trimEnd()}>{body}</div>
+                <div className={`p-4 ${framed}`.trimEnd()}>{body}</div>
               )}
-              {rowAction && <div className="border-t border-rule px-3 py-2">{rowAction(row)}</div>}
+              {rowAction && <div className="border-t border-rule px-4 py-2.5">{rowAction(row)}</div>}
             </li>
           )
         })}
@@ -186,7 +186,7 @@ export function DataTable<T>({
                         : 'none'
                       : undefined
                   }
-                  className={`px-1.5 py-2 first:pl-0 last:pr-0 ${column.align === 'right' ? 'text-right' : 'text-left'}`}
+                  className={`px-2 py-2.5 first:pl-0 last:pr-0 ${column.align === 'right' ? 'text-right' : 'text-left'}`}
                 >
                   {column.sort ? (
                     <button
@@ -205,7 +205,7 @@ export function DataTable<T>({
                 </th>
               ))}
               {rowAction && (
-                <th scope="col" className="px-1.5 py-2 text-right last:pr-0">
+                <th scope="col" className="px-2 py-2.5 text-right last:pr-0">
                   <Label>{rowActionHeader}</Label>
                 </th>
               )}
@@ -216,14 +216,14 @@ export function DataTable<T>({
               <tr
                 key={rowKey(row)}
                 onClick={onRowSelect ? () => onRowSelect(row) : undefined}
-                className={`border-b border-rule/60 last:border-0 ${
-                  onRowSelect ? 'cursor-pointer hover:bg-sunken' : ''
-                } odd:bg-sunken/40`}
+                className={`border-b border-rule/70 last:border-0 ${
+                  onRowSelect ? 'cursor-pointer hover:bg-accent-wash' : ''
+                }`}
               >
                 {columns.map((column) => (
                   <td
                     key={column.key}
-                    className={`px-1.5 py-2 tabular-nums first:pl-0 last:pr-0 ${
+                    className={`px-2 py-2.5 tabular-nums first:pl-0 last:pr-0 ${
                       column.align === 'right' ? 'text-right' : 'text-left'
                     }`}
                   >
@@ -234,7 +234,7 @@ export function DataTable<T>({
                   // The row itself is clickable, so the action's cell swallows the click -
                   // otherwise pressing it would also navigate away from what it just changed.
                   <td
-                    className="px-1.5 py-2 text-right last:pr-0"
+                    className="px-2 py-2.5 text-right last:pr-0"
                     onClick={(event) => event.stopPropagation()}
                   >
                     {rowAction(row)}
