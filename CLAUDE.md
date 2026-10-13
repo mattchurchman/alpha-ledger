@@ -4,6 +4,17 @@ Personal web app: did my stock picks beat buying VOO with the same dollars on th
 
 ## How a session works
 
+0. **Before any other tool call**, read only the header of the named task file and print:
+
+   ```
+   Task NN - <name>
+   Model: <Model>   Effort: <low|medium|high>   Context budget: ~<N>k
+   Runs on: <anywhere | owner's computer>
+   ```
+
+   If your current model differs from the task's, say so and stop until the user switches
+   (`/model`). If the task says it must run on the owner's computer and `private/` is absent,
+   stop and print the task's owner step. `tasks/QUEUE.md` is the order of remaining work.
 1. Read `PROGRESS.md` from the `# Rev 2` heading down (everything above it is rev 1 history; grep it only when a task points there), then the one task file the user names in `tasks/`. Read `docs/SPEC.md` sections the task lists, not the whole file, unless told.
 2. Do only that task. Respect its "Out of scope" list. Do not start the next task.
 3. Run the acceptance checks. Fix failures before finishing.
@@ -12,9 +23,9 @@ Personal web app: did my stock picks beat buying VOO with the same dollars on th
 
    ```
    Task NN is done and pushed.
-   Next: tasks/<next file> on <Model>.
+   Next: tasks/<next file> on <Model>, effort <effort>, budget ~<N>k.
    1. Type /clear
-   2. Type /model and pick <Model>
+   2. Type /model and pick <Model> (set effort <effort>)
    3. Type: Do tasks/<next file>
    ```
 

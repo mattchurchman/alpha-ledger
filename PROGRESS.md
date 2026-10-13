@@ -752,7 +752,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 22 | Visual refresh | Opus | done |
 | 23 | Release rev 2 | Haiku | done |
 | 24 | Tighten the Rebuy row / Edit button pair | Sonnet | done |
-| 25 | Finish task 15: real-data validation | Opus | blocked - needs the owner's CSVs in `private/m1/` |
+| 25 | Finish task 15: real-data validation | Opus | split into 25a/25b/25c - see `tasks/QUEUE.md` |
 | 26 | Make `npm run check` a trustworthy gate | Opus | done |
 | 27 | Keyboard access for desktop table rows | Sonnet | done |
 
