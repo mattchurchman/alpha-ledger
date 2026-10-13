@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import AuthGate from './AuthGate.tsx'
 import { PortfolioDataProvider } from './data/PortfolioData.tsx'
@@ -7,10 +8,10 @@ import Dashboard from './routes/Dashboard.tsx'
 import FairValues from './routes/FairValues.tsx'
 import Help from './routes/Help.tsx'
 import Import from './routes/Import.tsx'
-import Kit from './routes/Kit.tsx'
 import Settings from './routes/Settings.tsx'
 import StockDetail from './routes/StockDetail.tsx'
 import { AppShell, ToastProvider } from './ui'
+import { Skeleton } from './ui/States.tsx'
 
 /**
  * `/kit` sits **outside** the auth gate on purpose: it is the design-system demo, fed only by
@@ -18,8 +19,11 @@ import { AppShell, ToastProvider } from './ui'
  * screenshot check. SPEC section 10 already accepts a public shell - no data route is reachable
  * without a session, and this page makes no API call at all.
  *
- * Task 14's audit should decide whether it stays in the production bundle.
+ * Lazy-loaded (task 28) so its six years of fabricated series and the design-system demo don't
+ * sit in the first-load chunk of a personal finance app that never needs them.
  */
+const Kit = lazy(() => import('./routes/Kit.tsx'))
+
 const KIT_PRICES = {
   date: '2026-10-02',
   updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
@@ -34,7 +38,9 @@ export default function App() {
             path="/kit"
             element={
               <AppShell pricesAsOf={KIT_PRICES}>
-                <Kit />
+                <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+                  <Kit />
+                </Suspense>
               </AppShell>
             }
           />

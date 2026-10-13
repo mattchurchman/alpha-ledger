@@ -755,6 +755,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 25 | Finish task 15: real-data validation | Opus | split into 25a/25b/25c - see `tasks/QUEUE.md` |
 | 26 | Make `npm run check` a trustworthy gate | Opus | done |
 | 27 | Keyboard access for desktop table rows | Sonnet | done |
+| 28 | Keep `/kit` and synthetic data out of the production bundle | Sonnet | done |
 
 ## Rev 2 entries
 
@@ -1505,5 +1506,43 @@ Verified:
   "selected" to tab past it. Pressing `Enter` on `Close…` opened the close-or-hide sheet and the
   URL stayed on `/` - the row's own `onRowSelect` did not also fire. Cancelled the sheet;
   confirmed via `GET /api/transactions` that no close transaction was written.
+
+Open issues: none.
+
+## Task 28: Keep `/kit` and synthetic data out of the production bundle - 2026-10-12 - Sonnet
+
+Status: done.
+
+Built:
+- `src/App.tsx`: `Kit` is now `lazy(() => import('./routes/Kit.tsx'))`, wrapped in
+  `<Suspense fallback={<Skeleton className="h-64 w-full" />}>` (from `src/ui/States.tsx`, as the
+  task asked) on the `/kit` route only. `src/kit/synthetic.ts` has no other importer, so it goes
+  into the same lazy chunk automatically - no separate change needed there.
+- `vite.config.ts`: added a `manualChunks` function putting `react`, `react-dom`,
+  `react-router-dom`, and `scheduler` into their own `react` chunk, separate from the app code
+  chunk. Lazy-loading `Kit` alone only dropped the main chunk from 514.37 kB to 500.08 kB - still
+  over Vite's 500 kB warning line, because the bulk of that chunk is React itself, not the demo.
+  Splitting the vendor libraries into their own chunk (not a route split or dependency swap -
+  just how the existing deps are grouped into files) clears the warning without touching app
+  code; the task's "out of scope" list only named those two.
+
+Decisions:
+- **Vendor chunk split via `manualChunks`, not `build.chunkSizeWarningLimit`.** Raising the limit
+  would hide a real 500 kB main chunk instead of shrinking it; grouping React into its own chunk
+  is the standard fix and has the side benefit of letting browsers cache React separately from
+  app code across deploys that don't touch React's version.
+
+Verified:
+- `npm run build` before: `dist/assets/index-allBZLT5.js` 514.37 kB / gzip 156.63 kB, with the
+  ">500 kB" warning.
+- `npm run build` after: three JS chunks, no warning -
+  `react-C4j7wN1Z.js` 218.75 kB / gzip 68.26 kB,
+  `index-LJvRyQ0n.js` 280.53 kB / gzip 84.83 kB (app code, now under the 500 kB line),
+  `Kit-B3JNXH3j.js` 14.93 kB / gzip 5.16 kB (loaded only on `/kit`).
+- `npm run check`: typecheck + lint + 486 tests, all pass.
+- Against `npx wrangler dev`: `GET /kit` returns 200; the served `index.html`'s script/link tags
+  reference only `index-*.js`, `react-*.js`, and the rolldown runtime chunk - `Kit-*.js` is not
+  in the initial HTML, confirming it loads on demand rather than eagerly. Stopped the dev server
+  afterward and confirmed nothing was left listening on port 8787.
 
 Open issues: none.

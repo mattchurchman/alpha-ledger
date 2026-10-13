@@ -6,7 +6,7 @@ passes the budget, finish the current step, write the handoff, and stop rather t
 
 | Order | Task file | Model | Effort | Context budget | Where it must run | Blocked on |
 |---|---|---|---|---|---|---|
-| 1 | `tasks/28-kit-code-split.md` | Sonnet | low | ~45k | anywhere | - |
+| 1 | `tasks/28-kit-code-split.md` | Sonnet | low | ~45k | anywhere | done 2026-10-12 |
 | 2 | `tasks/29-reseed-fixtures.md` | Haiku | low | ~35k | anywhere | - |
 | 3 | `tasks/30-dated-manual-price.md` | Sonnet | medium | ~60k | anywhere | - |
 | 4 | `tasks/31-polish-tail.md` | Haiku | low | ~45k | anywhere | - |
@@ -14,7 +14,7 @@ passes the budget, finish the current step, write the handoff, and stop rather t
 | 6 | `tasks/25b-real-data-validate.md` | Opus | high | ~120k | **owner's computer** | owner step B |
 | 7 | `tasks/25c-real-data-close-out.md` | Sonnet | medium | ~50k | **owner's computer** | 25b done |
 
-Rows 1-4 are independent; any order works. Rows 5-7 are the real-data validation (old task 15/25)
+Row 1 is done; rows 2-4 are independent; any order works. Rows 5-7 are the real-data validation (old task 15/25)
 split into three so no single session has to hold the whole ledger plus the engine in context.
 
 ## What "real data" means (read this before 25a-c)
