@@ -123,6 +123,14 @@ export async function putPriceHistory(
   const source = reqEnum(body, 'source', ['yahoo', 'manual'] as const)
   const history = parsePriceHistory(body.history)
 
+  // A hand-entered price cannot be for a day that has not happened. One day of slack covers a
+  // client whose local date is ahead of UTC.
+  if (source === 'manual') {
+    const limit = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
+    const future = history.dates.find((d) => d > limit)
+    if (future) fail(`manual price date ${future} is in the future`)
+  }
+
   await db
     .prepare(UPSERT_PRICE_HISTORY)
     .bind(...priceHistoryBindings(ticker, new Date().toISOString(), source, history))

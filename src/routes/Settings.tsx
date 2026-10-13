@@ -284,6 +284,12 @@ function HiddenTickersCard() {
   )
 }
 
+function localToday(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 function MarketDataCard() {
   const toast = useToast()
   const { priceHistory, pricesAsOf, update, runUpdate, putPriceHistory } = usePortfolioData()
@@ -291,6 +297,7 @@ function MarketDataCard() {
   const [csvBusy, setCsvBusy] = useState(false)
   const [spotTicker, setSpotTicker] = useState('')
   const [spotPrice, setSpotPrice] = useState('')
+  const [spotDate, setSpotDate] = useState(localToday)
   const [spotBusy, setSpotBusy] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -347,15 +354,19 @@ function MarketDataCard() {
       toast.show('Enter a ticker and a numeric price.', { status: 'critical' })
       return
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(spotDate) || spotDate > localToday()) {
+      toast.show('Pick a date that is today or earlier.', { status: 'critical' })
+      return
+    }
     setSpotBusy(true)
     try {
       const existing = priceHistory.find((p) => p.ticker === ticker)?.history ?? null
-      const today = new Date().toISOString().slice(0, 10)
-      const history = withManualPrice(existing, today, price)
+      const history = withManualPrice(existing, spotDate, price)
       await putPriceHistory(ticker, history)
-      toast.show(`${ticker}: set today's price to ${price}.`, { status: 'good' })
+      toast.show(`${ticker}: set the price on ${spotDate} to ${price}.`, { status: 'good' })
       setSpotTicker('')
       setSpotPrice('')
+      setSpotDate(localToday())
     } catch (err) {
       report(err)
     } finally {
@@ -402,8 +413,8 @@ function MarketDataCard() {
       <div className="border-t border-rule pt-4">
         <h3 className="mb-1 text-small font-semibold">Manual fallback</h3>
         <p className="mb-3 text-small text-ink-secondary">
-          If Yahoo is unreachable, upload a price CSV for one ticker or set its current price by
-          hand. Either is marked manual and merges into whatever history is already stored.
+          If Yahoo is unreachable, upload a price CSV for one ticker or set its price on a given day
+          by hand. Either is marked manual and merges into whatever history is already stored.
         </p>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -438,15 +449,23 @@ function MarketDataCard() {
             className="sm:w-32"
           />
           <TextField
-            label="Current price"
+            label="Price"
             inputMode="decimal"
             value={spotPrice}
             onChange={(e) => setSpotPrice(e.target.value)}
             placeholder="150.00"
             className="sm:w-32"
           />
+          <TextField
+            label="Date"
+            type="date"
+            value={spotDate}
+            max={localToday()}
+            onChange={(e) => setSpotDate(e.target.value)}
+            className="sm:w-40"
+          />
           <Button disabled={spotBusy} onClick={() => void handleSetSpotPrice()}>
-            {spotBusy ? 'Saving…' : 'Set current price'}
+            {spotBusy ? 'Saving…' : 'Set price'}
           </Button>
         </div>
       </div>

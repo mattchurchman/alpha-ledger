@@ -63,19 +63,7 @@ Yahoo did not block or rate-limit the deployed Worker during this round of check
 
 ## Manual fallback
 
-If Yahoo blocks this Worker outright, the designed fallback (SPEC section 2) is a manual
-price CSV per ticker, uploaded through the app:
-
-```
-date,close,adjclose
-2026-10-08,711.28,711.28
-2026-10-07,713.71,713.71
-```
-
-- Header row required, exactly these three column names, lowercase.
-- `date` is `YYYY-MM-DD`.
-- `close` and `adjclose` are plain decimal numbers, no `$` or thousands separators.
-- One row per trading day; order doesn't matter, the app sorts on import.
-- No splits/dividends columns — under manual entry, use `adjclose` for the chart and enter
-  splits/current price by hand (SPEC section 2 fallback note); building CSV support for this
-  format is not part of this task.
+There is no separate fallback beyond what is built (SPEC Decision log, task 30): the price CSV
+series import (`date,close,adjclose`, one ticker per upload) plus the dated single-price form on
+Settings. Both merge into the stored history and are marked manual; the Worker rejects a manual
+price dated in the future.

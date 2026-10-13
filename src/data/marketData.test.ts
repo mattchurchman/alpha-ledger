@@ -234,6 +234,15 @@ describe('withManualPrice', () => {
     expect(result.asOf).toBe('2026-10-09')
   })
 
+  it('inserts a past day in date order without moving asOf', () => {
+    const existing = history('2026-10-08', ['2026-10-06', '2026-10-08'])
+    const result = withManualPrice(existing, '2026-10-07', '42.00')
+    expect(result.dates).toEqual(['2026-10-06', '2026-10-07', '2026-10-08'])
+    expect(result.close[1]).toBe('42.00')
+    expect(result.adjClose[1]).toBe('42.00')
+    expect(result.asOf).toBe('2026-10-08')
+  })
+
   it('overwrites the same day in place', () => {
     const existing = history('2026-10-08')
     const result = withManualPrice(existing, '2026-10-08', '999.00')

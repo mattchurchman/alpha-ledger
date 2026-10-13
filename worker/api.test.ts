@@ -575,6 +575,16 @@ describe('price history', () => {
     ).toBe(400)
   })
 
+  it('rejects a manual price dated in the future but accepts a past one', async () => {
+    const dated = (date: string) => ({
+      source: 'manual',
+      history: { ...SERIES, dates: [date], close: ['10.00'], adjClose: ['10.00'] },
+    })
+    const future = await send('PUT', '/api/price-history/ACME', dated('2999-01-01'))
+    expect(future.status).toBe(400)
+    expect((await send('PUT', '/api/price-history/ACME', dated('2024-03-05'))).status).toBe(200)
+  })
+
   it('accepts an empty series', async () => {
     const stored = await expectJson<StoredPriceHistory>(
       await send('PUT', '/api/price-history/ACME', {

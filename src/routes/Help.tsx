@@ -503,8 +503,8 @@ export default function Help() {
               what restores those.
             </Term>
             <Term word="Manual fallback: set current price">
-              A single price for today, for when all you need is a current valuation. Same merge,
-              same manual marking.
+              A single price for one day, defaulting to today and never later - use an earlier
+              date to fix one bad or missing past day. Same merge, same manual marking.
             </Term>
             <Term word="Ticker aliases">
               For a rename or a merger. Record the old ticker, the new one, and the date it took
@@ -677,7 +677,7 @@ export default function Help() {
           <Faq q="A ticker fails every time prices are fetched.">
             The data source is free and unofficial, and a delisted or renamed symbol often has
             nothing behind it. Record the rename as an alias on Settings if that is what happened,
-            otherwise use the manual price CSV or set a current price by hand. If the position is
+            otherwise use the manual price CSV or set a price by hand. If the position is
             closed, the failure is expected and is reported as such rather than as a problem.
           </Faq>
           <Faq q="A whole position shows a negative VOO equivalent.">

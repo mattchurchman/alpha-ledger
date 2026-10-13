@@ -757,6 +757,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 27 | Keyboard access for desktop table rows | Sonnet | done |
 | 28 | Keep `/kit` and synthetic data out of the production bundle | Sonnet | done |
 | 29 | Make the synthetic price fixtures unfetchable | Haiku | done |
+| 30 | Dated manual price, and settle the price fallback | Sonnet | done |
 
 ## Rev 2 entries
 
@@ -1583,3 +1584,19 @@ Verified:
 
 Open issues: none.
 
+## Task 30: Dated manual price, and settle the price fallback - 2026-10-13 - Sonnet
+
+Status: done.
+
+Built:
+- `src/routes/Settings.tsx`: the single-price form gained a Date field (default today in local time, `max` today, re-checked on submit). It now calls `withManualPrice` with that date, so a past day is inserted in order and `asOf` is unchanged.
+- `worker/api/priceHistory.ts`: a `manual` PUT is rejected with 400 if any date is later than tomorrow UTC (one day of slack for clients ahead of UTC). Test in `worker/api.test.ts`; a past-day insertion test in `src/data/marketData.test.ts`.
+- `docs/SPEC.md` Decision log: CSV series import plus the dated single price is the fallback. `docs/PRICES.md`: the unbuilt fallback design was replaced with a short statement of what exists. `Help.tsx` updated for the form and the FAQ.
+
+Decisions:
+- The Worker check lives in `putPriceHistory` (manual source only), not `validate.ts`, because the dates arrive inside the history body rather than as a top-level field; Yahoo series are not checked.
+
+Verified:
+- `npm run check`: typecheck + lint + 488 tests pass. Not exercised in a browser or against a running Worker.
+
+Open issues: none.
