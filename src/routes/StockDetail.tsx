@@ -491,7 +491,9 @@ export default function StockDetail() {
             footnote={
               closed
                 ? "Closed position. Proceeds plus dividends against VOO's."
-                : 'Your picks against the same dollars in VOO on the same dates.'
+                : account !== null
+                  ? `${account} only: its picks against the same dollars in VOO on the same dates.`
+                  : 'Your picks against the same dollars in VOO on the same dates.'
             }
           />
           <div className="mt-5 grid grid-cols-2 gap-5 border-t border-rule pt-4 md:grid-cols-5">

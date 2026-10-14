@@ -617,6 +617,16 @@ describe('meta', () => {
     expect((await send('PUT', '/api/meta/key', {})).status).toBe(400)
     expect((await send('PUT', '/api/meta/key', { value: 7 })).status).toBe(400)
   })
+
+  it('deletes a key', async () => {
+    await send('PUT', '/api/meta/temp_key', { value: 'temp_value' })
+    expect(await expectJson<MetaMap>(await call('/api/meta'), 200)).toEqual({
+      temp_key: 'temp_value',
+    })
+
+    expect((await send('DELETE', '/api/meta/temp_key')).status).toBe(200)
+    expect(await expectJson<MetaMap>(await call('/api/meta'), 200)).toEqual({})
+  })
 })
 
 describe('export and restore', () => {

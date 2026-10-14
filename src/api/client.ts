@@ -166,6 +166,7 @@ export function createApiClient(options: ApiClientOptions = {}) {
       get: () => request<MetaMap>('/api/meta'),
       put: (key: string, value: string) =>
         send<{ key: string; value: string }>('PUT', `/api/meta/${encodeURIComponent(key)}`, { value }),
+      delete: (key: string) => send<{ key: string }>('DELETE', `/api/meta/${encodeURIComponent(key)}`),
     },
 
     exportAll: () => request<ExportBundle>('/api/export'),

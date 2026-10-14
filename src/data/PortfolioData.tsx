@@ -199,7 +199,11 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
   const setTickerHidden = useCallback(
     async (ticker: string, hidden: boolean) => {
       const next = withHidden(hiddenTickers, ticker, hidden)
-      await api.meta.put(HIDDEN_TICKERS_KEY, serializeHiddenTickers(next))
+      if (next.length === 0) {
+        await api.meta.delete(HIDDEN_TICKERS_KEY)
+      } else {
+        await api.meta.put(HIDDEN_TICKERS_KEY, serializeHiddenTickers(next))
+      }
       await reload()
     },
     [hiddenTickers, reload],

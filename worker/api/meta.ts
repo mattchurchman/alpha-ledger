@@ -34,8 +34,13 @@ export async function handleMeta(
 
   const match = /^\/([^/]+)$/.exec(rest)
   if (match) {
-    if (request.method !== 'PUT') return apiError('Method not allowed', 405)
-    return putMeta(db, decodeURIComponent(match[1]), request)
+    const key = decodeURIComponent(match[1])
+    if (request.method === 'PUT') return putMeta(db, key, request)
+    if (request.method === 'DELETE') {
+      await db.prepare('DELETE FROM meta WHERE key = ?').bind(key).run()
+      return json({ key })
+    }
+    return apiError('Method not allowed', 405)
   }
 
   return null
