@@ -758,6 +758,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 28 | Keep `/kit` and synthetic data out of the production bundle | Sonnet | done |
 | 29 | Make the synthetic price fixtures unfetchable | Haiku | done |
 | 30 | Dated manual price, and settle the price fallback | Sonnet | done |
+| 31 | Polish the open-issue tail | Haiku | done |
 
 ## Rev 2 entries
 
@@ -1646,3 +1647,28 @@ Verified:
 Open issues: none. Task 30 itself needed no changes - its own tests (`marketData.test.ts`,
 `worker/api.test.ts`) were unaffected by this regression.
 
+
+## Task 31: Polish the open-issue tail - 2026-10-13 - Haiku
+
+Status: done.
+
+Built:
+- **Item 1: Hidden tickers empty key removal.** Added DELETE method to meta API handler in
+  `worker/api/meta.ts` and client in `src/api/client.ts`. Updated `setTickerHidden` in
+  `src/data/PortfolioData.tsx` to delete the `hidden_tickers` key when the list becomes empty
+  instead of writing `[]`. Added test in `worker/api.test.ts`.
+- **Item 2: StockDetail account naming.** Updated the footnote in `src/routes/StockDetail.tsx`
+  to name the account in single-account views (e.g. "taxable only: its picks..."), matching
+  Dashboard's wording.
+
+Verified / Skipped:
+- **Item 3: DiscountMap em dash for watched tiles.** Confirmed as intentional - watched
+  (unheld) tickers correctly show "—" for position value since there is no position. No change.
+- **Item 4: Lazy accountSummaries.** Skipped - making it lazy would require refactoring beyond
+  a few lines (wrapping in a function, changing the context API). The current approach is already
+  efficient (no series computation per account).
+
+Verified:
+- `npm run check`: typecheck + lint + 489 tests pass.
+
+Open issues: none.
