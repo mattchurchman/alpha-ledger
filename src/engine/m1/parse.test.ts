@@ -70,6 +70,7 @@ describe('parseM1Activity', () => {
         'OTHER',
         'DIVIDEND',
         'REORGANIZATION',
+        'CASH',
       ])
     })
 
@@ -97,6 +98,12 @@ describe('parseM1Activity', () => {
         reason: 'unknown Transaction Type "REORGANIZATION"',
       })
       expect(result.unrecognized[4].fields['description']).toBe('Something entirely new happened.')
+    })
+
+    it('reports a CASH row as a likely merger/buyout settlement, not a generic unknown type', () => {
+      expect(result.unrecognized[5]).toMatchObject({ line: 7, transaction_type: 'CASH' })
+      expect(result.unrecognized[5].reason).toMatch(/merger\/buyout cash settlement/)
+      expect(result.unrecognized[5].reason).toContain('FAKE HOLDINGS INC')
     })
   })
 

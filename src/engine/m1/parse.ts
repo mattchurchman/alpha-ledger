@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import { TICKER_PATTERN, type Transaction, type TransactionType } from '../types'
+import { TICKER_PATTERN, type Transaction, type TransactionType } from '../types.ts'
 
 export type { TransactionType }
 
@@ -173,6 +173,11 @@ function classifyRow(
       return
     }
 
+    case 'CASH': {
+      reject(cashPayoutReason(get('Description')))
+      return
+    }
+
     default:
       reject(type === '' ? 'row has no Transaction Type' : `unknown Transaction Type "${rawType}"`)
   }
@@ -190,6 +195,20 @@ function classifyRow(
  */
 function notATicker(symbol: string): string {
   return `Symbol "${symbol}" is not a ticker - probably a placeholder M1 uses for a corporate action. Skipped: splits come from the price history, and anything else needs an adjust transaction entered by hand.`
+}
+
+/**
+ * `CASH`, found in a real export: no `Symbol`, a company name in `Description`, a positive
+ * `Amount`, `Units` "--". Observed only against companies that were acquired or taken private
+ * (the position stopped trading), so this reads as a merger/buyout cash settlement rather than
+ * a dividend or a fee - but with no ticker and no share count on the row, the parser cannot
+ * build a `sell` for it. Reported like every other row it refuses to guess at.
+ */
+function cashPayoutReason(description: string): string {
+  return (
+    `CASH row has no Symbol - likely a merger/buyout cash settlement for "${description}". ` +
+    'Needs a sell or adjust transaction entered by hand with the ticker and share count.'
+  )
 }
 
 function buildSecurityTransaction(

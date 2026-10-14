@@ -752,7 +752,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 22 | Visual refresh | Opus | done |
 | 23 | Release rev 2 | Haiku | done |
 | 24 | Tighten the Rebuy row / Edit button pair | Sonnet | done |
-| 25 | Finish task 15: real-data validation | Opus | split into 25a/25b/25c - see `tasks/QUEUE.md` |
+| 25 | Finish task 15: real-data validation | Opus | split into 25a/25b/25c - see `tasks/QUEUE.md`; 25a done 2026-10-13 (one account; more owner step A still needed before 25b) |
 | 26 | Make `npm run check` a trustworthy gate | Opus | done |
 | 27 | Keyboard access for desktop table rows | Sonnet | done |
 | 28 | Keep `/kit` and synthetic data out of the production bundle | Sonnet | done |
@@ -1672,3 +1672,77 @@ Verified:
 - `npm run check`: typecheck + lint + 489 tests pass.
 
 Open issues: none.
+
+## Task 25a: Real-data intake and triage - 2026-10-13 - Sonnet
+
+Status: done, for the one account supplied. Other accounts still need owner step A before 25b.
+
+Built:
+- `src/engine/m1/parse.ts`: fixed an extensionless relative import (`'../types'` → `'../types.ts'`)
+  that made `npm run m1:summary` crash immediately under Node's native TS execution - it only
+  worked before because `npm run check` runs tests through Vite/Vitest's loader, which tolerates
+  missing extensions, and `m1:summary` had never actually been run against a real file until now.
+- `src/engine/m1/parse.ts`: added an explicit `CASH` case. M1's real export surfaced this
+  transaction type - no `Symbol`, a bare company name in `Description`, `Unit Type` `CURRENCY` -
+  which previously fell into the generic "unknown Transaction Type" bucket. It now gets a
+  specific reason (`cashPayoutReason`) identifying it as a likely merger/buyout cash settlement,
+  still reported as unrecognized since there is no ticker or share count on the row to build a
+  `sell` from.
+- `docs/M1_FORMAT.md`: documented `CASH` in the transaction-types table and added a "CASH - a
+  row type not in the original sample" section under Decisions; updated the provenance note to
+  say `m1:summary` has now run against one real account.
+- `tests/fixtures/m1/activity-unrecognized.csv` + `src/engine/m1/parse.test.ts`: synthetic `CASH`
+  row and test, no real data.
+- `private/triage.md` (gitignored, real values): per-row disposition for the 6 unrecognized rows
+  `npm run m1:summary` found in `private/m1/roth.csv` - 2 are the known `PRESPLITCEIX` split
+  placeholder (skip, per existing decision), 4 are `CASH` merger settlements (Twitter, Activision
+  Blizzard, Sanderson Farms, Tivity Health) each needing a manual `sell`/`adjust` once the owner
+  confirms the exact share count against their own records - the amounts imply a count but are
+  not authoritative.
+
+Row types found and how each maps (no amounts; see `private/triage.md` for the real numbers):
+- `PURCHASED`/`SOLD`/`DIVIDEND` with a real ticker: map as already documented (buy/sell/dividend).
+- `TRANSFER`/`FEE`/`OTHER`-as-interest (cash): dropped, as already documented.
+- `SOLD`/`PURCHASED` against the `PRESPLITCEIX` placeholder: skip - split ratios come from the
+  price history, not the transaction row (SPEC 4); no split-typed row appeared at all, confirming
+  M1 uses the placeholder trick instead of a dedicated split type, settling the open question
+  from tasks 02/04.
+- `CASH` (no Symbol, company name in Description): new type, documented above - reported as
+  unrecognized, needs a manual `sell`/`adjust`, cannot be auto-mapped (no ticker, no share count
+  on the row).
+
+Decisions:
+- `CASH` is reported with a specific reason rather than silently guessed at or lumped into the
+  generic unknown-type message, for the same reason `TRANSFER`-in-kind and `PRESPLITCEIX` are:
+  the parser's rule is to surface anything it cannot build a transaction for with enough context
+  to triage it, never to pick a ticker or share count on its own.
+
+Verified:
+- `npm run check`: typecheck + lint + 490 tests pass (was 489; one new `CASH` test).
+- `npm run m1:summary` runs clean against `private/m1/roth.csv` and prints the triage report to
+  the terminal only.
+- `git status`: clean except the four tracked source/doc/fixture/test files above; nothing under
+  `private/` appears (confirmed gitignored).
+
+Open issues:
+- Only `private/m1/roth.csv` was supplied. Owner step A (below) still needs to happen for every
+  other account before task 25b can see the whole ledger.
+- The four `CASH` share counts in `private/triage.md` are back-derived estimates (amount ÷
+  historical per-share deal price), not confirmed against M1's own records - owner should verify
+  before entering the `sell`/`adjust` rows.
+
+**Owner step A (remaining) and step B - do these, not the agent:**
+1. Export full activity history for any remaining accounts from M1, save as
+   `private/m1/<account-label>.csv`; confirm with `git status` that they don't appear.
+2. In the deployed app: Import each CSV (including `roth.csv`, not yet imported), then tap
+   **Update market data** before reconciling.
+3. Get a login cookie and export the ledger:
+   ```
+   URL=https://alpha-ledger.alpha-ledger.workers.dev
+   curl -s -c private/cookie.txt -H 'Content-Type: application/json' -d '{"token":"TOKEN"}' "$URL/api/session"
+   curl -s -b private/cookie.txt "$URL/api/export" > private/export.json
+   ```
+4. Write M1's current share count per holding into `private/m1/holdings.txt` (`TICKER shares`
+   per line).
+
+**Next:** tasks/25b-real-data-validate.md on Opus (effort high) - after the above.

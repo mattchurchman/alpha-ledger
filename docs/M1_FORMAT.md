@@ -8,10 +8,10 @@ Every example row in this file is invented. Real exports live in `private/m1/` a
 
 The column names and the activity types in the "Transaction types" table below were taken
 from a real export header plus a sample of real rows supplied by the user on 2026-10-08.
-It is **not** yet confirmed against the full history of every account — `npm run m1:summary`
-has not been run on real files (none are in `private/m1/` yet). Anything marked
-"not yet observed" is a prediction, not a fact. The parser reports unknown rows rather
-than guessing, so a type we have not seen will surface loudly rather than be dropped.
+`npm run m1:summary` ran against the first real file (one account) on 2026-10-13 - see the
+`CASH` section below for what that surfaced. It is still not confirmed against every account.
+Anything marked "not yet observed" is a prediction, not a fact. The parser reports unknown rows
+rather than guessing, so a type we have not seen will surface loudly rather than be dropped.
 
 ## Columns
 
@@ -75,6 +75,7 @@ after using `Transaction Type` to decide direction.
 | `FEE`              | `CURRENCY`    | _dropped_                                               | Dividend withholding and similar. Cash.                             |
 | `OTHER`            | `CURRENCY`    | _dropped_ **only if** the description reads as interest | Securities-lending interest and account interest. See Decisions.    |
 | `OTHER`            | anything else | _unrecognized_                                          | `OTHER` is a grab-bag; anything not plainly interest gets reported. |
+| `CASH`             | `CURRENCY`    | _unrecognized_                                          | Merger/buyout cash settlement; see Decisions.                      |
 | anything else      | —             | _unrecognized_                                          | Reported with the raw row so it can be classified.                  |
 
 "Dropped" means recognized and deliberately discarded per SPEC section 3 ("Deposits,
@@ -176,6 +177,21 @@ is synchronous — Web Crypto's `digest` is async, and SPEC section 2 requires t
 be pure synchronous TypeScript runnable in the browser. It is not a cryptographic hash and
 does not need to be; nothing here is adversarial. Collision risk across a few thousand
 rows at 64 bits is negligible.
+
+### `CASH` - a row type not in the original sample
+
+Found on 2026-10-13 running `npm run m1:summary` against the first real export. `Transaction
+Type` is `CASH`, `Unit Type` is `CURRENCY`, `Symbol` is empty, and `Description` is a bare
+company name (no "shares of" / "dividend of" prose). Every occurrence observed so far names a
+company that was acquired or taken private around the row's date (e.g. Twitter, Activision
+Blizzard) - this reads as M1's label for a merger/buyout cash settlement paid out when a held
+position stopped trading.
+
+It cannot be mapped automatically: there is no ticker on the row (the company name in
+`Description` is prose, not a `Symbol`) and no `Units`, so there is no share count to attach a
+`sell` to. Per the same rule as transfers in kind, the parser reports it rather than guessing -
+the owner enters a `sell` or `adjust` by hand with the ticker and share count from their own
+records.
 
 ## Decisions
 

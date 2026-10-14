@@ -4,4 +4,5 @@ Date,Posted Date,Symbol,Description,Transaction Type,Amount,Units,Unit Type,Unit
 "Feb 7, 2024","Feb 7, 2024",WXYZ,Spinoff of WXYZ processed.,OTHER,$0.00,1.5,SHARES,--,111111111,CUSIP
 "Feb 6, 2024","Feb 6, 2024",,Dividend of 222222222 $5.00 received.,DIVIDEND,$5.00,--,CURRENCY,--,222222222,CUSIP
 "Feb 5, 2024","Feb 5, 2024",QRST,Something entirely new happened.,REORGANIZATION,$10.00,--,CURRENCY,--,333333333,CUSIP
-"Feb 4, 2024","Feb 4, 2024",QRST,0.1 shares of QRST purchased.,PURCHASED,$10.00,0.1,SHARES,$100.00,333333333,CUSIP
+"Feb 4, 2024","Feb 4, 2024",,FAKE HOLDINGS INC,CASH,$25.00,--,CURRENCY,--,,
+"Feb 3, 2024","Feb 3, 2024",QRST,0.1 shares of QRST purchased.,PURCHASED,$10.00,0.1,SHARES,$100.00,333333333,CUSIP
