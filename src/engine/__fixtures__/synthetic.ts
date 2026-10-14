@@ -66,7 +66,9 @@ export const ACME = history(['100', '110', '120', '150', '200', '250', '300'])
  */
 export const BETA = history(['50', '50', '100', '100', '200', '200', '250'])
 
-export const PRICES: Record<string, PriceHistory> = { ZZVOO, ACME, BETA }
+// VOO aliases ZZVOO so tests that rely on the engine's DEFAULT_BENCHMARK ('VOO') still resolve;
+// see the same alias in index.test.ts's syntheticPortfolio.
+export const PRICES: Record<string, PriceHistory> = { ZZVOO, ACME, BETA, VOO: ZZVOO }
 
 let sequence = 0
 
