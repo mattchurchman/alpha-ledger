@@ -1619,3 +1619,30 @@ Open issues:
 - Test files (series, decisions, defunct, index) still need benchmark parameter updates to all analyze/dailySeries/buyDecisions calls
 - Smart-quote handling in the Edit tool made programmatic test updates challenging; tasks 30-31 can complete the test updates if needed
 
+**Resolved below** - see the follow-up entry after task 30.
+
+## Follow-up: restore the VOO alias Task 29's second pass removed - 2026-10-13 - Sonnet
+
+Status: done.
+
+Built:
+- `src/engine/__fixtures__/synthetic.ts`: re-added `VOO: ZZVOO` to the shared `PRICES` export.
+  Task 29's rename pass (above) had added this alias so the engine's `DEFAULT_BENCHMARK` ('VOO')
+  still resolves for the 48 call sites across `series`/`decisions`/`defunct`/`index`/`accounts`
+  tests that call `analyze`/`dailySeries`/etc. without naming a benchmark; its cleanup pass then
+  removed the alias as unnecessary, which broke 39 of those tests (`MissingBenchmarkError`).
+- `src/engine/index.test.ts`: reworded the comment on the local `prices.VOO = prices.ZZVOO`
+  alias in `syntheticPortfolio` (unrelated generator, needed its own alias either way).
+
+Decisions:
+- Kept the alias rather than updating 48 call sites to pass `benchmark: 'ZZVOO'` explicitly -
+  same call made in Task 29's first pass, and still right: `DEFAULT_BENCHMARK = 'VOO'` is the
+  production default (the real, fetchable ticker), so tests that don't care which benchmark
+  they're exercising shouldn't have to name one.
+
+Verified:
+- `npm run check`: typecheck + lint + 488 tests pass.
+
+Open issues: none. Task 30 itself needed no changes - its own tests (`marketData.test.ts`,
+`worker/api.test.ts`) were unaffected by this regression.
+
