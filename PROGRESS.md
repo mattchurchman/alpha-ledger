@@ -752,7 +752,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 22 | Visual refresh | Opus | done |
 | 23 | Release rev 2 | Haiku | done |
 | 24 | Tighten the Rebuy row / Edit button pair | Sonnet | done |
-| 25 | Finish task 15: real-data validation | Opus | split into 25a/25b/25c - see `tasks/QUEUE.md`; 25a done 2026-10-13 (one account; more owner step A still needed before 25b) |
+| 25 | Finish task 15: real-data validation | Opus | split into 25a/25b/25c - see `tasks/QUEUE.md`; 25a done 2026-10-13; **25b rescoped and parked 2026-10-13** (no CSV in `private/m1/`; its M1-comparison steps moved to 25c as owner acceptance) |
 | 26 | Make `npm run check` a trustworthy gate | Opus | done |
 | 27 | Keyboard access for desktop table rows | Sonnet | done |
 | 28 | Keep `/kit` and synthetic data out of the production bundle | Sonnet | done |
@@ -1746,3 +1746,56 @@ Open issues:
    per line).
 
 **Next:** tasks/25b-real-data-validate.md on Opus (effort high) - after the above.
+
+## Task 25b: Rescoped and parked - 2026-10-13 - Opus
+Status: **parked, not done.** No acceptance check was run; the task's own acceptance text is not
+met and was not quietly redefined to look met.
+
+Why it stopped:
+- The gate wanted `private/export.json` and `private/m1/holdings.txt`; neither existed. While the
+  session was running, `private/m1/roth.csv` - the one real input 25a had used - was withdrawn by
+  the owner too, leaving no transactions to run the engine over at all. That is the owner's call
+  and the right default for this app: real holdings are the thing it exists to keep private.
+
+What the owner challenged, and what came of it:
+- The owner asked why an agent building the app needs the data the app is built to consume. Mostly
+  a fair hit. Three of the five steps (1, 2, 5) compare the engine to **M1's own numbers**, which
+  is acceptance, not development - and `src/engine/reconcile.ts`, wired into Import, already does
+  exactly that on screen, with section 4's tolerance, tested. `tasks/QUEUE.md` had always listed
+  those counts as "typed into the app's Reconcile screen"; only 25b's step 1 invented a
+  `holdings.txt`. Those three steps are now Part A of 25c, owner-driven.
+- The part that does not survive the challenge: step 3 compares the engine to a **fresh reading of
+  the spec**, needing transactions and prices and no outside answer. That stays agent work, and it
+  is what 25b is now.
+- Real transactions did earn their place during development, but as *shapes* (pre-split
+  placeholder, merger cash-outs, defunct tickers), not as amounts - they found two parser bugs in
+  25a and that value is already banked in the parser's synthetic tests.
+
+Built:
+- `docs/SPEC.md` Decision log, 2026-10-13: the agent/owner split above, with the reasoning.
+- `tasks/25b-real-data-validate.md`: rescoped to steps 3 and 6. Gate is now "any CSV in
+  `private/m1/`" rather than the export plus a holdings file; a Prices section explains the two
+  ways to get a bundle and what the thinner one cannot tell you.
+- `tasks/25c-real-data-close-out.md`: new Part A, the owner's acceptance checklist in the app
+  (share counts, portfolio total, value added adds up, confirm the four merger cash-outs first).
+- `tasks/QUEUE.md`: rows 2-5 were stale and said "-" for work finished days ago; marked done.
+  The real-data table gained a "who needs it" column marking the M1 figures owner-only, with the
+  reason, so the next agent does not re-derive the holdings-file idea.
+- `private/build-bundle.ts` (gitignored, untested): parses `private/m1/*.csv` with the app's
+  parser and fetches Yahoo with the Worker's URL and parser, writing an export-shaped bundle so
+  25b can run without the deployed app. Written before the CSV was withdrawn; it exited on the
+  missing input before any fetch, so **nothing in it has ever run past argument parsing.**
+
+Verified:
+- `npm run check`: typecheck + lint + 490 tests pass - unchanged, since no `src/` file was touched.
+- `git status`: nothing under `private/` (confirmed gitignored); only the four docs/task files.
+
+Open issues:
+- 25b itself: steps 3 and 6 are untouched. Needs one CSV back in `private/m1/`.
+- 25c Part A is blocked until the owner runs it in the app.
+- Still only one account was ever supplied; owner step A for the rest stands.
+- `private/build-bundle.ts` is unexercised code. Treat its first run as part of 25b, not as a
+  tool known to work - in particular its Yahoo retry/backoff path has never been hit.
+
+**Next:** the agent queue is empty. 25b resumes if `private/m1/<account>.csv` comes back; 25c
+needs the owner's Part A first. Nothing else is queued - see `docs/REMAINING_WORK.md`.
