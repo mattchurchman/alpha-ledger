@@ -11,17 +11,17 @@ passes the budget, finish the current step, write the handoff, and stop rather t
 | 3 | `tasks/30-dated-manual-price.md` | Sonnet | medium | ~60k | anywhere | done 2026-10-13 |
 | 4 | `tasks/31-polish-tail.md` | Haiku | low | ~45k | anywhere | done 2026-10-13 |
 | 5 | `tasks/25a-real-data-intake.md` | Sonnet | medium | ~60k | **owner's computer** | done 2026-10-13 (one account) |
-| 6 | `tasks/25b-real-data-validate.md` | Opus | high | ~120k | **owner's computer** | **parked** - needs a CSV in `private/m1/` |
+| 6 | `tasks/25b-real-data-validate.md` | Opus | high | ~120k | **owner's computer** | done 2026-10-13 (steps 3+6) |
 | 7 | `tasks/25c-real-data-close-out.md` | Sonnet | medium | ~50k | **owner's computer** | 25b done, and Part A is the owner's |
 
-Rows 1-5 are done. Rows 6-7 are the real-data validation (old task 15/25), and **nothing else is
-queued** - if both are parked, the agent backlog is empty and the remaining work is the owner's
-(`docs/REMAINING_WORK.md`, "Not tasks"). Do not invent a row to fill the gap; say the queue is empty.
+Rows 1-6 are done. Row 7 is the last one, and **nothing else is queued** - once it is done the
+agent backlog is empty and the remaining work is the owner's (`docs/REMAINING_WORK.md`, "Not
+tasks"). Do not invent a row to fill the gap; say the queue is empty.
 
-25b was parked on 2026-10-13: the owner withdrew the one CSV mid-session, which is their call -
-real holdings are the thing the app exists to keep private. It also got rescoped the same day,
-because three of its five steps were owner acceptance work misfiled as agent work. See the
-2026-10-13 Decision log entry in `docs/SPEC.md`, and the note below.
+25b was rescoped on 2026-10-13, because three of its five steps were owner acceptance work
+misfiled as agent work; those are now 25c Part A. See the 2026-10-13 Decision log entry in
+`docs/SPEC.md`, and the note below. 25c therefore cannot be finished by an agent alone - Part A
+needs the owner in the app first.
 
 ## What "real data" means (read this before 25a-c)
 

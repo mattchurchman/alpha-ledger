@@ -1,4 +1,5 @@
 import { parseYahooChart, YahooUpstreamError } from '../src/engine/prices/parseYahooChart'
+import { yahooSymbol } from '../src/engine/prices/yahooSymbol'
 import { TICKER_PATTERN } from './validate'
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -29,8 +30,10 @@ export async function handlePricesRequest(path: string, searchParams: URLSearchP
   }
   const period2 = Math.floor(Date.now() / 1000)
 
+  // Yahoo's spelling for the request; `ticker` stays the stored one, so an error message names
+  // the symbol the owner typed and the response is stored under it. See `yahooSymbol`.
   const yahooUrl =
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}` +
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol(ticker))}` +
     `?period1=${period1}&period2=${period2}&interval=1d&events=div,splits`
 
   let upstream: Response

@@ -752,7 +752,7 @@ Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; 
 | 22 | Visual refresh | Opus | done |
 | 23 | Release rev 2 | Haiku | done |
 | 24 | Tighten the Rebuy row / Edit button pair | Sonnet | done |
-| 25 | Finish task 15: real-data validation | Opus | split into 25a/25b/25c - see `tasks/QUEUE.md`; 25a done 2026-10-13; **25b rescoped and parked 2026-10-13** (no CSV in `private/m1/`; its M1-comparison steps moved to 25c as owner acceptance) |
+| 25 | Finish task 15: real-data validation | Opus | split into 25a/25b/25c - see `tasks/QUEUE.md`; 25a done 2026-10-13; 25b rescoped then **done 2026-10-13** (steps 3+6 pass on the whole ledger; its M1-comparison steps are now 25c Part A, owner acceptance) |
 | 26 | Make `npm run check` a trustworthy gate | Opus | done |
 | 27 | Keyboard access for desktop table rows | Sonnet | done |
 | 28 | Keep `/kit` and synthetic data out of the production bundle | Sonnet | done |
@@ -1799,3 +1799,67 @@ Open issues:
 
 **Next:** the agent queue is empty. 25b resumes if `private/m1/<account>.csv` comes back; 25c
 needs the owner's Part A first. Nothing else is queued - see `docs/REMAINING_WORK.md`.
+
+## Task 25b: Engine checked against a fresh reading of the spec - 2026-10-13 - Opus
+Status: **done** (steps 3 and 6; steps 1/2/5 were rescoped to 25c Part A earlier the same day -
+see the previous entry). Supersedes the "parked" entry above: the owner restored the account CSV
+and the run went ahead.
+
+Checks:
+- Step 3, three tickers (simple, split, fully sold): **pass** - 0 difference on every figure.
+- Step 3, whole ledger, 74 tickers: **pass** - 78/78, 0 difference on every figure.
+- Valuation date agrees; per-ticker value added sums to the portfolio headline: **pass**.
+- Step 6, two findings, both fixed: one in the harness, one a real app bug. Details below.
+- Steps 1, 2, 5 (against M1's own figures): **not run** - owner acceptance, 25c Part A.
+
+Finding 1 - the harness could never have passed (fixed, gitignored):
+- The first whole-ledger run failed 66 of 78 tickers. Every difference was between 1e-15 and
+  1e-18, and only ever on `shadow value` and `value added`; `shares`, `invested`, `returned` and
+  `current value` were exact on every ticker. Those two are precisely the figures that divide.
+  `Decimal` rounds a quotient to 20 significant digits, so two implementations dividing in a
+  different order cannot agree to the last digit, and the check's `isZero()` pass condition was
+  unreachable by construction. The real result is that the engine and an independent reading of
+  SPEC 4-6 agree to 15+ significant figures.
+- `private/recompute.check.ts` now compares against `EPSILON = 1e-9`: nine orders of magnitude
+  tighter than the displayed cent, seven looser than the largest residue seen. Sub-epsilon
+  residue still prints, marked `~`, so a growing drift is visible before it matters.
+
+Finding 2 - a dotted share-class ticker was never priced (fail-fixed, in git):
+- A held share class came back `Unknown ticker` from the real fetch. Not delisted: M1 spells a
+  share class with a dot, Yahoo with a dash, and the Worker built its URL straight from the
+  stored ticker. The holding gets no price, and SPEC 6 values an unpriced holding at $0, so a
+  live position reads as a near-total loss - and on screen it is indistinguishable from a real
+  delisting. `docs/PRICES.md` had recorded the dash convention since task 03 and
+  `TICKER_PATTERN` already allowed both spellings; nothing converted between them.
+- Fix: `src/engine/prices/yahooSymbol.ts`, called only when building the request URL, so the
+  ledger still stores and shows M1's spelling and a row can be matched against a statement by
+  eye. A `ticker_alias` row was rejected (it means "renamed on this date", moves history under
+  the new symbol, and would display Yahoo's spelling); so was normalizing at import.
+- Tests written before the fix and confirmed failing without it: `yahooSymbol.test.ts` (six
+  cases) and `worker/prices.test.ts`, which pins the URL the Worker actually requests - the unit
+  test alone could not catch this, since the bug was a missing call, not a wrong function. The
+  Worker's price fetch had no test at all before this.
+
+Built:
+- `src/engine/prices/yahooSymbol.ts` + test; `worker/prices.test.ts` (new); `worker/prices.ts`
+  calls the translation.
+- `docs/PRICES.md`: the dash bullet now says what converts and warns against building the URL
+  from the stored ticker.
+- `private/` (gitignored): `build-bundle.ts` builds an export-shaped bundle from the CSVs plus a
+  live Yahoo fetch, so this check no longer needs the deployed app; `validation.md` holds the
+  results table; `recompute.check.ts` gained the epsilon.
+
+Verified:
+- `npm run check`: typecheck + lint + **498 tests pass** (was 490; +8).
+- Harness: 78/78 on the whole ledger after the fix.
+- `git status`: nothing under `private/`; no ticker-with-amount pair in any committed file.
+
+Open issues:
+- Six tickers have no price history, all genuine delistings under any spelling. Four are the
+  merger cash-outs in `private/triage.md`; **two are acquisitions not yet triaged there** and
+  need the same close-out treatment. Whether they are correctly unpriced needs M1 - 25c Part A.
+- The bundle has no aliases, so the alias hop was never exercised. Re-run against the app's own
+  `private/export.json` when one exists.
+- Still one account only; owner step A for the rest stands.
+
+**Next:** tasks/25c-real-data-close-out.md on Sonnet (effort medium) - Part A is the owner's.

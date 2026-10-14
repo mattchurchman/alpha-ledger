@@ -45,8 +45,12 @@ Yahoo did not block or rate-limit the deployed Worker during this round of check
   starts blocking Cloudflare's IP ranges specifically (a real risk the spec calls out), this
   won't help and the manual fallback below is the answer — don't reach for a paid/keyed API
   without asking first.
-- **Ticker symbols with a dash work** (e.g. `BRK-B`); Yahoo's own convention uses `-` for the
-  share-class separator, not `.`. The ticker regex in `worker/prices.ts` allows both.
+- **Yahoo spells a share class with `-`, M1 spells it with `.`**, and the Worker translates
+  between them: `TICKER_PATTERN` accepts both, the ledger stores and displays M1's spelling, and
+  `yahooSymbol()` (`src/engine/prices/yahooSymbol.ts`) converts only in the request URL. Until
+  task 25b nothing converted, and a dotted symbol 404'd as `Unknown ticker` - which looks exactly
+  like a delisting from the screen, while leaving a live holding unpriced and therefore valued at
+  $0 (SPEC 6). Pinned by `worker/prices.test.ts`; don't build the URL from the stored ticker.
 - **Daily-bar timestamps never need a timezone conversion.** Yahoo's timestamps are UTC
   seconds at US market open (13:30 or 14:30 UTC depending on DST) — always mid-day UTC, never
   near a midnight boundary — so taking the UTC calendar date directly from the timestamp is
