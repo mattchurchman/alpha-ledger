@@ -38,9 +38,9 @@ const sum = (values: string[]) =>
   values.reduce((acc, value) => acc.plus(value), new Decimal(0)).toFixed()
 
 function perAccount(transactions: Transaction[]): { all: AnalyzeResult; parts: AnalyzeResult[] } {
-  const all = analyze({ transactions, prices: PRICES })
+  const all = analyze({ transactions, prices: PRICES, benchmark: 'ZZVOO' })
   const parts = accountLabels(transactions).map((account) =>
-    analyzeAccount({ transactions, prices: PRICES, asOf: all.asOf, account, includeSeries: false }),
+    analyzeAccount({ transactions, prices: PRICES, asOf: all.asOf, account, includeSeries: false, benchmark: 'ZZVOO' }),
   )
   return { all, parts }
 }

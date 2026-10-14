@@ -56,9 +56,6 @@ export function history(
 /** The benchmark (unfetchable synthetic ticker). Adjusted close doubles, doubles again, then adds a quarter: 100 -> 500. */
 export const ZZVOO = history(['100', '100', '200', '200', '400', '400', '500'])
 
-/** Alias for ZZVOO in PRICES under the key 'VOO' for test compatibility. */
-export const VOO = ZZVOO
-
 /** A pick that merely triples while the benchmark quintuples. */
 export const ACME = history(['100', '110', '120', '150', '200', '250', '300'])
 
@@ -69,7 +66,7 @@ export const ACME = history(['100', '110', '120', '150', '200', '250', '300'])
  */
 export const BETA = history(['50', '50', '100', '100', '200', '200', '250'])
 
-export const PRICES: Record<string, PriceHistory> = { VOO, ACME, BETA }
+export const PRICES: Record<string, PriceHistory> = { ZZVOO, ACME, BETA }
 
 let sequence = 0
 
