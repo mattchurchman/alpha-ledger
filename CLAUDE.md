@@ -15,7 +15,7 @@ Personal web app: did my stock picks beat buying VOO with the same dollars on th
    If your current model differs from the task's, say so and stop until the user switches
    (`/model`). If the task says it must run on the owner's computer and `private/` is absent,
    stop and print the task's owner step. `tasks/QUEUE.md` is the order of remaining work.
-1. Read `PROGRESS.md` from the `# Rev 2` heading down (everything above it is rev 1 history; grep it only when a task points there), then the one task file the user names in `tasks/`. Read `docs/SPEC.md` sections the task lists, not the whole file, unless told.
+1. Read `PROGRESS.md` from the `# Rev 3` heading down (everything above it is rev 1-2 history; grep it only when a task points there), then the one task file the user names in `tasks/`. Read `docs/SPEC.md` sections the task lists, not the whole file, unless told.
 2. Do only that task. Respect its "Out of scope" list. Do not start the next task.
 3. Run the acceptance checks. Fix failures before finishing.
 4. Update the task's row in the status table and append a handoff entry to `PROGRESS.md` (format is in that file), commit, `git push`, and stop.

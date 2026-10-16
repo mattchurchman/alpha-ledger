@@ -1863,3 +1863,39 @@ Open issues:
 - Still one account only; owner step A for the rest stands.
 
 **Next:** tasks/25c-real-data-close-out.md on Sonnet (effort medium) - Part A is the owner's.
+
+# Rev 3
+
+Agents: start reading here. Rev 1 and rev 2 (above) shipped; grep them only when a task points
+there. Rev 3 plan and reasoning: `docs/REV3_ASSESSMENT.md`; order: `tasks/QUEUE.md`.
+
+## Rev 3 task status
+| # | Task | Model | Status |
+|---|------|-------|--------|
+| 32 | Import resolver: findings become rules | Opus | - |
+| 33 | Persist import decisions | Sonnet | - |
+| 34 | Import screen v2 | Opus | - |
+| 35 | Real full re-import and owner acceptance (supersedes 25c) | Opus | - |
+| 36 | Brand palette into tokens | Opus | - |
+| 37 | Logo, icons, sign-in screen | Sonnet | - |
+| 38 | "S&P 500" wording | Haiku | - |
+| 39 | Dashboard facelift | Opus | - |
+| 40 | Release rev 3 | Haiku | - |
+
+## Rev 3 entries
+
+## Rev 3 planning - 2026-10-15 - Opus
+Status: done (planning only; no `src/` change).
+Built:
+- `docs/REV3_ASSESSMENT.md`: every real-data finding (REMAINING_WORK, 25a, 25b, M1_FORMAT)
+  checked against the owner's "full export, re-import, no massaging" workflow; gaps G1-G7.
+- `public/brand/` (11 SVGs, text outlined from Geist), `docs/BRAND.md`, `docs/brand/` (review
+  sheet, owner's concept art).
+- Tasks 32-40, `tasks/QUEUE.md`, `docs/REV3_START.md`; CLAUDE.md now reads PROGRESS from `# Rev 3`.
+Decisions:
+- Benchmark is labelled "S&P 500" in the UI (owner); method text keeps "(VOO)". Task 38.
+- 25c superseded by task 35. Green-for-gains from the concept is not adopted (DESIGN 7).
+Verified: SVGs rendered at 16-700px in light and dark; `npm run check` untouched by docs/assets.
+Open issues: whether M1 puts a Security Id on CASH rows is unverified - task 35 settles it.
+
+**Next:** tasks/32-import-resolver.md on Opus (effort high) - budget ~120k.

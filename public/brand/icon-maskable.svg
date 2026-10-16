@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Alpha Ledger">
+<title>Alpha Ledger</title>
+<rect width="512" height="512" fill="#0B1B3D"/>
+<rect x="134.32" y="274.48" width="46.80" height="93.60" rx="7.80" fill="#7FA2FF"/>
+<rect x="204.52" y="218.32" width="46.80" height="149.76" rx="7.80" fill="#7FA2FF"/>
+<path d="M274.72,163.72 Q274.72,155.92 282.52,155.92 L313.72,155.92 Q321.52,155.92 321.52,163.72 L321.52,313.48 Q321.52,321.28 329.32,321.28 L369.88,321.28 Q377.68,321.28 377.68,329.08 L377.68,360.28 Q377.68,368.08 369.88,368.08 L282.52,368.08 Q274.72,368.08 274.72,360.28Z" fill="#FFFFFF"/>
+<rect x="346.48" y="155.92" width="31.20" height="31.20" rx="6.24" fill="#7FA2FF"/>
+</svg>

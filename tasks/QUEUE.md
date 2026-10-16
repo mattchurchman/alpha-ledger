@@ -6,22 +6,22 @@ passes the budget, finish the current step, write the handoff, and stop rather t
 
 | Order | Task file | Model | Effort | Context budget | Where it must run | Blocked on |
 |---|---|---|---|---|---|---|
-| 1 | `tasks/28-kit-code-split.md` | Sonnet | low | ~45k | anywhere | done 2026-10-12 |
-| 2 | `tasks/29-reseed-fixtures.md` | Haiku | low | ~35k | anywhere | done 2026-10-12 |
-| 3 | `tasks/30-dated-manual-price.md` | Sonnet | medium | ~60k | anywhere | done 2026-10-13 |
-| 4 | `tasks/31-polish-tail.md` | Haiku | low | ~45k | anywhere | done 2026-10-13 |
-| 5 | `tasks/25a-real-data-intake.md` | Sonnet | medium | ~60k | **owner's computer** | done 2026-10-13 (one account) |
-| 6 | `tasks/25b-real-data-validate.md` | Opus | high | ~120k | **owner's computer** | done 2026-10-13 (steps 3+6) |
-| 7 | `tasks/25c-real-data-close-out.md` | Sonnet | medium | ~50k | **owner's computer** | 25b done, and Part A is the owner's |
+| 1 | `tasks/32-import-resolver.md` | Opus | high | ~120k | anywhere | - |
+| 2 | `tasks/33-import-persistence.md` | Sonnet | medium | ~60k | anywhere | 32 |
+| 3 | `tasks/34-import-screen-v2.md` | Opus | medium | ~100k | anywhere | 33 |
+| 4 | `tasks/35-real-reimport.md` | Opus | high | ~100k | **owner's computer** | 34, and fresh CSVs for every account |
+| 5 | `tasks/36-brand-palette.md` | Opus | medium | ~70k | anywhere | - |
+| 6 | `tasks/37-brand-assets.md` | Sonnet | low | ~45k | anywhere | 36 |
+| 7 | `tasks/38-sp500-wording.md` | Haiku | low | ~40k | anywhere | - |
+| 8 | `tasks/39-dashboard-facelift.md` | Opus | high | ~100k | anywhere | 36, 38 |
+| 9 | `tasks/40-release-rev3.md` | Haiku | low | ~35k | anywhere | 32-34, 36-39, owner's yes on 39 |
 
-Rows 1-6 are done. Row 7 is the last one, and **nothing else is queued** - once it is done the
-agent backlog is empty and the remaining work is the owner's (`docs/REMAINING_WORK.md`, "Not
-tasks"). Do not invent a row to fill the gap; say the queue is empty.
+Rev 3 (2026-10-15). Why each task exists: `docs/REV3_ASSESSMENT.md`. Rows 5-8 do not depend on
+1-4, so if the owner is away from their computer when row 4 comes up, run 5-8 first.
 
-25b was rescoped on 2026-10-13, because three of its five steps were owner acceptance work
-misfiled as agent work; those are now 25c Part A. See the 2026-10-13 Decision log entry in
-`docs/SPEC.md`, and the note below. 25c therefore cannot be finished by an agent alone - Part A
-needs the owner in the app first.
+Rev 2 rows 1-6 (tasks 25a-31) are done. Rev 2 row 7, `tasks/25c-real-data-close-out.md`, is
+**superseded by task 35**, which runs its Part A right after a from-scratch real re-import - do
+not run 25c on its own.
 
 ## What "real data" means (read this before 25a-c)
 
