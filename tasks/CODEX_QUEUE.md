@@ -9,7 +9,7 @@
 3. Paste the row's exact prompt, e.g. `Do tasks/codex/33.md`.
 4. On success, verify Codex says **done and pushed**, exit/clear the session, use `git pull` if needed, and repeat with the next row. If it says **partial** or **blocked**, follow its owner step and **resume that same task**, not the next one.
 
-Model names reflect Codex with **ChatGPT sign-in** as of 2026-10-16. Preferred: **GPT-6.1 Sol** (`gpt-6.1-sol`) for multi-file work, **GPT-6 Luna** (`gpt-6-luna`) for focused changes. If Sol is unavailable in `/model`, select **GPT-6 Sol** and use the same effort. If Luna is missing, use Sol at **low** effort for that row. These are guidance, not a requirement to purchase API credits. If ChatGPT sign-in models differ, use the current available equivalent and state the substitution in the handoff. Do **not** use retired GPT-5.3-Codex/GPT-5.4 choices from older advice.
+Model names reflect Codex with **ChatGPT sign-in** as of 2026-10-16. Preferred: **GPT-6.1 Sol** (`gpt-6.1-sol`) for multi-file work, **GPT-6 Luna** (`gpt-6-luna`) for focused changes. If Sol is unavailable in `/model`, select **GPT-6 Sol** and use the same effort. If Luna is missing, use Sol at **low** effort for that row. These are guidance, not a requirement to purchase API credits. If ChatGPT sign-in models differ, use the current available equivalent and state the substitution in the handoff. Prefer the currently supported GPT-6 family over the older GPT-5.x suggestions, subject to what your Codex `/model` menu actually offers.
 
 ## Remaining work (one session per task)
 
@@ -40,4 +40,4 @@ In a **fresh session on the same task's model/effort**, paste:
 
 `Resume tasks/codex/NN.md. Read only its canonical task and latest matching PROGRESS.md handoff. Check git status, finish the unverified acceptance items, commit and push, then stop. Do not begin the next task.`
 
-Only escalate reasoning one level after a failed attempt attributable to reasoning, not for missing private inputs, tests needing credentials, or a permission prompt. Never mark blocked owner checks done. For CLI configuration detail, see the official [Codex model selection](https://learn.chatgpt.com/docs/models) and [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md) docs.
+Only escalate reasoning one level after a failed attempt attributable to reasoning, not for missing private inputs, tests needing credentials, or a permission prompt. Never mark blocked owner checks done. For model capabilities, see [OpenAI model selection](https://developers.openai.com/api/docs/guides/model-selection). Codex automatically reads repository `AGENTS.md` as part of its normal workflow; see [Codex development workflows](https://developers.openai.com/cookbook/examples/codex/iterating-development-workflows-with-codex).
