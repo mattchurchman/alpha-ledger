@@ -9,6 +9,7 @@
  *   npm run screenshots -- --route /fair-values
  *   npm run screenshots -- --route /kit --server vite
  *   npm run screenshots -- --route / --server vite --locked  # sign-in, no database
+ *   npm run screenshots -- --route / --demo  # synthetic dashboard + interaction checks
  *   npm run screenshots -- --out tmp
  *
  * `--route` may be repeated and replaces the default list. A route's file-name stem is the path
@@ -25,11 +26,14 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { chromium, type Browser } from 'playwright-core'
+import { mockDashboard, checkDashboard, checkDashboardEmptyStates } from './dashboard-preview.ts'
 
 const PORT = 4173
 const ORIGIN = `http://localhost:${PORT}`
 const CHROMIUM = process.env.CHROMIUM ?? '/usr/bin/chromium'
 const LOCKED = process.argv.includes('--locked')
+const DEMO = process.argv.includes('--demo')
+if (DEMO && LOCKED) throw new Error('--demo and --locked cannot be combined')
 
 const outIndex = process.argv.indexOf('--out')
 const OUT_DIR = outIndex === -1 ? 'screenshots' : process.argv[outIndex + 1]
@@ -44,7 +48,7 @@ const ROUTES = routeArgs.length > 0 ? routeArgs : DEFAULT_ROUTES
 const serverIndex = process.argv.indexOf('--server')
 const SERVER =
   serverIndex === -1
-    ? ROUTES.every((route) => route === '/kit')
+    ? DEMO || ROUTES.every((route) => route === '/kit')
       ? 'vite'
       : 'wrangler'
     : process.argv[serverIndex + 1]
@@ -118,6 +122,7 @@ async function shoot(browser: Browser, shot: Shot): Promise<void> {
   })
   await context.addInitScript(`localStorage.setItem('al.theme', '${shot.theme}')`)
 
+  if (DEMO) await mockDashboard(context)
   if (LOCKED) {
     await context.route('**/api/session', (route) =>
       route.fulfill({ status: 401, json: { error: 'not-authenticated' } }),
@@ -153,6 +158,7 @@ async function shoot(browser: Browser, shot: Shot): Promise<void> {
 
   await page.goto(`${ORIGIN}${shot.route}`, { waitUntil: 'networkidle' })
   if (LOCKED) await page.getByLabel('Access token').waitFor()
+  if (DEMO && shot.route === '/') await checkDashboard(page)
   if (!LOCKED && shot.route === '/import') {
     await page
       .locator('input[type="file"][accept=".csv"]')
@@ -169,6 +175,7 @@ async function shoot(browser: Browser, shot: Shot): Promise<void> {
   const path = `${OUT_DIR}/${shot.name}.png`
   await page.screenshot({ path, fullPage: true })
   console.log(`  ${path}`)
+  if (DEMO && shot.route === '/') await checkDashboardEmptyStates(page)
 
   if (problems.length > 0) {
     console.error(`  !! console errors on ${shot.name}:`)

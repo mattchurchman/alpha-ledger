@@ -58,6 +58,8 @@ export interface HistoryChartProps {
   youLabel?: string
   benchmarkLabel?: string
   title?: string
+  /** Keep chart controls and accessibility inside a caller-owned card. */
+  embedded?: boolean
   subtitle?: string
   height?: number
   busy?: boolean
@@ -97,6 +99,7 @@ export function HistoryChart({
   benchmarkLabel = 'S&P 500',
   title = 'Your money versus the S&P 500',
   subtitle,
+  embedded = false,
   height = 220,
   busy = false,
   markers = [],
@@ -205,6 +208,7 @@ export function HistoryChart({
   if (real.length < 2) {
     return (
       <ChartFrame
+        embedded={embedded}
         title={title}
         subtitle={subtitle}
         empty={
@@ -264,6 +268,7 @@ export function HistoryChart({
 
   return (
     <ChartFrame
+      embedded={embedded}
       title={title}
       subtitle={subtitle}
       busy={busy}

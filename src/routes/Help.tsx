@@ -167,18 +167,25 @@ export default function Help() {
               splits the same total return differently between realized and unrealized.
             </Term>
             <Term word="By account">
-              In the All view, one line per account under the headline tiles: what it is worth, and
-              how it did against the same dollars in the S&amp;P 500. These two do add up to the headline above
-              them. Tap a line to switch to that account.
+              In the All view, one line per account in Account details, below Performance: what it
+              is worth, and how it did against the same dollars in the S&amp;P 500. These add up to
+              the all-accounts values and gap. Tap a line to switch to that account.
             </Term>
-            <Term word="Headline">
-              <strong className="font-medium text-ink">Value added vs S&amp;P 500</strong> is the one number
-              the app exists for: what your holdings are worth today minus what the same dollars put
-              into the S&amp;P 500 on the same days would be worth. The percentage beside it is that gap against
-              the S&amp;P 500 side, and it is shown only when the S&amp;P 500 side is positive. Below it sit
-              portfolio value, the S&amp;P 500 equivalent, and both IRRs.
+            <Term word="Portfolio vs S&P 500">
+              The two large figures are your annualized money-weighted return (IRR) and the S&amp;P
+              500 equivalent, using all recorded history for the selected account view. The signed
+              dollar gap below is value added: current portfolio value minus the same dollars
+              invested in the S&amp;P 500 on the same dates. The percentage beside it is that gap
+              divided by the S&amp;P 500 value, shown only when that value is positive. The chart
+              and its range buttons sit inside this card. Those buttons only zoom the chart; every
+              return and the signed gap stay all-time.
             </Term>
-            <Term word="A warning under the headline">
+            <Term word="Performance">
+              The compact table shows current value, your all-time total dollar gain, and both
+              annualized returns. S&amp;P 500 total gain is unavailable and shown as a dash; an
+              annualized return also shows a dash when it cannot be calculated.
+            </Term>
+            <Term word="A warning in Account details">
               If a holding has no stored price it is counted as $0 and listed there by ticker,
               because portfolio value, total return and value added are all short by whatever it is
               worth. Tap a ticker to open that stock, fetch prices again, or set that one price by
@@ -194,10 +201,10 @@ export default function Help() {
               here.
             </Term>
             <Term word="History">
-              Your portfolio and its S&amp;P 500 shadow as two lines, with the gap between them filled -
-              blue where you are ahead, red where you are behind. The range buttons (1W up to All)
-              change the window and how closely the chart zooms in on it; they never change how
-              anything is computed.
+              Your portfolio and its S&amp;P 500 shadow as two lines, with the gap between them
+              filled - blue where you are ahead, red where you are behind. The range buttons (1W up
+              to All) change the window and how closely the chart zooms in on it; they never change
+              how anything is computed.
             </Term>
             <Term word="Rebuy opportunities">
               Each holding and each watched ticker that has a fair value, ranked by discount, as a
@@ -217,21 +224,21 @@ export default function Help() {
               slice&rsquo;s identity. Tap a segment to open that stock.
             </Term>
             <Term word="Holdings">
-              One row per open position: shares, price, value, return, value added vs S&amp;P 500, your fair
-              value, and the discount. Tap a column heading to sort, tap a row to open that stock.
-              Below 640px the table becomes one card per row. Every row carries a Close… button, for
-              a company that was bought out, merged, or that you simply want out of sight. If
-              anything is hidden, the line under the table says how many - and that they are still
-              counted in every total above.
+              One row per open position: shares, price, value, return, value added vs S&amp;P 500,
+              your fair value, and the discount. Tap a column heading to sort, tap a row to open
+              that stock. Below 640px the table becomes one card per row. Every row carries a Close…
+              button, for a company that was bought out, merged, or that you simply want out of
+              sight. If anything is hidden, the line under the table says how many - and that they
+              are still counted in every total above.
             </Term>
             <Term word="Value creators and destroyers">
               The positions you still hold and still have a price for, as bars either side of zero -
-              sorted by how much value each added or destroyed against the S&amp;P 500. Positions you have
-              closed are left out, and so is anything with no stored price, because a missing price
-              counts as $0 and would draw a holding as a total loss; the subtitle says how many of
-              each. That means these bars do not add up to the headline above, which still counts
-              every ticker. On a phone it shows the biggest few with a Show all control. Tap a bar
-              to open that stock.
+              sorted by how much value each added or destroyed against the S&amp;P 500. Positions
+              you have closed are left out, and so is anything with no stored price, because a
+              missing price counts as $0 and would draw a holding as a total loss; the subtitle says
+              how many of each. That means these bars do not add up to the headline above, which
+              still counts every ticker. On a phone it shows the biggest few with a Show all
+              control. Tap a bar to open that stock.
             </Term>
           </dl>
         </Card>

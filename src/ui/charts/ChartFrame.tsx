@@ -18,6 +18,8 @@ import { Card, Legend, MiniButton } from '../primitives'
  */
 export interface ChartFrameProps {
   title: string
+  /** Use the surrounding card when a screen groups the chart with its headline. */
+  embedded?: boolean
   subtitle?: ReactNode
   legend?: Parameters<typeof Legend>[0]['items']
   /** The live values row: the scrubbed point, or the latest one when idle. */
@@ -32,6 +34,7 @@ export interface ChartFrameProps {
 
 export function ChartFrame({
   title,
+  embedded = false,
   subtitle,
   legend,
   readout,
@@ -42,9 +45,10 @@ export function ChartFrame({
 }: ChartFrameProps) {
   const [view, setView] = useState<'chart' | 'table'>('chart')
   const bodyId = useId()
+  const Frame = embedded ? 'div' : Card
 
   return (
-    <Card>
+    <Frame>
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-h3 font-semibold">{title}</h3>
@@ -85,7 +89,7 @@ export function ChartFrame({
           <Legend items={legend} />
         </div>
       )}
-    </Card>
+    </Frame>
   )
 }
 

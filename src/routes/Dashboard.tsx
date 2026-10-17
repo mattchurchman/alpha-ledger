@@ -29,6 +29,7 @@ import {
   RangeSelector,
   RebuyBars,
   SectionHeading,
+  SeriesKey,
   shares as formatShares,
   SignedDelta,
   StatTile,
@@ -436,10 +437,6 @@ export default function Dashboard() {
   }
 
   const { portfolio } = view
-  const irrTrend =
-    view.series && view.series.value.length >= 2
-      ? { values: view.series.value.slice(-90), label: 'Portfolio value, last 90 trading days' }
-      : undefined
 
   return (
     <div className="flex flex-col gap-7">
@@ -462,33 +459,119 @@ export default function Dashboard() {
         </section>
       )}
 
+      <div className="flex flex-col gap-4">
+        <Card as="section" className="!p-4 md:!p-5">
+          <h2 className="text-h2 font-semibold">Portfolio vs S&amp;P 500</h2>
+          <p className="mt-1 text-small text-ink-secondary">
+            Annualized return · all-time{account === null ? '' : ` · ${account}`}
+          </p>
+          <div className="mt-5 grid grid-cols-2 gap-4 tabular-nums" data-testid="dashboard-returns">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-small text-ink-secondary">
+                <SeriesKey tone="you" /> Your portfolio
+              </p>
+              <p className="mt-1 text-figure font-semibold">{percent(portfolio.irr)}</p>
+            </div>
+            <div className="min-w-0 border-l border-rule pl-4">
+              <p className="flex items-center gap-2 text-small text-ink-secondary">
+                <SeriesKey tone="voo" /> S&amp;P 500
+              </p>
+              <p className="mt-1 text-figure font-semibold">{percent(portfolio.shadowIrr)}</p>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-rule pt-4">
+            <SignedDelta
+              value={portfolio.valueAdded}
+              describe={{ up: 'ahead of S&P 500 by', down: 'behind S&P 500 by' }}
+            />
+            <span className="text-small text-ink-secondary">value added · all-time</span>
+            <SignedDelta
+              value={portfolio.percentDifference}
+              format="percent"
+              size="sm"
+              describe={{ up: 'ahead of S&P 500 by', down: 'behind S&P 500 by' }}
+            />
+          </div>
+          <p className="mt-1 text-small text-ink-muted">
+            Against the same dollars invested on the same dates.
+          </p>
+          <div className="mt-5 border-t border-rule pt-4">
+            <HistoryChart
+              embedded
+              title="Value history"
+              dates={series.dates}
+              you={series.value}
+              benchmark={series.shadow}
+              range={range}
+              subtitle="Drag to explore, or use the arrow keys."
+            />
+          </div>
+          <div className="mt-4 border-t border-rule pt-3">
+            <p className="mb-2 text-small text-ink-secondary">
+              Chart range only · returns stay all-time
+            </p>
+            <RangeSelector value={range} onChange={setRange} label="History chart range only" />
+          </div>
+        </Card>
+
+        <Card as="section" className="!p-4 md:!p-5">
+          <h2 className="text-h2 font-semibold">Performance</h2>
+          <p className="mt-1 text-small text-ink-secondary">All-time · selected account view</p>
+          <table className="mt-4 w-full table-fixed text-small tabular-nums">
+            <caption className="sr-only">
+              All-time performance for your portfolio and the S&amp;P 500
+            </caption>
+            <thead>
+              <tr className="border-b border-rule">
+                <th scope="col" className="w-2/5 pb-2 text-left font-medium">
+                  Metric
+                </th>
+                <th scope="col" className="pb-2 text-right font-medium">
+                  You
+                </th>
+                <th scope="col" className="pb-2 text-right font-medium">
+                  S&amp;P 500
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-rule">
+                <th scope="row" className="py-3 text-left font-normal text-ink-secondary">
+                  Current value
+                </th>
+                <td className="py-3 text-right">{moneyCompact(portfolio.currentValue)}</td>
+                <td className="py-3 text-right">{moneyCompact(portfolio.shadowValue)}</td>
+              </tr>
+              <tr className="border-b border-rule">
+                <th scope="row" className="py-3 text-left font-normal text-ink-secondary">
+                  Total gain ($)
+                </th>
+                <td className="py-3 text-right">{moneyCompact(portfolio.totalGain)}</td>
+                <td className="py-3 text-right text-ink-muted">
+                  <span aria-label="Not available">—</span>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row" className="pt-3 text-left font-normal text-ink-secondary">
+                  Annualized return
+                </th>
+                <td className="pt-3 text-right">{percent(portfolio.irr)}</td>
+                <td className="pt-3 text-right">{percent(portfolio.shadowIrr)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="mt-3 text-small text-ink-muted">
+            Annualized returns use money-weighted IRR. A dash means the figure is unavailable.
+          </p>
+        </Card>
+      </div>
+
       <section>
-        <SectionHeading>Headline</SectionHeading>
-        <Card>
-          <StatTile
-            hero
-            label="Value added vs S&P 500"
-            value={money(portfolio.valueAdded)}
-            delta={{
-              value: portfolio.percentDifference,
-              format: 'percent',
-              describe: { up: 'ahead of S&P 500 by', down: 'behind S&P 500 by' },
-            }}
-            footnote={
-              account === null
-                ? 'Your picks against the same dollars in the S&P 500 on the same dates.'
-                : `${account} only: its picks against the same dollars in the S&P 500 on the same dates.`
-            }
-          />
-          <div className="mt-5 grid grid-cols-2 gap-5 border-t border-rule pt-4 md:grid-cols-4">
+        <SectionHeading>Account details</SectionHeading>
+        <Card className="tabular-nums">
+          <div className="grid grid-cols-2 gap-4">
             <StatTile label="Portfolio value" value={moneyCompact(portfolio.currentValue)} />
             <StatTile label="S&P 500 equivalent" value={moneyCompact(portfolio.shadowValue)} />
-            <StatTile
-              label="Your IRR"
-              value={percent(portfolio.irr, { sign: false })}
-              trend={irrTrend}
-            />
-            <StatTile label="S&P 500 IRR" value={percent(portfolio.shadowIrr, { sign: false })} />
           </div>
           {/*
            * The comparison strip, in the summed view only - inside the one account's view the
@@ -502,8 +585,8 @@ export default function Dashboard() {
                 <AccountStrip rows={accountRows} onSelect={selectAccount} />
               </div>
               <p className="mt-2 max-w-prose text-small text-ink-muted">
-                Value and value added, per account. They add up to the headline above. Tap one to
-                narrow every section below to it.
+                Value and value added, per account. They add up to the all-accounts values and gap.
+                Tap one to view the dashboard for that account.
               </p>
             </div>
           )}
@@ -580,20 +663,6 @@ export default function Dashboard() {
             </div>
           )}
         </Card>
-      </section>
-
-      <section>
-        <SectionHeading>History</SectionHeading>
-        <div className="mb-3">
-          <RangeSelector value={range} onChange={setRange} />
-        </div>
-        <HistoryChart
-          dates={series.dates}
-          you={series.value}
-          benchmark={series.shadow}
-          range={range}
-          subtitle="Drag across the chart, or focus it and use the arrow keys."
-        />
       </section>
 
       <section>

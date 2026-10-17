@@ -18,7 +18,7 @@ read it end to end. Rev 3 plan and reasoning: `docs/REV3_ASSESSMENT.md`; order a
 | 36 | Brand palette into tokens | Opus | done |
 | 37 | Logo, icons, sign-in screen | Sonnet | done |
 | 38 | "S&P 500" wording | Haiku | done |
-| 39 | Dashboard facelift | Opus | - |
+| 39 | Dashboard facelift | Opus | partial — implemented; owner screenshot approval pending |
 | 40 | Release rev 3 | Haiku | - |
 
 ## Rev 3 entries
@@ -227,3 +227,29 @@ Verified:
 Open issues: none. After deployment, remove/re-add the iPhone home-screen app for the new icon.
 
 **Next:** `tasks/codex/39.md` on `gpt-6-astra`, effort high; dashboard owner review before release.
+
+## Task 39 - Dashboard facelift - 2026-10-17 - Codex
+Status: partial — implementation complete; owner screenshot approval pending before task 40.
+Model menu verified with `./scripts/codex-models.sh`: `gpt-6-astra`.
+
+Built:
+- Dashboard hero pairs all-time annualized IRRs with the signed value-added gap, embedded history
+  chart and explicitly chart-only range controls. Performance uses existing values and shows a
+  dash for unavailable benchmark total gain. Owner approved this scope clarification in chat.
+- Account details, warnings, rebuy, allocation and holdings retain their behavior; Help and SPEC
+  record the layout and all-time semantics. No engine, price-fetching or financial math changes.
+- `scripts/dashboard-preview.ts` and screenshot `--demo` provide synthetic API responses and
+  browser assertions, without opening a database or reading private data.
+
+Verified:
+- `npm run check`: typecheck, lint, 28 test files and 514 tests pass. `npm run build` passes.
+- `npm run screenshots -- --route / --demo --out /tmp/alpha-ledger-task39` passes at 390px/1280px,
+  light/dark: range-only behavior, chart/table/keyboard, account selection/refresh/back, preserved
+  sections, no horizontal overflow, unavailable IRR, missing-price warning and no-comparison state.
+- Screenshots visually reviewed; no browser errors. Diff/privacy review contains only source,
+  synthetic preview tooling and docs. Test Worker and Chromium ran outside the restricted sandbox.
+
+Owner action: approve the four `home-{390,1280}-{light,dark}.png` previews in the output folder.
+Future carry-over: embedded chart/card composition and compact performance tables could be used
+on Stock detail in a separately scoped task; no other screen was restyled here.
+**Next:** finish task 39's owner review, then `tasks/codex/35.md`, `gpt-6-astra`, effort high.

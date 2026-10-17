@@ -172,3 +172,9 @@ Negative-bucket tooltip text: "This position has paid you back more cash than th
   - **Agent work is engine-versus-spec**: the recompute harness (`private/recompute.check.ts`) diffs `analyze` against arithmetic written fresh from sections 4-6. It needs transactions and prices and no outside answer, so it stays in 25b.
   - **Owner work is engine-versus-M1**: share counts, the portfolio total, and whether per-ticker value added sums to the gap. These need M1 as the authority; an agent deriving them from the same CSV the engine reads would be grading the engine against itself. They move to 25c as an acceptance checklist.
   - **Real transactions still earned their place in development** - the CEIX pre-split placeholder, four merger cash-outs and the defunct tickers are shapes nobody would have invented, and they found two parser bugs in 25a. That value is banked in the parser and its tests; it did not require the owner's holdings on top.
+
+- 2026-10-17: Task 39 owner clarification: the dashboard uses existing all-time metrics,
+  with the range selector explicitly controlling only the history chart. The two hero figures
+  are annualized IRRs, followed by the all-time value-added gap. Performance shows existing
+  current values, portfolio total dollar gain, and IRRs; benchmark total gain is unavailable
+  (dash), rather than introducing a calculation. Account filtering and engine math are unchanged.
