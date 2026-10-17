@@ -354,6 +354,43 @@ describe('transactions', () => {
       expect(list).toHaveLength(3)
     })
 
+    it('accepts resolver-built CASH sells and in-kind adjusts and dedupes their source hashes', async () => {
+      const resolved = [
+        tx({
+          source_row_hash: 'cash-row-hash',
+          source: 'm1',
+          type: 'sell',
+          shares: '12.5',
+          amount_usd: '625.00',
+          note: 'Resolved CASH row',
+        }),
+        tx({
+          source_row_hash: 'transfer-row-hash',
+          source: 'm1',
+          type: 'adjust',
+          shares: '-3.25',
+          amount_usd: '0',
+          note: 'Resolved transfer in kind',
+        }),
+      ]
+
+      expect(
+        await expectJson<BulkUpsertResult>(
+          await send('POST', '/api/transactions/bulk', { transactions: resolved }),
+          200,
+        ),
+      ).toEqual({ inserted: 2, skipped: 0 })
+      expect(
+        await expectJson<BulkUpsertResult>(
+          await send('POST', '/api/transactions/bulk', { transactions: resolved }),
+          200,
+        ),
+      ).toEqual({ inserted: 0, skipped: 2 })
+
+      const rows = await expectJson<TransactionRow[]>(await call('/api/transactions'), 200)
+      expect(rows.map((row) => row.source_row_hash)).toEqual(['cash-row-hash', 'transfer-row-hash'])
+    })
+
     it('leaves an edited row alone when the same hash is re-imported', async () => {
       const [created] = [
         await expectJson<TransactionRow>(await send('POST', '/api/transactions', tx()), 201),
@@ -642,6 +679,7 @@ describe('export and restore', () => {
     await send('POST', '/api/fair-values', { ticker: 'ACME', value_usd: '120.00', effective_date: '2024-04-01' })
     await send('PUT', '/api/price-history/ACME', { source: 'yahoo', history: SERIES })
     await send('PUT', '/api/meta/prices_last_updated', { value: '2026-10-08T12:00:00.000Z' })
+    await send('PUT', '/api/meta/import_ignored_hashes', { value: '["ignored-b","ignored-a"]' })
   }
 
   it('exports everything in one document', async () => {
@@ -654,7 +692,10 @@ describe('export and restore', () => {
     expect(bundle.aliases).toHaveLength(1)
     expect(bundle.fair_values).toHaveLength(1)
     expect(bundle.price_history).toHaveLength(1)
-    expect(bundle.meta).toEqual({ prices_last_updated: '2026-10-08T12:00:00.000Z' })
+    expect(bundle.meta).toEqual({
+      import_ignored_hashes: '["ignored-b","ignored-a"]',
+      prices_last_updated: '2026-10-08T12:00:00.000Z',
+    })
     // The excluded flag has to survive a backup or a restore would silently re-include a row.
     expect(bundle.transactions.find((t) => t.source_row_hash === 'b')?.excluded).toBe(true)
   })
@@ -668,7 +709,13 @@ describe('export and restore', () => {
     expect(await expectJson<TransactionRow[]>(await call('/api/transactions'), 200)).toEqual([])
 
     const result = await expectJson<RestoreResult>(await send('POST', '/api/restore', before), 200)
-    expect(result).toEqual({ transactions: 3, aliases: 1, fair_values: 1, price_history: 1, meta: 1 })
+    expect(result).toEqual({
+      transactions: 3,
+      aliases: 1,
+      fair_values: 1,
+      price_history: 1,
+      meta: 2,
+    })
 
     const after = await expectJson<ExportBundle>(await call('/api/export'), 200)
     expect({ ...after, exported_at: '' }).toEqual({ ...before, exported_at: '' })

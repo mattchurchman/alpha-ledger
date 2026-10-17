@@ -61,6 +61,30 @@ describe('createApiClient', () => {
     expect(JSON.parse(calls[0].body ?? 'null')).toEqual({ transactions: [] })
   })
 
+  it('reads, writes and clears ignored import hashes through meta', async () => {
+    const responses = [
+      json({ import_ignored_hashes: '["hash-b","hash-a"]' }),
+      json({ key: 'import_ignored_hashes', value: '["hash-a","hash-b"]' }),
+      json({ key: 'import_ignored_hashes' }),
+    ]
+    const { client, calls } = stub(() => responses.shift() ?? json({}))
+
+    await expect(client.importIgnoredHashes.get()).resolves.toEqual(['hash-a', 'hash-b'])
+    await client.importIgnoredHashes.set(['hash-b', 'hash-a', 'hash-b'])
+    await client.importIgnoredHashes.set([])
+
+    expect(calls[0]).toMatchObject({ url: '/api/meta', method: 'GET' })
+    expect(calls[1]).toMatchObject({ url: '/api/meta/import_ignored_hashes', method: 'PUT' })
+    expect(JSON.parse(calls[1].body ?? 'null')).toEqual({
+      value: '["hash-a","hash-b"]',
+    })
+    expect(calls[2]).toMatchObject({
+      url: '/api/meta/import_ignored_hashes',
+      method: 'DELETE',
+      body: null,
+    })
+  })
+
   it('percent-encodes path segments', async () => {
     const { client, calls } = stub(() => json({}))
     await client.priceHistory.put('BRK-B', {

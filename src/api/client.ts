@@ -4,6 +4,11 @@
  */
 
 import type { PriceHistory } from '../engine/prices/types'
+import {
+  IMPORT_IGNORED_HASHES_KEY,
+  parseImportIgnoredHashes,
+  serializeImportIgnoredHashes,
+} from '../data/importIgnoredHashes'
 import type {
   BulkUpsertResult,
   ExportBundle,
@@ -167,6 +172,27 @@ export function createApiClient(options: ApiClientOptions = {}) {
       put: (key: string, value: string) =>
         send<{ key: string; value: string }>('PUT', `/api/meta/${encodeURIComponent(key)}`, { value }),
       delete: (key: string) => send<{ key: string }>('DELETE', `/api/meta/${encodeURIComponent(key)}`),
+    },
+
+    importIgnoredHashes: {
+      get: async () => {
+        const meta = await request<MetaMap>('/api/meta')
+        return parseImportIgnoredHashes(meta[IMPORT_IGNORED_HASHES_KEY])
+      },
+      /** Empty sets remove the key so exports do not retain meaningless configuration. */
+      set: (hashes: readonly string[]) => {
+        if (hashes.length === 0) {
+          return send<{ key: string }>(
+            'DELETE',
+            `/api/meta/${encodeURIComponent(IMPORT_IGNORED_HASHES_KEY)}`,
+          )
+        }
+        return send<{ key: string; value: string }>(
+          'PUT',
+          `/api/meta/${encodeURIComponent(IMPORT_IGNORED_HASHES_KEY)}`,
+          { value: serializeImportIgnoredHashes(hashes) },
+        )
+      },
     },
 
     exportAll: () => request<ExportBundle>('/api/export'),

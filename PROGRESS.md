@@ -1873,7 +1873,7 @@ there. Rev 3 plan and reasoning: `docs/REV3_ASSESSMENT.md`; order: `tasks/QUEUE.
 | # | Task | Model | Status |
 |---|------|-------|--------|
 | 32 | Import resolver: findings become rules | Opus | done |
-| 33 | Persist import decisions | Sonnet | - |
+| 33 | Persist import decisions | Sonnet | done |
 | 34 | Import screen v2 | Opus | - |
 | 35 | Real full re-import and owner acceptance (supersedes 25c) | Opus | - |
 | 36 | Brand palette into tokens | Opus | - |
@@ -1924,3 +1924,25 @@ planning v2 returns 50 new rows and zero v1 `autoFixed`, `proposals` or `needsYo
 Open issues: none.
 
 **Next:** tasks/33-import-persistence.md on Sonnet (effort medium) - budget ~60k.
+
+## Task 33 - Persist import decisions - 2026-10-16 - Codex
+Status: done.
+Built:
+- `src/data/importIgnoredHashes.ts`: canonical parsing and serialization for the
+  `import_ignored_hashes` meta key; malformed or missing values safely read as an empty set.
+- `src/api/client.ts`: `importIgnoredHashes.get()` and `set()` helpers. Saving an empty set
+  deletes the meta key; non-empty sets are trimmed, deduplicated and sorted before storage.
+- `worker/api.test.ts`: resolver-shaped M1 CASH sells and transfer-in-kind adjustments are
+  accepted by bulk import, and a second identical post dedupes both by source-row hash.
+- Export/restore coverage now includes `import_ignored_hashes`, proving ignored decisions travel
+  with the ledger and survive a restore.
+Decisions:
+- No schema change was needed: existing transaction validation already permits M1-sourced
+  `sell` and signed `adjust` rows, and the existing generic meta endpoint is sufficient.
+- Hashes remain case-sensitive; unlike tickers, they are opaque identifiers. Normalization only
+  trims, deduplicates and sorts them for deterministic JSON.
+Verified:
+- `npm run check` passes: typecheck, lint, 27 test files and 509 tests.
+Open issues: none.
+
+**Next:** tasks/34-import-screen-v2.md on Opus (effort medium) - budget ~100k.
