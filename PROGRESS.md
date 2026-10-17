@@ -14,12 +14,12 @@ read it end to end. Rev 3 plan and reasoning: `docs/REV3_ASSESSMENT.md`; order a
 | 32 | Import resolver: findings become rules | Opus | done |
 | 33 | Persist import decisions | Sonnet | done |
 | 34 | Import screen v2 | Opus | done |
-| 35 | Real full re-import and owner acceptance (supersedes 25c) | Opus | blocked — ledger backup missing; fresh full exports need owner confirmation |
+| 35 | Real full re-import and owner acceptance (supersedes 25c) | Opus | deferred by owner — real-data acceptance remains unverified |
 | 36 | Brand palette into tokens | Opus | done |
 | 37 | Logo, icons, sign-in screen | Sonnet | done |
 | 38 | "S&P 500" wording | Haiku | done |
 | 39 | Dashboard facelift | Opus | done — owner approved screenshots |
-| 40 | Release rev 3 | Haiku | - |
+| 40 | Release rev 3 | Haiku | partial — release prepared; production deployment approval pending |
 
 ## Rev 3 entries
 
@@ -299,3 +299,20 @@ Owner action: export the deployed ledger to `private/export.json` and confirm `p
 contains fresh full activity exports for every account. Independent M1 acceptance remains open.
 Task 40's production deployment approval also remains outstanding.
 **Next:** resume `tasks/codex/35.md`, `gpt-6-astra`, effort high, after those inputs are ready.
+
+## Task 40 release preparation - 2026-10-17 - Codex
+Status: partial — awaiting explicit production deployment approval.
+
+- Owner declined task 35's input preparation and requested the next task; task 35 is deferred,
+  with real-data import and independent M1 acceptance still unverified.
+- Tasks 32–34 and 36–39 are done; task 39's explicit owner screenshot approval is recorded above.
+- `npm run check && npm run build` passed this session: typecheck, lint, 28 files and 514 tests.
+  The local Worker required the permitted rerun outside the restricted sandbox.
+- `git log -4 --oneline -- migrations` and `rg --files migrations` confirm only the original
+  task 06 migration exists; this release requires no new schema migration.
+- `npx wrangler deploy --dry-run --outdir /tmp/alpha-ledger-release-dry-run` completed bundling;
+  sandbox restrictions prevented Wrangler's debug-log write. Nothing was deployed.
+- `./scripts/codex-models.sh` verified the current `gpt-6-astra` model is available.
+
+**Next:** approve production deployment, then deploy, verify the live UI, record the actual version
+ID and complete `docs/REV3_START.md`'s What shipped section. Task 35 stays open.
