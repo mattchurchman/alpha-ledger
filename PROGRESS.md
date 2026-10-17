@@ -16,7 +16,7 @@ read it end to end. Rev 3 plan and reasoning: `docs/REV3_ASSESSMENT.md`; order a
 | 34 | Import screen v2 | Opus | done |
 | 35 | Real full re-import and owner acceptance (supersedes 25c) | Opus | - |
 | 36 | Brand palette into tokens | Opus | done |
-| 37 | Logo, icons, sign-in screen | Sonnet | - |
+| 37 | Logo, icons, sign-in screen | Sonnet | done |
 | 38 | "S&P 500" wording | Haiku | done |
 | 39 | Dashboard facelift | Opus | - |
 | 40 | Release rev 3 | Haiku | - |
@@ -204,3 +204,26 @@ Verified:
 Open issues: none.
 
 **Next:** `tasks/codex/37.md` on `gpt-6-astra`, effort medium.
+
+## Task 37 - Logo, icons, sign-in screen - 2026-10-17 - Codex
+Status: done. Model menu verified with `./scripts/codex-models.sh`: `gpt-6-astra`.
+
+Built:
+- Wired the approved horizontal light/dark lockups into the header and desktop rail, and
+  the stacked lockups into sign-in. Header height and safe-area padding are preserved.
+- Regenerated PNG icons from the approved brand SVGs, updated favicon/manifest/theme colours,
+  removed obsolete SVGs, and bumped the service-worker cache. Brand SVG artwork is unchanged.
+- Documented iOS icon caching and added `--locked` to the screenshot script for reproducible
+  sign-in checks using a synthetic unauthenticated response without accessing ledger data.
+
+Verified:
+- `npm run icons:gen`, `npm run check` (28 files, 514 tests), and `npm run build` pass.
+- `npm run screenshots -- --route /kit --server vite --out /tmp/alpha-ledger-task37` and
+  `npm run screenshots -- --route / --server vite --locked --out /tmp/alpha-ledger-task37`
+  pass at 390px and 1280px in light/dark. Mobile header and sign-in shots visually reviewed.
+- Chromium and the test Worker required execution outside the restricted sandbox; the rerun
+  passed. Diff/privacy review excludes private data, credentials and generated screenshots.
+
+Open issues: none. After deployment, remove/re-add the iPhone home-screen app for the new icon.
+
+**Next:** `tasks/codex/39.md` on `gpt-6-astra`, effort high; dashboard owner review before release.

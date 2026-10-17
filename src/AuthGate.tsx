@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { BrandLogo } from './ui/BrandLogo'
 import { ApiError, NotAuthenticatedError, api } from './api/client'
 
 /**
@@ -79,8 +80,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
           onSubmit={unlock}
           className="w-full max-w-sm rounded-card border border-rule bg-surface p-6 shadow-raised"
         >
-          <h1 className="text-h1 font-semibold">Alpha Ledger</h1>
-          <p className="label-micro mt-1">vs VOO</p>
+          <h1>
+            <BrandLogo stacked className="mx-auto h-auto w-full" />
+          </h1>
           <label htmlFor="token" className="mt-6 block text-small font-medium">
             Access token
           </label>

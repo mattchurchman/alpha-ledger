@@ -15,13 +15,13 @@ import { resolve } from 'node:path'
 
 const CHROMIUM = process.env.CHROMIUM ?? '/usr/bin/chromium'
 const SIZES = [
-  { size: 32, out: 'public/icons/icon-32.png', svg: 'public/icon.svg' },
-  { size: 180, out: 'public/icons/icon-180.png', svg: 'public/icon.svg' },
-  { size: 192, out: 'public/icons/app-192.png', svg: 'public/icon.svg' },
-  { size: 512, out: 'public/icons/app-512.png', svg: 'public/icon.svg' },
+  { size: 32, out: 'public/icons/icon-32.png', svg: 'public/brand/icon.svg' },
+  { size: 180, out: 'public/icons/icon-180.png', svg: 'public/brand/icon-maskable.svg' },
+  { size: 192, out: 'public/icons/app-192.png', svg: 'public/brand/icon-maskable.svg' },
+  { size: 512, out: 'public/icons/app-512.png', svg: 'public/brand/icon-maskable.svg' },
   // The maskable pair carries its own artwork: the same drawing inset into the safe zone.
-  { size: 192, out: 'public/icons/app-maskable-192.png', svg: 'public/icon-maskable.svg' },
-  { size: 512, out: 'public/icons/app-maskable-512.png', svg: 'public/icon-maskable.svg' },
+  { size: 192, out: 'public/icons/app-maskable-192.png', svg: 'public/brand/icon-maskable.svg' },
+  { size: 512, out: 'public/icons/app-maskable-512.png', svg: 'public/brand/icon-maskable.svg' },
 ]
 
 async function generateIcons() {
@@ -54,4 +54,7 @@ async function generateIcons() {
   await browser.close()
 }
 
-generateIcons().catch(console.error)
+generateIcons().catch((error: unknown) => {
+  console.error(error)
+  process.exitCode = 1
+})

@@ -8,6 +8,7 @@
  *   npm run screenshots                        # /kit, / and Import v2 -> screenshots/
  *   npm run screenshots -- --route /fair-values
  *   npm run screenshots -- --route /kit --server vite
+ *   npm run screenshots -- --route / --server vite --locked  # sign-in, no database
  *   npm run screenshots -- --out tmp
  *
  * `--route` may be repeated and replaces the default list. A route's file-name stem is the path
@@ -28,6 +29,7 @@ import { chromium, type Browser } from 'playwright-core'
 const PORT = 4173
 const ORIGIN = `http://localhost:${PORT}`
 const CHROMIUM = process.env.CHROMIUM ?? '/usr/bin/chromium'
+const LOCKED = process.argv.includes('--locked')
 
 const outIndex = process.argv.indexOf('--out')
 const OUT_DIR = outIndex === -1 ? 'screenshots' : process.argv[outIndex + 1]
@@ -73,7 +75,7 @@ interface Shot {
 const SHOTS: Shot[] = ROUTES.flatMap((route) =>
   VIEWPORTS.flatMap(({ width, height }) =>
     THEMES.map((theme) => ({
-      name: `${stemFor(route)}-${width}-${theme}`,
+      name: `${LOCKED ? 'signin' : stemFor(route)}-${width}-${theme}`,
       route,
       width,
       height,
@@ -112,9 +114,15 @@ async function shoot(browser: Browser, shot: Shot): Promise<void> {
     deviceScaleFactor: 2,
     // Both halves: the OS preference *and* the stored choice, so each shot is unambiguous.
     colorScheme: shot.theme,
+    serviceWorkers: 'block',
   })
   await context.addInitScript(`localStorage.setItem('al.theme', '${shot.theme}')`)
 
+  if (LOCKED) {
+    await context.route('**/api/session', (route) =>
+      route.fulfill({ status: 401, json: { error: 'not-authenticated' } }),
+    )
+  }
   const page = await context.newPage()
   const problems: string[] = []
   /**
@@ -133,7 +141,9 @@ async function shoot(browser: Browser, shot: Shot): Promise<void> {
   })
   page.on('pageerror', (error) => problems.push(String(error)))
   page.on('response', (response) => {
-    if (response.status() >= 400 && !isFavicon(response.url())) {
+    const expectedLock =
+      LOCKED && response.status() === 401 && new URL(response.url()).pathname === '/api/session'
+    if (response.status() >= 400 && !isFavicon(response.url()) && !expectedLock) {
       problems.push(`${response.status()} ${response.url()}`)
     }
   })
@@ -142,7 +152,8 @@ async function shoot(browser: Browser, shot: Shot): Promise<void> {
   })
 
   await page.goto(`${ORIGIN}${shot.route}`, { waitUntil: 'networkidle' })
-  if (shot.route === '/import') {
+  if (LOCKED) await page.getByLabel('Access token').waitFor()
+  if (!LOCKED && shot.route === '/import') {
     await page
       .locator('input[type="file"][accept=".csv"]')
       .setInputFiles('tests/fixtures/m1/full-export-v2.csv')

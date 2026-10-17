@@ -10,7 +10,7 @@
  * Offline still works: the shell falls back to the cached copy whenever the network fails.
  */
 
-const CACHE_NAME = 'alpha-ledger-v3'
+const CACHE_NAME = 'alpha-ledger-v4'
 const SHELL_URLS = ['/', '/index.html', '/manifest.json']
 
 /** The shell paths plus any navigation, which the SPA answers with `index.html`. */

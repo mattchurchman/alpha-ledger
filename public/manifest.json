@@ -1,13 +1,13 @@
 {
   "name": "Alpha Ledger",
   "short_name": "Ledger",
-  "description": "Did my stock picks beat buying VOO with the same dollars on the same dates",
+  "description": "Did my stock picks beat the S&P 500?",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "scope": "/",
-  "theme_color": "#f1f4f8",
-  "background_color": "#f1f4f8",
+  "theme_color": "#f5f7fa",
+  "background_color": "#f5f7fa",
   "icons": [
     {
       "src": "/icons/app-192.png",

@@ -1,16 +1,10 @@
 import type { ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { DESTINATIONS, titleFor } from './destinations'
-import {
-  DarkThemeIcon,
-  DashboardIcon,
-  HelpIcon,
-  LightThemeIcon,
-  RefreshIcon,
-  SystemThemeIcon,
-} from './icons'
+import { DarkThemeIcon, HelpIcon, LightThemeIcon, RefreshIcon, SystemThemeIcon } from './icons'
 import { PricesAsOfBadge, type PricesAsOf } from './States'
 import { useTheme } from './theme'
+import { BrandLogo } from './BrandLogo'
 
 /**
  * Bottom tab bar on a phone, side rail from 768px, one set of destinations (`destinations.ts`).
@@ -94,16 +88,7 @@ export function AppShell({
       >
         <div className="flex h-full flex-col p-5">
           <Link to="/" className="mb-7 flex items-center gap-2.5 rounded-control px-1 py-1">
-            <span
-              aria-hidden="true"
-              className="inline-flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-accent text-accent-ink"
-            >
-              <DashboardIcon className="size-[18px]" active />
-            </span>
-            <span className="flex flex-col gap-0.5">
-              <span className="text-h3 font-semibold">Alpha Ledger</span>
-              <span className="label-micro">vs S&amp;P 500</span>
-            </span>
+            <BrandLogo className="h-10 w-full" />
           </Link>
           <ul className="flex flex-col gap-1">
             {DESTINATIONS.map(({ to, label, icon: Glyph }) => (
@@ -142,7 +127,10 @@ export function AppShell({
         >
           <div className="mx-auto flex w-full max-w-4xl items-center gap-3 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-h1 font-semibold">{heading}</h1>
+              <h1 className="h-[1.8rem]">
+                <span className="sr-only">{heading}</span>
+                <BrandLogo className="h-full max-w-full w-auto" />
+              </h1>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 {/* SPEC section 8's indicator. */}
                 <PricesAsOfBadge value={pricesAsOf} />

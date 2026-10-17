@@ -366,3 +366,22 @@
     opacity: 1;
   }
 }
+
+/* Follow the same explicit/system theme scopes as the palette, including before React loads. */
+.al-logo-dark {
+  display: none;
+}
+:root[data-theme='dark'] .al-logo-light {
+  display: none;
+}
+:root[data-theme='dark'] .al-logo-dark {
+  display: block;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .al-logo-light {
+    display: none;
+  }
+  :root:not([data-theme='light']) .al-logo-dark {
+    display: block;
+  }
+}

@@ -44,6 +44,8 @@ If your login session expires and you see "Please sign in again," just sign in -
 
 ## Updating the App
 
+iOS caches the home-screen icon. After the brand update is deployed, remove and re-add the home-screen app to pick up the new icon.
+
 Alpha Ledger updates automatically via its service worker:
 - The first time you open it each day, it checks for new versions.
 - Any updates download silently in the background.
