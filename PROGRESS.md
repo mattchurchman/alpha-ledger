@@ -1874,7 +1874,7 @@ there. Rev 3 plan and reasoning: `docs/REV3_ASSESSMENT.md`; order: `tasks/QUEUE.
 |---|------|-------|--------|
 | 32 | Import resolver: findings become rules | Opus | done |
 | 33 | Persist import decisions | Sonnet | done |
-| 34 | Import screen v2 | Opus | - |
+| 34 | Import screen v2 | Opus | done |
 | 35 | Real full re-import and owner acceptance (supersedes 25c) | Opus | - |
 | 36 | Brand palette into tokens | Opus | - |
 | 37 | Logo, icons, sign-in screen | Sonnet | - |
@@ -1946,3 +1946,44 @@ Verified:
 Open issues: none.
 
 **Next:** tasks/34-import-screen-v2.md on Opus (effort medium) - budget ~100k.
+
+## Task 34 - Import screen v2 - 2026-10-16 - Codex
+Status: done.
+
+Built:
+- `src/routes/Import.tsx` now renders task 32's plan per file: editable inferred account label
+  with evidence, the new/already-in/auto-fixed/needs-you summary, collapsed evidence-backed
+  automatic fixes, and explicit Accept/Choose/Ignore decisions. Import stays disabled until every
+  question is handled; ignored rows and proven dropped split placeholders are persisted through
+  task 33's meta helper.
+- Accepted/generated rows are deduplicated into one bulk post. A successful post immediately runs
+  Update market data using the just-imported rows, then shows unpriced holdings, delisting
+  candidates, split disagreements and price failures with links to the existing Settings,
+  close-out and Reconcile fixes. Help and SPEC now describe that ordering.
+- `src/data/importWorkflow.ts` keeps decision resolution pure and tested. The resolver now exposes
+  its already-computed candidate transactions, so the UI never reconstructs a ticker, share count
+  or settlement amount.
+- Task 32 follow-up approved by the owner: account inference still accepts a unique majority, and
+  now also accepts at least three exact source-row matches uniquely identifying one account. This
+  lets a growing full export infer its existing account while one or two coincidental matches and
+  ties still ask. The threshold and rationale are in SPEC and resolver tests.
+- `scripts/screenshots.ts` includes `/import` and loads the synthetic v2 fixture before shooting.
+
+Verified:
+- `npm run check`: typecheck, lint, 28 test files and **514 tests pass**.
+- Isolated temporary D1 + `wrangler dev` + 390px Chromium, using only the committed synthetic
+  fixtures and intercepted synthetic prices: v1 showed `8 new / 0 already / 3 fixed / 3 needs
+  you`; after two Accepts and one candidate choice its one bulk post contained 12 rows. v2 inferred
+  `taxable` from 8 exact matches, showed `50 / 12 / 0 / 0`, and posted 50 rows once. A third v2
+  preview showed `0 / 62 / 0 / 0`, Import enabled, and caused no third bulk post. No console errors.
+- `npm run screenshots -- --route /import --out /tmp/alpha-ledger-task34-shots` produced 390px and
+  1280px light/dark shots; both 390px themes were visually reviewed for wrapping, touch targets,
+  decision cards and the fixed bottom navigation.
+- Privacy: the diff and status contain only source, synthetic fixtures/tests and documentation; no
+  `private/`, D1 state, screenshots, credentials, account exports or real holdings are tracked.
+
+Open issues: none.
+
+**Next:** tasks/35-real-reimport.md on Opus (effort high) - budget ~100k, on the owner's computer
+with the owner-supplied private files. If those files are not ready, run tasks/36-brand-tokens.md
+next as `tasks/CODEX_QUEUE.md` allows.

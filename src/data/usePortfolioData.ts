@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { MetaMap, StoredPriceHistory, TickerAlias, TransactionRow } from '../api/types'
-import type { AnalyzeResult } from '../engine'
+import type { AnalyzeResult, Transaction } from '../engine'
 import type { PriceHistory } from '../engine/prices/types'
 import type { PricesAsOf } from '../ui'
 import type { UpdateFailure, UpdateOutcome } from './marketData'
@@ -71,8 +71,11 @@ export interface PortfolioData {
   resultFor: (account: string | null) => AnalyzeResult | null
   pricesAsOf: PricesAsOf
   update: UpdateState
-  /** Fetches VOO plus every ticker ever held and stores each series. SPEC 8's one action. */
-  runUpdate: () => Promise<UpdateOutcome>
+  /**
+   * Fetches VOO plus every ticker ever held and stores each series. An import may pass the
+   * just-posted rows so its automatic update does not wait for React's next cache render.
+   */
+  runUpdate: (transactionsOverride?: Transaction[]) => Promise<UpdateOutcome>
   /** Adds or removes one ticker from `hiddenTickers`, then reloads. */
   setTickerHidden: (ticker: string, hidden: boolean) => Promise<void>
   /** Adds or removes one ticker from `watchlist`, then reloads. */

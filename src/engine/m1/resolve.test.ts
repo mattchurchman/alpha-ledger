@@ -129,12 +129,16 @@ describe('planImport', () => {
     expect(plan.needsYou[0]).toMatchObject({
       kind: 'cash-out',
       candidates: ['ZZAMB1', 'ZZAMB2'],
+      candidateTransactions: [
+        expect.objectContaining({ ticker: 'ZZAMB1', type: 'sell', shares: '2' }),
+        expect.objectContaining({ ticker: 'ZZAMB2', type: 'sell', shares: '4' }),
+      ],
     })
     expect(plan.duplicates).toBe(0)
     expect(plan.ignored).toEqual([])
   })
 
-  it('infers an existing account only from a unique majority of rehashed mappable rows', () => {
+  it('infers an existing account from a unique majority of rehashed mappable rows', () => {
     const taxable = parseM1Activity(fullExportV1, 'taxable')
     const provisional = parseM1Activity(fullExportV1, '')
     const ledger = taxable.transactions.slice(0, 5)
@@ -153,10 +157,65 @@ describe('planImport', () => {
     expect(plan.duplicates).toBe(5)
   })
 
-  it('asks for an account instead of guessing without a clear majority', () => {
+  it('infers from a strong unique overlap when a full export has more new rows than old ones', () => {
+    const first = planV1()
+    const ambiguous = first.needsYou[0]
+    const generated = [...first.autoFixed, ...first.proposals].flatMap((entry) =>
+      entry.transaction === null ? [] : [entry.transaction],
+    )
+    const ledger = [
+      ...first.fresh,
+      ...generated,
+      {
+        account_label: 'taxable',
+        trade_date: '2025-01-14',
+        ticker: 'ZZAMB1',
+        type: 'sell' as const,
+        shares: '2',
+        amount_usd: '100',
+        source: 'm1' as const,
+        source_row_hash: ambiguous.sourceRowHash,
+        note: 'M1 CASH settlement: AMBIGUOUS ACQUISITION',
+        excluded: false,
+      },
+    ]
+    const ignoredHashes = first.autoFixed
+      .filter((entry) => entry.transaction === null)
+      .map((entry) => entry.sourceRowHash)
+
+    const next = planImport({
+      parsed: parseM1Activity(fullExportV2, ''),
+      ledger,
+      prices: PRICES,
+      aliases: [],
+      ignoredHashes,
+    })
+
+    expect(next.accountLabel).toMatchObject({ value: 'taxable', inferred: true })
+    expect(next.accountLabel.evidence).toBe('8 of 58 mappable rows match account "taxable".')
+    expect(next.fresh).toHaveLength(50)
+    expect(next.duplicates).toBe(12)
+    expect(next.needsYou).toEqual([])
+  })
+
+  it('does not infer a mostly-new export from one coincidental matching row', () => {
+    const taxable = parseM1Activity(fullExportV2, 'taxable')
+    const plan = planImport({
+      parsed: parseM1Activity(fullExportV2, ''),
+      ledger: taxable.transactions.slice(0, 1),
+      prices: PRICES,
+      aliases: [],
+      ignoredHashes: [],
+    })
+
+    expect(plan.accountLabel.value).toBeNull()
+    expect(plan.needsYou).toEqual([expect.objectContaining({ kind: 'account' })])
+  })
+
+  it('asks for an account instead of guessing from a weak overlap', () => {
     const plan = planImport({
       parsed: parseM1Activity(fullExportV1, ''),
-      ledger: parseM1Activity(fullExportV1, 'taxable').transactions.slice(0, 4),
+      ledger: parseM1Activity(fullExportV1, 'taxable').transactions.slice(0, 2),
       prices: PRICES,
       aliases: [],
       ignoredHashes: [],
@@ -164,7 +223,7 @@ describe('planImport', () => {
 
     expect(plan.accountLabel).toMatchObject({ value: null, inferred: false })
     expect(plan.needsYou).toEqual([
-      expect.objectContaining({ kind: 'account', evidence: expect.stringContaining('4 of 8') }),
+      expect.objectContaining({ kind: 'account', evidence: expect.stringContaining('2 of 8') }),
     ])
     expect(plan.fresh).toEqual([])
   })

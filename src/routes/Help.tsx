@@ -88,19 +88,17 @@ export default function Help() {
             <li>
               <Step title="Import your M1 activity">
                 Export the activity CSV from each M1 account, then on{' '}
-                <Here to="/import">Import</Here> choose all of the files at once. Give every file
-                the account it came from as its label - that label is what keeps the same trade in
-                two accounts from being treated as one. The preview counts what is new, what you
-                already have, and what it could not classify before anything is saved.
+                <Here to="/import">Import</Here> choose all of the files at once. The app recognizes
+                an existing account from rows it already has; only a new account needs a label. Read
+                the evidence for anything under Needs you, then Accept, Choose, or Ignore it before
+                importing.
               </Step>
             </li>
             <li>
-              <Step title="Fetch prices">
-                Tap <strong className="font-medium text-ink">Update</strong> in the header, or{' '}
-                <strong className="font-medium text-ink">Update market data</strong> on{' '}
-                <Here to="/settings">Settings</Here>. This fetches VOO plus every ticker you have
-                ever held, one at a time, with a running count and a list of any ticker that failed.
-                Until VOO has a stored history there is no benchmark, so the dashboard stays empty.
+              <Step title="Review the import health check">
+                Import saves the approved rows, updates market data, and then checks for unpriced
+                holdings, possible delistings, and split disagreements. Follow any link it shows;
+                otherwise the card says plainly that everything checks out.
               </Step>
             </li>
             <li>
@@ -109,8 +107,8 @@ export default function Help() {
                 <strong className="font-medium text-ink">Reconcile</strong> tab and type in the
                 share count M1 currently reports for each ticker. Anything off by more than 0.001
                 shares is flagged with a one-tap fix. This is the step that proves the rebuilt
-                history is right; do it after fetching prices, because a split is only applied once
-                the price history that records it is stored.
+                history is right. The import has already updated the split history before sending
+                you here.
               </Step>
             </li>
             <li>
@@ -135,7 +133,8 @@ export default function Help() {
             <Term word="After you trade">
               Export the activity CSV again and import it. Re-importing an overlapping export is
               safe: a row already in your ledger is skipped, never overwritten, so an edit or an
-              exclusion you made by hand survives.
+              exclusion you made by hand survives. Import also refreshes market data when it
+              finishes.
             </Term>
             <Term word="Every so often, or after anything unusual">
               Reconcile again - especially after a split, a spinoff, a merger, or shares transferred
@@ -422,31 +421,37 @@ export default function Help() {
             <p className="label-micro">Import</p>
             <ul className="mt-2 flex list-disc flex-col gap-2 pl-4">
               <li>
-                Choose one or more M1 activity CSVs. The filename becomes the account label, so
-                naming each export after its account saves you a step - and the label matters,
-                because it is what distinguishes the same trade made in two accounts.
+                Choose one or more full M1 activity CSVs. An existing account label is inferred from
+                source-row overlap and shown with the evidence. You can edit it; only a genuinely
+                new account starts blank and asks for a label.
               </li>
               <li>
-                The preview, per file, shows a count by type, the date range,{' '}
+                The plan, per file, shows the date range,{' '}
                 <strong className="font-medium text-ink">new</strong> versus{' '}
-                <strong className="font-medium text-ink">already in your ledger</strong>, and two
-                expandable lists. Nothing is written until you tap Confirm import.
+                <strong className="font-medium text-ink">already in</strong>, fixes backed by direct
+                evidence, and how many decisions still need you. Nothing is written until every
+                decision is handled and you tap Import.
               </li>
               <li>
-                <strong className="font-medium text-ink">Dropped</strong> rows are cash the app
-                deliberately ignores: deposits, withdrawals, fees, interest, transfers of cash. Idle
-                cash is outside what this app measures.
+                <strong className="font-medium text-ink">Fixed automatically</strong> is collapsed
+                but always explains its evidence. A proven split placeholder can be dropped; an
+                exact identifier match can close a cash settlement. These are not guesses.
               </li>
               <li>
-                <strong className="font-medium text-ink">Unrecognized</strong> rows are the ones to
-                read. They are skipped, not guessed at, and each is reported with its line number. A
-                transfer of shares in kind is the common case: it needs an{' '}
-                <strong className="font-medium text-ink">Adjust</strong> transaction entered by hand
-                on Activity, and until it is, that ticker&rsquo;s share count is wrong.
+                <strong className="font-medium text-ink">Needs you</strong> stays open. Accept a
+                proposal whose evidence is right, choose among named candidates, or Ignore the
+                source row. Ignore is remembered by its hash, including in backups, so the same row
+                does not ask again. Import stays disabled while any question remains.
               </li>
               <li>
                 Importing the same export twice is safe. A row already in your ledger is left
                 exactly as it is, so your edits and exclusions are never undone by a re-import.
+              </li>
+              <li>
+                After the rows are saved, Import runs Update market data before it offers
+                reconciliation. Its health card links unpriced holdings to manual prices and
+                aliases, possible delistings to the existing close-out flow, and split disagreements
+                to Reconcile.
               </li>
             </ul>
           </div>
@@ -471,8 +476,9 @@ export default function Help() {
                 Adjust transaction for exactly the difference.
               </li>
               <li>
-                Fetch prices before reconciling. Split factors come from the stored price history,
-                and without it every share count is compared in pre-split terms.
+                Split factors come from stored price history. A completed import updates that
+                history first; if you open Reconcile on its own, use Update when prices are missing
+                or stale.
               </li>
             </ul>
           </div>
@@ -503,8 +509,8 @@ export default function Help() {
               what restores those.
             </Term>
             <Term word="Manual fallback: set current price">
-              A single price for one day, defaulting to today and never later - use an earlier
-              date to fix one bad or missing past day. Same merge, same manual marking.
+              A single price for one day, defaulting to today and never later - use an earlier date
+              to fix one bad or missing past day. Same merge, same manual marking.
             </Term>
             <Term word="Ticker aliases">
               For a rename or a merger. Record the old ticker, the new one, and the date it took
@@ -677,8 +683,8 @@ export default function Help() {
           <Faq q="A ticker fails every time prices are fetched.">
             The data source is free and unofficial, and a delisted or renamed symbol often has
             nothing behind it. Record the rename as an alias on Settings if that is what happened,
-            otherwise use the manual price CSV or set a price by hand. If the position is
-            closed, the failure is expected and is reported as such rather than as a problem.
+            otherwise use the manual price CSV or set a price by hand. If the position is closed,
+            the failure is expected and is reported as such rather than as a problem.
           </Faq>
           <Faq q="A whole position shows a negative VOO equivalent.">
             That is real, not a bug: the stock has paid you back more cash than the same money would

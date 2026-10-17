@@ -1,9 +1,19 @@
 import { useCallback, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { api, ApiError, NotAuthenticatedError } from '../api/client'
-import type { TransactionInput, TransactionRow } from '../api/types'
+import type { TransactionRow } from '../api/types'
 import { parseM1Activity, type ParseResult } from '../engine/m1/parse'
+import { planImport, type ImportPlan, type ImportRowReference } from '../engine/m1/resolve'
+import { resolveImportPlan, type ImportDecision } from '../data/importWorkflow'
+import { parseImportIgnoredHashes } from '../data/importIgnoredHashes'
 import { usePortfolioData } from '../data/usePortfolioData'
-import { splitAdjustTransactions, sharesOn } from '../engine/holdings'
+import {
+  computeHoldings,
+  crossCheckSplits,
+  splitAdjustTransactions,
+  sharesOn,
+} from '../engine/holdings'
+import { DEFAULT_BENCHMARK, delistedCandidates, type Transaction } from '../engine'
 import { reconcileShares, type ShareCount, type ShareMismatch } from '../engine/reconcile'
 import {
   BottomSheet,
@@ -51,11 +61,6 @@ export default function Import() {
     () => [...new Set((transactions ?? []).map((t) => t.account_label))].sort(),
     [transactions],
   )
-  const existingHashes = useMemo(
-    () => new Set((transactions ?? []).map((t) => t.source_row_hash)),
-    [transactions],
-  )
-
   return (
     <div className="flex flex-col gap-4">
       <SectionHeading>Import</SectionHeading>
@@ -76,12 +81,7 @@ export default function Import() {
       </div>
 
       {tab === 'import' ? (
-        <ImportTab
-          existingHashes={existingHashes}
-          onImported={reload}
-          report={report}
-          toast={toast}
-        />
+        <ImportTab onReconcile={() => setTab('reconcile')} report={report} toast={toast} />
       ) : (
         <ReconcileTab
           transactions={transactions}
@@ -100,7 +100,9 @@ type Toast = ReturnType<typeof useToast>
 interface FileEntry {
   id: string
   name: string
-  accountLabel: string
+  suggestedLabel: string
+  /** Undefined means "let the resolver infer it". */
+  accountLabel?: string
   text: string
 }
 
@@ -108,38 +110,40 @@ interface ParsedEntry {
   entry: FileEntry
   error: string | null
   result: ParseResult | null
-  newCount: number
-  dupCount: number
-  byType: Record<string, number>
+  plan: ImportPlan | null
+  resolved: ReturnType<typeof resolveImportPlan> | null
   dateRange: { min: string; max: string } | null
 }
 
-function tryParse(
-  text: string,
-  accountLabel: string,
-): { result: ParseResult | null; error: string | null } {
-  if (accountLabel.trim() === '') return { result: null, error: 'Enter an account label.' }
+function tryParse(text: string): { result: ParseResult | null; error: string | null } {
   try {
-    return { result: parseM1Activity(text, accountLabel.trim()), error: null }
+    // The resolver re-hashes every row after it infers or receives the real account label.
+    return { result: parseM1Activity(text, ''), error: null }
   } catch (err) {
     return { result: null, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
 function ImportTab({
-  existingHashes,
-  onImported,
+  onReconcile,
   report,
   toast,
 }: {
-  existingHashes: Set<string>
-  onImported: () => Promise<void>
+  onReconcile: () => void
   report: (err: unknown) => void
   toast: Toast
 }) {
+  const { transactions, prices, aliases, meta, loading, reload, runUpdate, update } =
+    usePortfolioData()
   const [entries, setEntries] = useState<FileEntry[]>([])
-  const [busy, setBusy] = useState(false)
+  const [decisions, setDecisions] = useState<Record<string, ImportDecision>>({})
+  const [phase, setPhase] = useState<'idle' | 'importing' | 'updating' | 'complete'>('idle')
+  const [showHealth, setShowHealth] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const ignoredHashes = useMemo(
+    () => parseImportIgnoredHashes(meta.import_ignored_hashes),
+    [meta.import_ignored_hashes],
+  )
 
   async function handleFiles(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? [])
@@ -148,10 +152,12 @@ function ImportTab({
       files.map(async (file) => ({
         id: crypto.randomUUID(),
         name: file.name,
-        accountLabel: file.name.replace(/\.csv$/i, ''),
+        suggestedLabel: file.name.replace(/\.csv$/i, ''),
         text: await file.text(),
       })),
     )
+    setShowHealth(false)
+    setPhase('idle')
     setEntries((prev) => [...prev, ...added])
   }
 
@@ -164,63 +170,102 @@ function ImportTab({
   }
 
   const preview: ParsedEntry[] = useMemo(() => {
-    const seenInBatch = new Set<string>()
+    const planningLedger: Transaction[] = [...transactions]
+    const planningIgnored = new Set(ignoredHashes)
     return entries.map((entry) => {
-      const { result, error } = tryParse(entry.text, entry.accountLabel)
+      const { result, error } = tryParse(entry.text)
       if (!result)
-        return { entry, error, result: null, newCount: 0, dupCount: 0, byType: {}, dateRange: null }
+        return { entry, error, result: null, plan: null, resolved: null, dateRange: null }
 
-      let newCount = 0
-      let dupCount = 0
-      const byType: Record<string, number> = {}
+      const accountLabel = entry.accountLabel?.trim() || undefined
+      const plan = planImport({
+        parsed: result,
+        ...(accountLabel ? { accountLabel } : {}),
+        ledger: planningLedger,
+        prices,
+        aliases,
+        ignoredHashes: [...planningIgnored],
+      })
+      const resolved = resolveImportPlan(plan, decisions)
+      planningLedger.push(...resolved.transactions)
+      for (const hash of resolved.ignoredHashes) planningIgnored.add(hash)
+
       let min = ''
       let max = ''
       for (const txn of result.transactions) {
-        byType[txn.type] = (byType[txn.type] ?? 0) + 1
         if (min === '' || txn.trade_date < min) min = txn.trade_date
         if (max === '' || txn.trade_date > max) max = txn.trade_date
-        const seen = existingHashes.has(txn.source_row_hash) || seenInBatch.has(txn.source_row_hash)
-        seenInBatch.add(txn.source_row_hash)
-        if (seen) dupCount++
-        else newCount++
       }
       return {
         entry,
         error: null,
         result,
-        newCount,
-        dupCount,
-        byType,
+        plan,
+        resolved,
         dateRange: min ? { min, max } : null,
       }
     })
-  }, [entries, existingHashes])
+  }, [entries, transactions, prices, aliases, ignoredHashes, decisions])
 
   const totals = preview.reduce(
     (acc, p) => ({
-      new: acc.new + p.newCount,
-      dup: acc.dup + p.dupCount,
-      unrecognized: acc.unrecognized + (p.result?.unrecognized.length ?? 0),
+      new: acc.new + (p.plan?.fresh.length ?? 0),
+      dup: acc.dup + (p.plan?.duplicates ?? 0),
+      fixed: acc.fixed + (p.plan?.autoFixed.length ?? 0),
+      unresolved: acc.unresolved + (p.resolved?.unresolved.length ?? 0),
     }),
-    { new: 0, dup: 0, unrecognized: 0 },
+    { new: 0, dup: 0, fixed: 0, unresolved: 0 },
   )
-  const hasValidFiles = preview.some((p) => p.result !== null)
+  const hasValidFiles = preview.length > 0 && preview.every((p) => p.plan !== null)
+  const canImport = hasValidFiles && totals.unresolved === 0 && !loading && phase === 'idle'
+
+  function decide(sourceRowHash: string, decision: ImportDecision) {
+    setDecisions((current) => ({ ...current, [sourceRowHash]: decision }))
+  }
 
   async function confirmImport() {
-    setBusy(true)
+    setPhase('importing')
     try {
-      const all: TransactionInput[] = preview.flatMap((p) => p.result?.transactions ?? [])
+      const all = [
+        ...new Map(
+          preview
+            .flatMap((p) => p.resolved?.transactions ?? [])
+            .map((transaction) => [transaction.source_row_hash, transaction]),
+        ).values(),
+      ]
+      const nextIgnored = [
+        ...new Set([...ignoredHashes, ...preview.flatMap((p) => p.resolved?.ignoredHashes ?? [])]),
+      ]
       const result = await api.transactions.bulkUpsert(all)
-      toast.show(
-        `Imported ${result.inserted} new transaction${result.inserted === 1 ? '' : 's'}; ${result.skipped} already in your ledger.`,
-        { status: 'good' },
-      )
       setEntries([])
-      await onImported()
+      setDecisions({})
+      setPhase('updating')
+
+      try {
+        await api.importIgnoredHashes.set(nextIgnored)
+      } catch (err) {
+        report(err)
+      }
+      await reload()
+      let failedUpdates = 0
+      try {
+        const outcome = await runUpdate([...transactions, ...all])
+        failedUpdates = outcome.failed.length
+      } catch (err) {
+        report(err)
+        failedUpdates = 1
+      }
+      setShowHealth(true)
+      setPhase('complete')
+      toast.show(
+        failedUpdates === 0
+          ? `Imported ${result.inserted} new transaction${result.inserted === 1 ? '' : 's'} and updated market data.`
+          : `Imported ${result.inserted} new transaction${result.inserted === 1 ? '' : 's'}; the price update needs attention.`,
+        { status: failedUpdates === 0 ? 'good' : 'warning' },
+      )
     } catch (err) {
       report(err)
-    } finally {
-      setBusy(false)
+      setPhase('idle')
     }
   }
 
@@ -228,8 +273,8 @@ function ImportTab({
     <div className="flex flex-col gap-4">
       <Card>
         <p className="text-small text-ink-secondary">
-          Pick one or more M1 activity CSV exports. Label each with the account it came from - that
-          is what keeps the same trade in two accounts from being merged into one.
+          Pick one or more full M1 activity exports. The app matches an existing account from the
+          rows themselves; a genuinely new account asks you for its label once.
         </p>
         <input
           ref={fileInputRef}
@@ -239,24 +284,39 @@ function ImportTab({
           className="hidden"
           onChange={(e) => void handleFiles(e)}
         />
-        <Button className="mt-3" onClick={() => fileInputRef.current?.click()}>
+        <Button
+          className="mt-3"
+          disabled={phase === 'importing' || phase === 'updating'}
+          onClick={() => fileInputRef.current?.click()}
+        >
           Choose CSV files…
         </Button>
       </Card>
 
       {entries.length === 0 ? (
-        <EmptyState
-          title="No files chosen"
-          body="Pick one or more M1 activity exports to preview them here."
-        />
+        phase === 'updating' ? (
+          <Card>
+            <StatusBadge status="warning">
+              Updating market data… {update.done}/{update.total}
+            </StatusBadge>
+          </Card>
+        ) : showHealth ? (
+          <HealthSummary onReconcile={onReconcile} />
+        ) : (
+          <EmptyState
+            title="No files chosen"
+            body="Pick one or more M1 activity exports to preview them here."
+          />
+        )
       ) : (
         <>
-          {preview.map(({ entry, error, result, newCount, dupCount, byType, dateRange }) => (
+          {preview.map(({ entry, error, result, plan, resolved, dateRange }) => (
             <Card key={entry.id} className="flex flex-col gap-2">
               <div className="flex items-start justify-between gap-3">
                 <TextField
                   label="Account label"
-                  value={entry.accountLabel}
+                  value={entry.accountLabel ?? plan?.accountLabel.value ?? ''}
+                  placeholder={entry.suggestedLabel}
                   onChange={(e) => updateLabel(entry.id, e.target.value)}
                   className="flex-1"
                 />
@@ -269,38 +329,25 @@ function ImportTab({
               {error ? (
                 <p className="text-small text-critical">{error}</p>
               ) : (
-                result && (
+                result &&
+                plan &&
+                resolved && (
                   <>
-                    <div className="flex flex-wrap gap-3 text-small text-ink-secondary">
-                      {Object.entries(byType).map(([type, count]) => (
-                        <span key={type}>
-                          {count} {type}
-                        </span>
-                      ))}
-                      {result.transactions.length === 0 && <span>No recognized transactions.</span>}
-                    </div>
+                    <p className="text-micro text-ink-muted">{plan.accountLabel.evidence}</p>
                     {dateRange && (
                       <p className="text-micro text-ink-muted">
                         {dateShort(dateRange.min)} – {dateShort(dateRange.max)}
                       </p>
                     )}
-                    <p className="text-small">
-                      {newCount} new · {dupCount} already in your ledger
+                    <p className="text-small font-medium">
+                      {plan.fresh.length} new · {plan.duplicates} already in ·{' '}
+                      {plan.autoFixed.length} fixed automatically · {resolved.unresolved.length}{' '}
+                      needs you
                     </p>
-                    {result.unrecognized.length > 0 && (
-                      <details>
-                        <summary className="cursor-pointer text-small font-medium text-warning">
-                          {result.unrecognized.length} unrecognized row
-                          {result.unrecognized.length === 1 ? '' : 's'} - review
-                        </summary>
-                        <ul className="mt-2 flex flex-col gap-1 text-micro text-ink-muted">
-                          {result.unrecognized.map((u, i) => (
-                            <li key={i}>
-                              Line {u.line}: {u.reason || `unknown type "${u.transaction_type}"`}
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
+
+                    {plan.autoFixed.length > 0 && <AutomaticFixes plan={plan} />}
+                    {(plan.proposals.length > 0 || plan.needsYou.length > 0) && (
+                      <DecisionList plan={plan} decisions={decisions} onDecide={decide} />
                     )}
                     {result.dropped.length > 0 && (
                       <p className="text-micro text-ink-muted">
@@ -316,21 +363,226 @@ function ImportTab({
 
           <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-small">
-              {totals.new} new · {totals.dup} already imported
-              {totals.unrecognized > 0 &&
-                ` · ${totals.unrecognized} unrecognized (will be skipped)`}
+              {totals.new} new · {totals.dup} already in · {totals.fixed} fixed automatically ·{' '}
+              {totals.unresolved} needs you
             </p>
-            <Button
-              variant="primary"
-              disabled={busy || !hasValidFiles}
-              onClick={() => void confirmImport()}
-            >
-              {busy ? 'Importing…' : 'Confirm import'}
+            <Button variant="primary" disabled={!canImport} onClick={() => void confirmImport()}>
+              {phase === 'importing'
+                ? 'Importing…'
+                : phase === 'updating'
+                  ? `Updating prices… ${update.done}/${update.total}`
+                  : 'Import'}
             </Button>
           </Card>
         </>
       )}
     </div>
+  )
+}
+
+function AutomaticFixes({ plan }: { plan: ImportPlan }) {
+  return (
+    <details className="rounded-control bg-sunken px-3 py-2">
+      <summary className="cursor-pointer text-small font-medium">
+        Fixed automatically ({plan.autoFixed.length})
+      </summary>
+      <ul className="mt-2 flex flex-col gap-2">
+        {plan.autoFixed.map((item) => (
+          <li key={item.sourceRowHash} className="text-micro text-ink-muted">
+            <span className="text-ink">
+              Line {item.line}: {item.description || item.transactionType}
+            </span>
+            <br />
+            {item.evidence}
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+function DecisionList({
+  plan,
+  decisions,
+  onDecide,
+}: {
+  plan: ImportPlan
+  decisions: Record<string, ImportDecision>
+  onDecide: (sourceRowHash: string, decision: ImportDecision) => void
+}) {
+  const rows: Array<
+    ImportRowReference & { evidence: string; proposal: boolean; candidates?: string[] }
+  > = [
+    ...plan.proposals.map((row) => ({ ...row, proposal: true })),
+    ...plan.needsYou.map((row) => ({ ...row, proposal: false })),
+  ]
+  const unresolved = resolveImportPlan(plan, decisions).unresolved.length
+
+  return (
+    <section className="flex flex-col gap-2" aria-label="Import decisions">
+      <h3 className="text-small font-semibold">
+        {unresolved > 0 ? `Needs you (${unresolved})` : 'Decisions complete'}
+      </h3>
+      {rows.map((row) => {
+        if (row.sourceRowHash === '') {
+          return (
+            <div key="account" className="rounded-control border border-warning/40 p-3 text-small">
+              <p className="font-medium">Enter the account label above.</p>
+              <p className="mt-1 text-micro text-ink-muted">{row.evidence}</p>
+            </div>
+          )
+        }
+        const decision = decisions[row.sourceRowHash]
+        return (
+          <article key={row.sourceRowHash} className="rounded-control border border-rule p-3">
+            <p className="text-small font-medium">
+              Line {row.line}: {row.description || row.transactionType || 'M1 row'}
+            </p>
+            <p className="mt-1 text-micro text-ink-muted">{row.evidence}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {row.proposal && (
+                <Button
+                  variant={decision?.kind === 'accept' ? 'primary' : 'secondary'}
+                  onClick={() => onDecide(row.sourceRowHash, { kind: 'accept' })}
+                >
+                  Accept
+                </Button>
+              )}
+              {row.candidates?.map((ticker) => (
+                <Button
+                  key={ticker}
+                  variant={
+                    decision?.kind === 'choose' && decision.ticker === ticker
+                      ? 'primary'
+                      : 'secondary'
+                  }
+                  disabled={
+                    !plan.needsYou
+                      .find((need) => need.sourceRowHash === row.sourceRowHash)
+                      ?.candidateTransactions?.some((transaction) => transaction.ticker === ticker)
+                  }
+                  onClick={() => onDecide(row.sourceRowHash, { kind: 'choose', ticker })}
+                >
+                  Choose {ticker}
+                </Button>
+              ))}
+              <Button
+                variant={decision?.kind === 'ignore' ? 'primary' : 'ghost'}
+                onClick={() => onDecide(row.sourceRowHash, { kind: 'ignore' })}
+              >
+                Ignore
+              </Button>
+            </div>
+            {decision && (
+              <p className="mt-2 text-micro text-ink-muted">
+                Decision: {decision.kind === 'choose' ? `use ${decision.ticker}` : decision.kind}
+              </p>
+            )}
+          </article>
+        )
+      })}
+    </section>
+  )
+}
+
+function HealthSummary({ onReconcile }: { onReconcile: () => void }) {
+  const { transactions, prices, aliases, update } = usePortfolioData()
+  const health = useMemo(() => {
+    const holdings = computeHoldings({ transactions, prices, aliases })
+    return {
+      unpriced: holdings.missingPrices,
+      delisted: delistedCandidates({
+        ...holdings,
+        benchmarkCloseDate: prices[DEFAULT_BENCHMARK]?.asOf ?? null,
+      }),
+      splits: crossCheckSplits(transactions, prices, aliases),
+    }
+  }, [transactions, prices, aliases])
+  const clean =
+    health.unpriced.length === 0 &&
+    health.delisted.length === 0 &&
+    health.splits.length === 0 &&
+    update.failures.length === 0
+
+  return (
+    <Card as="section" className="flex flex-col gap-3">
+      <div>
+        <h3 className="text-h3 font-semibold">Import health</h3>
+        <p className="mt-1 text-small text-ink-secondary">
+          Market data was updated before these checks ran.
+        </p>
+      </div>
+      {clean ? (
+        <StatusBadge status="good">
+          Everything checks out: open holdings are priced, no delisting candidates were found, and
+          split rows agree.
+        </StatusBadge>
+      ) : (
+        <ul className="flex flex-col gap-3 text-small text-ink-secondary">
+          {health.unpriced.length > 0 && (
+            <li>
+              <StatusBadge status="warning">
+                Unpriced holdings: {health.unpriced.join(', ')}.
+              </StatusBadge>{' '}
+              <Link className="text-accent underline underline-offset-4" to="/settings">
+                Add a manual price or ticker alias
+              </Link>
+              .
+            </li>
+          )}
+          {health.delisted.length > 0 && (
+            <li>
+              <StatusBadge status="warning">
+                Delisted candidates: {health.delisted.map((row) => row.ticker).join(', ')}.
+              </StatusBadge>{' '}
+              {health.delisted.map((row, index) => (
+                <span key={row.ticker}>
+                  {index > 0 && ' · '}
+                  <Link
+                    className="text-accent underline underline-offset-4"
+                    to={`/stocks/${encodeURIComponent(row.ticker)}`}
+                  >
+                    Review {row.ticker}&rsquo;s close-out
+                  </Link>
+                </span>
+              ))}
+            </li>
+          )}
+          {health.splits.length > 0 && (
+            <li>
+              <StatusBadge status="warning">
+                {health.splits.length} split{' '}
+                {health.splits.length === 1 ? 'row disagrees' : 'rows disagree'} with stored market
+                data.
+              </StatusBadge>{' '}
+              <button
+                type="button"
+                className="text-accent underline underline-offset-4"
+                onClick={onReconcile}
+              >
+                Reconcile with M1
+              </button>
+              .
+            </li>
+          )}
+          {update.failures.length > 0 && (
+            <li>
+              <StatusBadge status="serious">
+                Price update failed for{' '}
+                {update.failures.map((failure) => failure.ticker).join(', ')}.
+              </StatusBadge>{' '}
+              <Link className="text-accent underline underline-offset-4" to="/settings">
+                Fix market data
+              </Link>
+              .
+            </li>
+          )}
+        </ul>
+      )}
+      <Button variant="primary" onClick={onReconcile}>
+        Reconcile with M1
+      </Button>
+    </Card>
   )
 }
 

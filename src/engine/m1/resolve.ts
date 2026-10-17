@@ -8,6 +8,10 @@ import { parseDate, rehashM1Row, type ParsedM1Row, type ParseResult } from './pa
 // More than half the already-mappable rows must agree, preventing a short or mostly-new file
 // from being silently assigned to the wrong account.
 export const ACCOUNT_OVERLAP_MAJORITY = new Decimal('0.5')
+// A full export can contain more new rows than old ones. Three exact, uniquely best source-row
+// matches are strong enough to identify that existing account without making one coincidental
+// repeated trade silently choose it.
+export const ACCOUNT_OVERLAP_STRONG_MATCHES = 3
 // A split outside this window is weak evidence that an invalid M1 symbol is only a split marker.
 export const SPLIT_EVIDENCE_DAYS = 10
 // A cash settlement should follow the final quoted close promptly; a wider window catches
@@ -51,6 +55,11 @@ export interface ImportNeedsYou extends ImportRowReference {
   kind: 'account' | 'cash-out' | 'unrecognized'
   evidence: string
   candidates?: string[]
+  /**
+   * Transactions the resolver can build safely for the named candidates. The screen only
+   * chooses among these; it never reconstructs shares or settlement cash itself.
+   */
+  candidateTransactions?: Transaction[]
 }
 
 export interface ImportPlan {
@@ -176,7 +185,9 @@ function resolveAccountLabel(input: PlanImportInput): ImportAccountLabel {
   const majority = best
     ? new Decimal(best.matches).div(mappable.length || 1).greaterThan(ACCOUNT_OVERLAP_MAJORITY)
     : false
-  if (best && best.matches > (second?.matches ?? -1) && majority) {
+  const uniquelyBest = best && best.matches > (second?.matches ?? -1)
+  const strongExactOverlap = best && best.matches >= ACCOUNT_OVERLAP_STRONG_MATCHES
+  if (best && uniquelyBest && (majority || strongExactOverlap)) {
     return {
       value: best.account,
       inferred: true,
@@ -301,10 +312,25 @@ function resolveCash(
   }
 
   if (cusipTickers.length > 1) {
+    const candidateTransactions = cusipTickers.flatMap((ticker) => {
+      const transaction = cashSell(
+        planningLedger,
+        input.prices,
+        input.aliases,
+        ticker,
+        date,
+        amount,
+        accountLabel,
+        sourceRowHash,
+        field(row, 'Description'),
+      )
+      return transaction ? [transaction] : []
+    })
     plan.needsYou.push({
       ...rowReference(row, sourceRowHash),
       kind: 'cash-out',
       candidates: cusipTickers,
+      ...(candidateTransactions.length > 0 ? { candidateTransactions } : {}),
       evidence: `CUSIP ${securityId} appears on more than one ticker: ${cusipTickers.join(', ')}.`,
     })
     return
@@ -336,6 +362,7 @@ function resolveCash(
     ...rowReference(row, sourceRowHash),
     kind: 'cash-out',
     ...(candidates.length > 0 ? { candidates } : {}),
+    ...(fits.length > 0 ? { candidateTransactions: fits.map((fit) => fit.transaction) } : {}),
     evidence:
       candidates.length > 0
         ? `More than one held ticker fits the settlement amount and timing: ${candidates.join(', ')}.`

@@ -5,7 +5,7 @@
  * Builds nothing and serves nothing permanently - it starts `vite preview` against `dist/`,
  * shoots four full-page PNGs per route, and shuts the server down. Run `npm run build` first.
  *
- *   npm run screenshots                        # /kit and / -> screenshots/
+ *   npm run screenshots                        # /kit, / and Import v2 -> screenshots/
  *   npm run screenshots -- --route /fair-values
  *   npm run screenshots -- --route /kit --server vite
  *   npm run screenshots -- --out tmp
@@ -32,8 +32,8 @@ const CHROMIUM = process.env.CHROMIUM ?? '/usr/bin/chromium'
 const outIndex = process.argv.indexOf('--out')
 const OUT_DIR = outIndex === -1 ? 'screenshots' : process.argv[outIndex + 1]
 
-/** The component kit, and the Dashboard - the screen the whole palette has to hold up on. */
-const DEFAULT_ROUTES = ['/kit', '/']
+/** The component kit, Dashboard, and task 34's full-export decision plan. */
+const DEFAULT_ROUTES = ['/kit', '/', '/import']
 const routeArgs = process.argv.flatMap((arg, index) =>
   arg === '--route' ? [process.argv[index + 1]] : [],
 )
@@ -142,6 +142,13 @@ async function shoot(browser: Browser, shot: Shot): Promise<void> {
   })
 
   await page.goto(`${ORIGIN}${shot.route}`, { waitUntil: 'networkidle' })
+  if (shot.route === '/import') {
+    await page
+      .locator('input[type="file"][accept=".csv"]')
+      .setInputFiles('tests/fixtures/m1/full-export-v2.csv')
+    await page.getByLabel('Account label').fill('taxable')
+    await page.getByText('full-export-v2.csv').waitFor()
+  }
   // Passed as a string, not a closure: this file is typechecked without the DOM lib (it runs in
   // node), and the expression is evaluated in the page.
   await page.evaluate('document.fonts.ready')

@@ -8,6 +8,7 @@ import {
   DEFAULT_BENCHMARK,
   isClosedPosition,
   type AnalyzeResult,
+  type Transaction,
 } from '../engine'
 import type { PriceHistory } from '../engine/prices/types'
 import {
@@ -248,50 +249,54 @@ export function PortfolioDataProvider({ children }: { children: ReactNode }) {
     return new Set(closed.filter((ticker) => prices[ticker] !== undefined))
   }, [result, prices])
 
-  const runUpdate = useCallback(async (): Promise<UpdateOutcome> => {
-    if (update.running) return { succeeded: [], failed: [], tolerated: [] }
+  const runUpdate = useCallback(
+    async (transactionsOverride?: Transaction[]): Promise<UpdateOutcome> => {
+      if (update.running) return { succeeded: [], failed: [], tolerated: [] }
 
-    const everHeld = tickersEverHeld(transactions, aliases)
-    const extra = watchlist.filter((t) => t !== DEFAULT_BENCHMARK && !everHeld.includes(t))
-    const tickers = [
-      DEFAULT_BENCHMARK,
-      ...everHeld.filter((t) => t !== DEFAULT_BENCHMARK),
-      ...extra,
-    ]
-    const from = priceFetchFrom(transactions, todayDate())
-    setUpdate({
-      running: true,
-      done: 0,
-      total: tickers.length,
-      failures: [],
-      tolerated: [],
-      lastRunAt: null,
-    })
+      const updateTransactions = transactionsOverride ?? transactions
+      const everHeld = tickersEverHeld(updateTransactions, aliases)
+      const extra = watchlist.filter((t) => t !== DEFAULT_BENCHMARK && !everHeld.includes(t))
+      const tickers = [
+        DEFAULT_BENCHMARK,
+        ...everHeld.filter((t) => t !== DEFAULT_BENCHMARK),
+        ...extra,
+      ]
+      const from = priceFetchFrom(updateTransactions, todayDate())
+      setUpdate({
+        running: true,
+        done: 0,
+        total: tickers.length,
+        failures: [],
+        tolerated: [],
+        lastRunAt: null,
+      })
 
-    const outcome = await runMarketUpdate({
-      tickers,
-      fetchPrice: (ticker) => api.prices.fetch(ticker, from),
-      storePrice: async (ticker, history) => {
-        await api.priceHistory.put(ticker, { source: 'yahoo', history })
-      },
-      onProgress: (done, total) => setUpdate((prev) => ({ ...prev, done, total })),
-      tolerateFailure: (ticker) => toleratedTickers.has(ticker),
-    })
+      const outcome = await runMarketUpdate({
+        tickers,
+        fetchPrice: (ticker) => api.prices.fetch(ticker, from),
+        storePrice: async (ticker, history) => {
+          await api.priceHistory.put(ticker, { source: 'yahoo', history })
+        },
+        onProgress: (done, total) => setUpdate((prev) => ({ ...prev, done, total })),
+        tolerateFailure: (ticker) => toleratedTickers.has(ticker),
+      })
 
-    if (outcome.succeeded.length > 0) {
-      await api.meta.put('prices_last_updated', new Date().toISOString())
-    }
-    await reload()
-    setUpdate({
-      running: false,
-      done: tickers.length,
-      total: tickers.length,
-      failures: outcome.failed,
-      tolerated: outcome.tolerated,
-      lastRunAt: new Date().toISOString(),
-    })
-    return outcome
-  }, [update.running, transactions, aliases, watchlist, reload, toleratedTickers])
+      if (outcome.succeeded.length > 0) {
+        await api.meta.put('prices_last_updated', new Date().toISOString())
+      }
+      await reload()
+      setUpdate({
+        running: false,
+        done: tickers.length,
+        total: tickers.length,
+        failures: outcome.failed,
+        tolerated: outcome.tolerated,
+        lastRunAt: new Date().toISOString(),
+      })
+      return outcome
+    },
+    [update.running, transactions, aliases, watchlist, reload, toleratedTickers],
+  )
 
   const value: PortfolioData = {
     loading,
