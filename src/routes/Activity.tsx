@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError, NotAuthenticatedError } from '../api/client'
 import type { TransactionRow, TransactionType } from '../api/types'
+import { usePortfolioData } from '../data/usePortfolioData'
 import {
   BottomSheet,
   Button,
@@ -55,7 +56,13 @@ function toValues(row: TransactionRow): TransactionFormValues {
 
 export default function Activity() {
   const toast = useToast()
-  const [all, setAll] = useState<TransactionRow[] | null>(null)
+  /**
+   * Reads the shared cache rather than fetching its own copy - task 25c found the opposite,
+   * independently-fetched version going stale and still showing a mismatch Close Position or
+   * Reconcile had already fixed on another screen.
+   */
+  const { transactions: allTransactions, loading, reload } = usePortfolioData()
+  const all: TransactionRow[] | null = loading ? null : allTransactions
   const [tickerFilter, setTickerFilter] = useState('')
   const [accountFilter, setAccountFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState<TransactionType | ''>('')
@@ -74,29 +81,6 @@ export default function Activity() {
     },
     [toast],
   )
-
-  const reload = useCallback(async () => {
-    try {
-      setAll(await api.transactions.list())
-    } catch (err) {
-      report(err)
-    }
-  }, [report])
-
-  useEffect(() => {
-    let cancelled = false
-    api.transactions.list().then(
-      (rows) => {
-        if (!cancelled) setAll(rows)
-      },
-      (err: unknown) => {
-        if (!cancelled) report(err)
-      },
-    )
-    return () => {
-      cancelled = true
-    }
-  }, [report])
 
   const accounts = useMemo(
     () => [...new Set((all ?? []).map((r) => r.account_label))].sort(),

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { api, ApiError, NotAuthenticatedError } from '../api/client'
 import type { TransactionInput, TransactionRow } from '../api/types'
 import { parseM1Activity, type ParseResult } from '../engine/m1/parse'
@@ -16,6 +16,7 @@ import {
   moneyExact,
   SectionHeading,
   shares as formatShares,
+  StatusBadge,
   TextField,
   useToast,
   type Column,
@@ -27,7 +28,14 @@ type Tab = 'import' | 'reconcile'
 export default function Import() {
   const toast = useToast()
   const [tab, setTab] = useState<Tab>('import')
-  const [transactions, setTransactions] = useState<TransactionRow[] | null>(null)
+  /**
+   * Reads the shared cache rather than fetching its own copy, so a transaction created on any
+   * other screen (Close Position, Activity) is reflected here without a page reload - task 25c
+   * found the opposite, independently-fetched version going stale and showing a mismatch that
+   * had already been fixed elsewhere.
+   */
+  const { transactions: allTransactions, loading, reload } = usePortfolioData()
+  const transactions: TransactionRow[] | null = loading ? null : allTransactions
 
   const report = useCallback(
     (err: unknown) => {
@@ -38,29 +46,6 @@ export default function Import() {
     },
     [toast],
   )
-
-  const reload = useCallback(async () => {
-    try {
-      setTransactions(await api.transactions.list())
-    } catch (err) {
-      report(err)
-    }
-  }, [report])
-
-  useEffect(() => {
-    let cancelled = false
-    api.transactions.list().then(
-      (rows) => {
-        if (!cancelled) setTransactions(rows)
-      },
-      (err: unknown) => {
-        if (!cancelled) report(err)
-      },
-    )
-    return () => {
-      cancelled = true
-    }
-  }, [report])
 
   const accounts = useMemo(
     () => [...new Set((transactions ?? []).map((t) => t.account_label))].sort(),
@@ -530,6 +515,13 @@ function ReconcileTab({
           Enter or upload the share counts M1 currently reports, one ticker per row. Anything off by
           more than 0.001 shares is flagged below, with a one-tap fix.
         </p>
+
+        {Object.keys(prices).length === 0 && (
+          <StatusBadge status="warning">
+            No prices stored yet - fetch prices first, or every split is compared in pre-split
+            terms.
+          </StatusBadge>
+        )}
 
         <div className="flex flex-col gap-2">
           {rows.map((row) => (
