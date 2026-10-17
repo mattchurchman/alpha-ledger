@@ -18,36 +18,38 @@
 :root {
   color-scheme: light;
 
-  /* Surfaces and ink: cool neutrals, a white card lifted off a tinted plane. */
-  --al-plane: #f1f4f8;
+  /* Brand neutrals: Paper plane, white cards, Navy ink, and Mist-derived rules. */
+  --al-plane: #f5f7fa;
   --al-surface: #ffffff;
-  --al-surface-sunken: #ebf0f6;
-  --al-ink: #1c2331;
-  --al-ink-secondary: #4f5764;
-  --al-ink-muted: #666d79;
-  --al-rule: #dae0e8;
-  --al-grid: #e5eaf0;
-  --al-axis: #c9d0d9;
-  --al-focus: #0b67d9;
+  --al-surface-sunken: #edf1f6;
+  --al-brand-surface: #0b1b3d;
+  --al-brand-surface-ink: #ffffff;
+  --al-ink: #0b1b3d;
+  --al-ink-secondary: #5b6678;
+  --al-ink-muted: #626d80;
+  --al-rule: #dce3ec;
+  --al-grid: #e7ebf1;
+  --al-axis: #c8d0db;
+  --al-focus: #1f4fd8;
 
   /* The one accent, and the ink that reads on top of it. */
-  --al-accent: #0b67d9;
+  --al-accent: #1f4fd8;
   --al-accent-ink: #ffffff;
   /* The accent at poster weight, for a tint behind an active control. */
   --al-accent-wash: color-mix(in oklab, var(--al-accent) 10%, var(--al-surface));
 
   /* Soft elevation. Hairlines still exist; the shadow is what makes a card float. */
-  --al-shadow-card: 0 1px 2px rgb(28 35 49 / 0.04), 0 2px 8px rgb(28 35 49 / 0.05);
-  --al-shadow-raised: 0 2px 4px rgb(28 35 49 / 0.05), 0 10px 28px rgb(28 35 49 / 0.09);
-  --al-shadow-sheet: 0 -1px 2px rgb(28 35 49 / 0.05), 0 -14px 44px rgb(28 35 49 / 0.16);
+  --al-shadow-card: 0 1px 2px rgb(11 27 61 / 0.04), 0 6px 18px rgb(11 27 61 / 0.07);
+  --al-shadow-raised: 0 2px 4px rgb(11 27 61 / 0.05), 0 10px 28px rgb(11 27 61 / 0.1);
+  --al-shadow-sheet: 0 -1px 2px rgb(11 27 61 / 0.05), 0 -14px 44px rgb(11 27 61 / 0.16);
 
   /* The pair that matters: beat VOO vs trailed VOO. Blue ahead, red behind - never green/red. */
-  --al-viz-ahead: #0b67d9;
+  --al-viz-ahead: #1f4fd8;
   --al-viz-behind: #d7393b;
-  --al-viz-neutral: #e2e7ed;
+  --al-viz-neutral: #e3e8ef;
 
   /* Series identity */
-  --al-viz-you: #0b67d9;
+  --al-viz-you: #1f4fd8;
   --al-viz-voo: #71767e;
   --al-viz-estimate: #008b74;
   --al-viz-dim: #73a3eb;
@@ -63,9 +65,9 @@
   --al-ramp-5: #0c58b9;
   --al-ramp-6: #094798;
   --al-ramp-7: #04377a;
-  --al-ramp-1-ink: #1c2331;
-  --al-ramp-2-ink: #1c2331;
-  --al-ramp-3-ink: #1c2331;
+  --al-ramp-1-ink: #0b1b3d;
+  --al-ramp-2-ink: #0b1b3d;
+  --al-ramp-3-ink: #0b1b3d;
   --al-ramp-4-ink: #ffffff;
   --al-ramp-5-ink: #ffffff;
   --al-ramp-6-ink: #ffffff;
@@ -82,30 +84,32 @@
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --al-plane: #0d1117;
-    --al-surface: #181e25;
-    --al-surface-sunken: #12161d;
-    --al-ink: #f1f4f7;
-    --al-ink-secondary: #b9c0c9;
-    --al-ink-muted: #7e8590;
-    --al-rule: #282e37;
-    --al-grid: #252b32;
-    --al-axis: #404750;
-    --al-focus: #4e90f0;
+    --al-plane: #081225;
+    --al-surface: #111c2e;
+    --al-surface-sunken: #0c1626;
+    --al-brand-surface: #0b1b3d;
+    --al-brand-surface-ink: #ffffff;
+    --al-ink: #f5f7fa;
+    --al-ink-secondary: #b7c1cf;
+    --al-ink-muted: #8794a8;
+    --al-rule: #2d3a50;
+    --al-grid: #223048;
+    --al-axis: #485975;
+    --al-focus: #7fa2ff;
 
-    --al-accent: #4e90f0;
-    --al-accent-ink: #0d1117;
+    --al-accent: #7fa2ff;
+    --al-accent-ink: #0b1b3d;
     --al-accent-wash: color-mix(in oklab, var(--al-accent) 10%, var(--al-surface));
 
     --al-shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 10px rgb(0 0 0 / 0.3);
     --al-shadow-raised: 0 2px 6px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.5);
     --al-shadow-sheet: 0 -1px 2px rgb(0 0 0 / 0.4), 0 -16px 48px rgb(0 0 0 / 0.6);
 
-    --al-viz-ahead: #4e90f0;
+    --al-viz-ahead: #7fa2ff;
     --al-viz-behind: #e4605b;
-    --al-viz-neutral: #232830;
+    --al-viz-neutral: #1c2940;
 
-    --al-viz-you: #4e90f0;
+    --al-viz-you: #7fa2ff;
     --al-viz-voo: #969ca4;
     --al-viz-estimate: #00ab92;
     --al-viz-dim: #1d60bc;
@@ -118,13 +122,13 @@
     --al-ramp-5: #88b1ee;
     --al-ramp-6: #a1c6fd;
     --al-ramp-7: #c4dbfc;
-    --al-ramp-1-ink: #f1f4f7;
-    --al-ramp-2-ink: #f1f4f7;
-    --al-ramp-3-ink: #0d1117;
-    --al-ramp-4-ink: #0d1117;
-    --al-ramp-5-ink: #0d1117;
-    --al-ramp-6-ink: #0d1117;
-    --al-ramp-7-ink: #0d1117;
+    --al-ramp-1-ink: #f5f7fa;
+    --al-ramp-2-ink: #f5f7fa;
+    --al-ramp-3-ink: #0b1b3d;
+    --al-ramp-4-ink: #0b1b3d;
+    --al-ramp-5-ink: #0b1b3d;
+    --al-ramp-6-ink: #0b1b3d;
+    --al-ramp-7-ink: #0b1b3d;
 
     --al-status-good: #54b66e;
     --al-status-warning: #ddb049;
@@ -136,30 +140,32 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --al-plane: #0d1117;
-  --al-surface: #181e25;
-  --al-surface-sunken: #12161d;
-  --al-ink: #f1f4f7;
-  --al-ink-secondary: #b9c0c9;
-  --al-ink-muted: #7e8590;
-  --al-rule: #282e37;
-  --al-grid: #252b32;
-  --al-axis: #404750;
-  --al-focus: #4e90f0;
+  --al-plane: #081225;
+  --al-surface: #111c2e;
+  --al-surface-sunken: #0c1626;
+  --al-brand-surface: #0b1b3d;
+  --al-brand-surface-ink: #ffffff;
+  --al-ink: #f5f7fa;
+  --al-ink-secondary: #b7c1cf;
+  --al-ink-muted: #8794a8;
+  --al-rule: #2d3a50;
+  --al-grid: #223048;
+  --al-axis: #485975;
+  --al-focus: #7fa2ff;
 
-  --al-accent: #4e90f0;
-  --al-accent-ink: #0d1117;
+  --al-accent: #7fa2ff;
+  --al-accent-ink: #0b1b3d;
   --al-accent-wash: color-mix(in oklab, var(--al-accent) 10%, var(--al-surface));
 
   --al-shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 2px 10px rgb(0 0 0 / 0.3);
   --al-shadow-raised: 0 2px 6px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.5);
   --al-shadow-sheet: 0 -1px 2px rgb(0 0 0 / 0.4), 0 -16px 48px rgb(0 0 0 / 0.6);
 
-  --al-viz-ahead: #4e90f0;
+  --al-viz-ahead: #7fa2ff;
   --al-viz-behind: #e4605b;
-  --al-viz-neutral: #232830;
+  --al-viz-neutral: #1c2940;
 
-  --al-viz-you: #4e90f0;
+  --al-viz-you: #7fa2ff;
   --al-viz-voo: #969ca4;
   --al-viz-estimate: #00ab92;
   --al-viz-dim: #1d60bc;
@@ -171,13 +177,13 @@
   --al-ramp-5: #88b1ee;
   --al-ramp-6: #a1c6fd;
   --al-ramp-7: #c4dbfc;
-  --al-ramp-1-ink: #f1f4f7;
-  --al-ramp-2-ink: #f1f4f7;
-  --al-ramp-3-ink: #0d1117;
-  --al-ramp-4-ink: #0d1117;
-  --al-ramp-5-ink: #0d1117;
-  --al-ramp-6-ink: #0d1117;
-  --al-ramp-7-ink: #0d1117;
+  --al-ramp-1-ink: #f5f7fa;
+  --al-ramp-2-ink: #f5f7fa;
+  --al-ramp-3-ink: #0b1b3d;
+  --al-ramp-4-ink: #0b1b3d;
+  --al-ramp-5-ink: #0b1b3d;
+  --al-ramp-6-ink: #0b1b3d;
+  --al-ramp-7-ink: #0b1b3d;
 
   --al-status-good: #54b66e;
   --al-status-warning: #ddb049;
@@ -194,6 +200,8 @@
   --color-plane: var(--al-plane);
   --color-surface: var(--al-surface);
   --color-sunken: var(--al-surface-sunken);
+  --color-brand-surface: var(--al-brand-surface);
+  --color-brand-surface-ink: var(--al-brand-surface-ink);
   --color-ink: var(--al-ink);
   --color-ink-secondary: var(--al-ink-secondary);
   --color-ink-muted: var(--al-ink-muted);

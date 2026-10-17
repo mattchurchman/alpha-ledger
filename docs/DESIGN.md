@@ -6,9 +6,7 @@ here first.
 
 The method behind the chart decisions is the `dataviz` skill's: pick the form, assign color by
 the job it does, **validate the palette with a script rather than by eye**, then apply fixed
-mark specs. Every palette claim below was produced by
-`node scripts/validate_palette.js … --surface <ours>` against _our_ surfaces, not the skill's
-defaults. Section 4 records the runs.
+mark specs. Section 7 records the current validator, thresholds, surfaces and runs.
 
 ---
 
@@ -16,15 +14,15 @@ defaults. Section 4 records the runs.
 
 The product answers one question - _did my picks beat buying VOO with the same dollars?_ - so
 the design puts **one number and one shape** in front of you and keeps everything else quiet.
-Task 22 (rev 2) replaced the original "ledger paper and ink" look below with this one; the
-owner had no fixed preference and asked for something that reads as a modern, finished phone
-app rather than a document.
+The approved Rev 3 identity is documented in [`BRAND.md`](BRAND.md); these UI tokens translate
+its Navy, Royal, Sky, Mist, Paper and Slate into accessible app surfaces and data marks.
 
-- **Cool neutral surfaces, lifted with soft elevation, not a hairline alone.** The page plane is
-  a cool tinted gray; cards are a true white (dark mode: a desaturated near-black) that floats
-  above it on a soft shadow (`--al-shadow-card`) plus a hairline, rounder corners than before
-  (16px cards). This reads as a native phone app rather than a printed ledger.
-- **One confident accent.** `--al-accent` (the same blue as "ahead of VOO") now does double duty
+- **Paper and Navy surfaces, lifted with one soft card elevation.** The light page plane is brand
+  Paper; cards are true white. Dark mode uses a deep navy-tinted plane and card rather than a
+  neutral charcoal. Every card uses the same 16px radius and `--al-shadow-card` plus a Mist-derived
+  hairline. `--al-brand-surface` reserves brand Navy for the header and hero treatments.
+- **One confident accent.** Royal in light mode and Sky in dark mode, via `--al-accent` (the same
+  blue as "ahead of VOO"), does double duty
   as the interactive color - primary buttons, the active tab, focus rings, links - so the app
   has one color that means "this is alive," rather than every surface competing for attention.
   A 10%-mix wash of it (`--al-accent-wash`) marks an active control's background.
@@ -59,27 +57,30 @@ No color is ever defined _only_ inside a media query.
 
 ### 2.1 Surfaces and ink
 
-| Token                 | Role                     | Light     | Dark      |
-| --------------------- | ------------------------ | --------- | --------- |
-| `--al-plane`          | page plane               | `#f1f4f8` | `#0d1117` |
-| `--al-surface`        | card / chart surface     | `#ffffff` | `#181e25` |
-| `--al-surface-sunken` | input wells, table zebra | `#ebf0f6` | `#12161d` |
-| `--al-ink`            | primary text             | `#1c2331` | `#f1f4f7` |
-| `--al-ink-secondary`  | secondary text           | `#4f5764` | `#b9c0c9` |
-| `--al-ink-muted`      | labels, axis text        | `#666d79` | `#7e8590` |
-| `--al-rule`           | hairline border          | `#dae0e8` | `#282e37` |
-| `--al-grid`           | gridlines                | `#e5eaf0` | `#252b32` |
-| `--al-axis`           | baseline / axis rule     | `#c9d0d9` | `#404750` |
-| `--al-focus`          | focus ring               | `#0b67d9` | `#4e90f0` |
-| `--al-accent`         | the one interactive hue  | `#0b67d9` | `#4e90f0` |
-| `--al-accent-ink`     | text/icon on `--al-accent` | `#ffffff` | `#0d1117` |
-| `--al-accent-wash`    | active-control background (`color-mix`, 10% accent) | - | - |
+| Token                    | Role                                                | Light     | Dark      |
+| ------------------------ | --------------------------------------------------- | --------- | --------- |
+| `--al-plane`             | page plane                                          | `#f5f7fa` | `#081225` |
+| `--al-surface`           | card / chart surface                                | `#ffffff` | `#111c2e` |
+| `--al-surface-sunken`    | input wells, table zebra                            | `#edf1f6` | `#0c1626` |
+| `--al-brand-surface`     | app header / hero                                   | `#0b1b3d` | `#0b1b3d` |
+| `--al-brand-surface-ink` | text on brand surface                               | `#ffffff` | `#ffffff` |
+| `--al-ink`               | primary text                                        | `#0b1b3d` | `#f5f7fa` |
+| `--al-ink-secondary`     | secondary text                                      | `#5b6678` | `#b7c1cf` |
+| `--al-ink-muted`         | labels, axis text                                   | `#626d80` | `#8794a8` |
+| `--al-rule`              | hairline border                                     | `#dce3ec` | `#2d3a50` |
+| `--al-grid`              | gridlines                                           | `#e7ebf1` | `#223048` |
+| `--al-axis`              | baseline / axis rule                                | `#c8d0db` | `#485975` |
+| `--al-focus`             | focus ring                                          | `#1f4fd8` | `#7fa2ff` |
+| `--al-accent`            | the one interactive hue                             | `#1f4fd8` | `#7fa2ff` |
+| `--al-accent-ink`        | text/icon on `--al-accent`                          | `#ffffff` | `#0b1b3d` |
+| `--al-accent-wash`       | active-control background (`color-mix`, 10% accent) | -         | -         |
 
-Contrast on the card surface: ink 15.7:1 light / 15.2:1 dark, secondary 7.3 / 9.1, muted 5.2 /
-4.5. Grid and axis are intentionally recessive - they are chrome, not marks. Elevation
-(`--al-shadow-card` / `-raised` / `-sheet`) now does some of the separation work a hairline did
-alone before; the hairline stays everywhere a shadow would be too subtle to notice (table rows,
-dividers).
+Contrast on the card surface: ink 17.0:1 light / 15.9:1 dark, secondary 5.8 / 9.4, muted 5.2 /
+5.6. Across plane, card and sunken surfaces, the weakest text pair is 4.61:1. White on Navy is
+17.0:1. Grid and axis are intentionally recessive - they are chrome, not marks. Cards use the
+single soft `--al-shadow-card`; the raised and sheet shadows remain interaction/overlay states,
+not competing card styles. Hairlines stay where shadows do not communicate structure (table
+rows and dividers).
 
 ### 2.2 The one pair that matters: beat VOO vs trailed VOO
 
@@ -87,16 +88,15 @@ dividers).
 
 | Token              | Meaning                                           | Light     | Dark      |
 | ------------------ | ------------------------------------------------- | --------- | --------- |
-| `--al-viz-ahead`   | beat VOO (positive value added, discount, gain)   | `#0b67d9` | `#4e90f0` |
+| `--al-viz-ahead`   | beat VOO (positive value added, discount, gain)   | `#1f4fd8` | `#7fa2ff` |
 | `--al-viz-behind`  | trailed VOO (negative value added, premium, loss) | `#d7393b` | `#e4605b` |
-| `--al-viz-neutral` | the zero midpoint of any diverging scale          | `#e2e7ed` | `#232830` |
+| `--al-viz-neutral` | the zero midpoint of any diverging scale          | `#e3e8ef` | `#1c2940` |
 
 Why not green/red, the finance convention: red-green is exactly the pair that collapses for the
-~8% of men with protanopia or deuteranopia. Measured at our surfaces (task 22's new hexes),
-green↔red is a **hard FAIL** on CVD separation - ΔE 3.6 light / 3.9 dark, under the 6.0 floor,
-not just in the warn band. Blue↔red, the skill's diverging pair (two poles that read as opposite
-with a neutral gray between them), measures **ΔE 24.8 light / 22.1 dark** under CVD simulation
-and **34.9 / 29.1** unsimulated - several times the ΔE 8 target.
+~8% of men with protanopia or deuteranopia. Royal/Sky versus red remains the diverging pair (two
+poles that read as opposite with a neutral gray between them). The task 36 fallback validator
+measures the pair at **ΔE00 48.07 light / 42.47 dark** in the worst full CVD simulation and
+**43.39 / 41.49** unsimulated, well above its ΔE00 8 CVD and 15 normal floors.
 
 Sign is **never** carried by color alone. Every signed number ships as
 `glyph + sign + value`: `▲ +$12,480` / `▼ −$3,140`, with an `aria-label` that spells it out
@@ -105,31 +105,30 @@ survive losing the hue.
 
 ### 2.3 Series identity
 
-| Token               | Series                              | Light     | Dark      | Notes                                     |
-| ------------------- | ----------------------------------- | --------- | --------- | ----------------------------------------- |
-| `--al-viz-you`      | your portfolio                      | `#0b67d9` | `#4e90f0` | slot 1; same hue as _ahead_, deliberately; same hue as `--al-accent` |
-| `--al-viz-voo`      | the VOO shadow                      | `#71767e` | `#969ca4` | graphite **reference mark**, see below    |
-| `--al-viz-estimate` | your fair-value estimate            | `#008b74` | `#00ab92` | a level, never a direction                |
-| `--al-viz-dim`      | de-emphasised line (sparkline body) | `#73a3eb` | `#1d60bc` | blue ramp steps 2 / 2 (light) and 2 (dark), see 2.5 |
+| Token               | Series                              | Light     | Dark      | Notes                                                                |
+| ------------------- | ----------------------------------- | --------- | --------- | -------------------------------------------------------------------- |
+| `--al-viz-you`      | your portfolio                      | `#1f4fd8` | `#7fa2ff` | slot 1; same hue as _ahead_, deliberately; same hue as `--al-accent` |
+| `--al-viz-voo`      | the VOO shadow                      | `#71767e` | `#969ca4` | graphite **reference mark**, see below                               |
+| `--al-viz-estimate` | your fair-value estimate            | `#008b74` | `#00ab92` | a level, never a direction                                           |
+| `--al-viz-dim`      | de-emphasised line (sparkline body) | `#73a3eb` | `#1d60bc` | blue ramp steps 2 / 2 (light) and 2 (dark), see 2.5                  |
 
 **Why VOO is graphite and not a categorical hue.** VOO is the benchmark - the thing you are
 measured against, like a target line - so it is drawn as a _reference mark_ rather than a
 competing series. This is a deliberate departure from the chroma floor (C ≥ 0.10), which exists
 so a hue can do identity work; graphite does identity work here by being _the only achromatic
-line on the chart_, and the alternative was worse: the obvious second hue is orange, and with
-task 22's new red, orange↔red still fails both the CVD floor (ΔE 1.8) and the normal-vision
-floor (ΔE 7.8), so an orange VOO line would be confusable with the red "behind" fill it sits
-inside. Secondary encoding is heavy here anyway: a legend is always present, both lines carry
+line on the chart_. A categorical hue would compete with the directional blue/red pair, while
+graphite stays visibly separate from both in the task 36 checks. Secondary encoding is heavy
+here anyway: a legend is always present, both lines carry
 direct end labels, the crosshair readout names both, and the table view lists both columns.
-Contrast against the card surface is 4.6:1 light / 7.2:1 dark, past the 3:1 mark floor.
+Contrast against the card surface is 4.57:1 light / 6.17:1 dark, past the 3:1 mark floor. In the
+ahead/behind/benchmark triples, the weakest separation is ΔE00 22.43 normal / 16.24 CVD in light
+and 17.55 / 17.62 in dark, so graphite remains distinct without pretending to be a categorical hue.
 
-**Why the fair-value line is a teal-green, not the old pure green**, given §2.2 bans green for
-direction: task 22 moved `--al-viz-estimate` toward teal (`#008b74` / `#00ab92`) so it reads
-less like a status-good color while keeping the same job - re-run against the new ahead/behind
-pair it clears every check: CVD separation ΔE 10.3 light / 8.6 dark against red (both above the
-8.0 target), normal-vision floor 20.9 / 18.4 against blue (several times the 15 floor), and it
-is never adjacent to a true green status chip on the same screen. Green is still never used for
-a delta, a gain, or an arrow - only this one level.
+**Why the fair-value line is a teal-green, not pure green**, given §2.2 bans green for direction:
+`#008b74` / `#00ab92` reads less like a status-good color while keeping the same job - a level,
+not a direction. Re-run against the Royal/Sky ahead/behind pair, the worst CVD separation is
+ΔE00 15.98 light / 10.34 dark and the worst normal separation is 42.61 / 36.39. Green is still never
+used for a delta, a gain, or an arrow - only this one level.
 
 ### 2.4 Status
 
@@ -138,14 +137,14 @@ has its own light/dark values rather than one hex for both modes, so each clears
 surface without the icon-only mitigation the old warm palette needed.
 
 | Token                  | Role     | Light     | Dark      | Used for                               |
-| ---------------------- | -------- | --------- | --------- | --------------------------------------- |
+| ---------------------- | -------- | --------- | --------- | -------------------------------------- |
 | `--al-status-good`     | good     | `#119245` | `#54b66e` | import succeeded, reconciliation clean |
 | `--al-status-warning`  | warning  | `#a7760f` | `#ddb049` | prices stale, shadow-coverage gaps     |
 | `--al-status-serious`  | serious  | `#cd570f` | `#ef8448` | per-ticker fetch failures              |
 | `--al-status-critical` | critical | `#cc2823` | `#ea6b5e` | share count mismatch, restore failure  |
 
-Contrast vs the card surface: good 4.0:1 / 6.6:1, warning 4.0:1 / 8.3:1, serious 4.2:1 / 6.4:1,
-critical 5.4:1 / 5.4:1 - all at or above the 3:1 mark floor in both modes. The icon + word
+Contrast vs the card surface: good 4.02:1 / 6.75:1, warning 4.01:1 / 8.44:1, serious 4.23:1 /
+6.56:1, critical 5.39:1 / 5.50:1 - all at or above the 3:1 mark floor in both modes. The icon + word
 pairing stays mandatory regardless; it is what carries status to a colorblind or grayscale
 reading, not what fixes contrast.
 
@@ -155,13 +154,13 @@ For the one place magnitude is encoded by lightness (`DiscountMap`'s tiles, mete
 steps, one hue, each mode its own selected ramp (dark is not light inverted - see DESIGN 6) with
 the ink that clears 4.5:1 shipped per step so a label on a tile never has to guess:
 
-Light: `1 #97b8e8` (ink `#1c2331`) · `2 #73a3eb` (`#1c2331`) · `3 #4d8eee` (`#1c2331`) ·
+Light: `1 #97b8e8` (ink `#0b1b3d`) · `2 #73a3eb` (`#0b1b3d`) · `3 #4d8eee` (`#0b1b3d`) ·
 `4 #1069da` (`#ffffff`) · `5 #0c58b9` (`#ffffff`) · `6 #094798` (`#ffffff`) ·
 `7 #04377a` (`#ffffff`)
 
-Dark: `1 #074da5` (`#f1f4f7`) · `2 #1d60bc` (`#f1f4f7`) · `3 #5f89c7` (`#0d1117`) ·
-`4 #749dd9` (`#0d1117`) · `5 #88b1ee` (`#0d1117`) · `6 #a1c6fd` (`#0d1117`) ·
-`7 #c4dbfc` (`#0d1117`)
+Dark: `1 #074da5` (`#f5f7fa`) · `2 #1d60bc` (`#f5f7fa`) · `3 #5f89c7` (`#0b1b3d`) ·
+`4 #749dd9` (`#0b1b3d`) · `5 #88b1ee` (`#0b1b3d`) · `6 #a1c6fd` (`#0b1b3d`) ·
+`7 #c4dbfc` (`#0b1b3d`)
 
 ---
 
@@ -422,21 +421,31 @@ Every screen built on this kit must keep all of these true:
 
 ## 7. Validator runs behind the palette
 
-Script: `node scripts/validate_palette.js` from the `dataviz` skill, `--surface` set to ours.
-**Re-run and recorded for task 22's new palette** (2026-10-12); the original rows this table
-carried belonged to the "ledger paper and ink" hexes and no longer describe what ships.
+Script: **`npm run palette`** (`scripts/validate_palette.mjs`). It reads the hexes straight out
+of `src/index.css`, so this table can never drift from what ships, and it exits non-zero if any
+row fails. The `dataviz` skill's own validator is not installed on this machine; this is its
+allowed fallback, using WCAG 2 relative luminance for contrast and CIEDE2000 after
+full-severity protan, deutan and tritan simulation for pair separation. Floors: 4.5:1 text,
+3:1 non-text marks, ΔE00 15 normal and 8 CVD for any pair that must read as distinct. Standard,
+reproducible math - but its ΔE numbers are not comparable to the rows this table carried before
+task 36, so task 36 replaced rather than mixed the result sets.
 
-| Run                                                                     | Result                                                                                      |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `#0b67d9,#008b74,#d7393b --mode light --surface #ffffff --pairs all`     | ALL PASS - worst pair ΔE 10.3 CVD, 20.9 normal                                              |
-| `#4e90f0,#00ab92,#e4605b --mode dark --surface #181e25 --pairs all`      | ALL PASS - worst pair ΔE 8.6 CVD, 18.4 normal                                                |
-| `#0b67d9,#d7393b --mode light --surface #ffffff --pairs all` (ahead/behind alone) | ALL PASS - ΔE 24.8 CVD / 34.9 normal                                              |
-| `#4e90f0,#e4605b --mode dark --surface #181e25 --pairs all` (ahead/behind alone) | ALL PASS - ΔE 22.1 CVD / 29.1 normal                                               |
-| `#119245,#d7393b --mode light --surface #ffffff --pairs all` (green/red convention) | **FAIL** - ΔE 3.6 CVD, under the 6.0 floor. Why not green/red, still.           |
-| `#54b66e,#e4605b --mode dark --surface #181e25 --pairs all` (green/red convention)  | **FAIL** - lightness band + ΔE 3.9 CVD. Same conclusion in dark.                 |
-| `#0b67d9,#c15a1f,#d7393b --mode light --surface #ffffff --pairs all` (orange VOO) | **FAIL** - orange↔red ΔE 1.8 CVD / 7.8 normal. Why VOO stays graphite.           |
-| `#4e90f0,#4a3aa7 --mode dark --surface #181e25 --pairs all` (violet estimate) | **FAIL** - lightness band outside range, contrast 1.96:1 (sub-3:1). Still not viable, now for a different reason than before. |
-| text contrast, all ink tokens on both surfaces                           | see §2.1; everything ≥ 4.5:1                                                                |
-| status colors vs their own surface, both modes                           | see §2.4; everything ≥ 4.0:1                                                                |
+| Run                                                              | Result                                                                          |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Royal / red / teal on `#ffffff`                                  | **PASS** - worst pair ΔE00 42.61 normal / 15.98 CVD; weakest mark contrast 4.25:1 |
+| Sky / red / teal on `#111c2e`                                    | **PASS** - worst pair ΔE00 36.39 normal / 10.34 CVD; weakest mark contrast 4.98:1 |
+| Royal / red / graphite on `#ffffff`                              | **PASS** - worst pair ΔE00 22.43 normal / 16.24 CVD; graphite contrast 4.57:1     |
+| Sky / red / graphite on `#111c2e`                                | **PASS** - worst pair ΔE00 17.55 normal / 17.62 CVD; graphite contrast 6.17:1     |
+| Royal / red alone on `#ffffff`                                   | **PASS** - ΔE00 43.39 normal / 48.07 CVD; both marks ≥ 4.63:1                     |
+| Sky / red alone on `#111c2e`                                     | **PASS** - ΔE00 41.49 normal / 42.47 CVD; both marks ≥ 4.98:1                     |
+| Light ink / secondary / muted on plane, card and sunken surfaces | **PASS** - all nine pairs ≥ 4.61:1                                              |
+| Dark ink / secondary / muted on plane, card and sunken surfaces  | **PASS** - all nine pairs ≥ 5.56:1                                              |
+| White on Navy; accent on plane; accent ink on accent, both modes | **PASS** - weakest pair 6.18:1                                                  |
+| Status colors on their card surface, both modes                  | **PASS** - weakest mark 4.01:1 light / 5.50:1 dark                              |
+| Seven ramp inks on their steps, both modes                       | **PASS** - weakest label 5.18:1 light / 4.76:1 dark                             |
 
-Re-run these before changing any color token. The claim is the script's, not anyone's eye.
+Run `npm run palette` before changing any color token, and again after. The claim is the
+calculation, not anyone's eye; visual screenshot review remains a separate acceptance check.
+The validator also re-checks the green/red convention section 2.2 rejects, and still measures it
+as a CVD failure (ΔE00 6.11 light / 5.21 dark, under the 8 floor) - that row is expected to fail
+and is reported as such.

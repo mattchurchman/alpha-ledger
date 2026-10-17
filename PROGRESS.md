@@ -15,7 +15,7 @@ read it end to end. Rev 3 plan and reasoning: `docs/REV3_ASSESSMENT.md`; order a
 | 33 | Persist import decisions | Sonnet | done |
 | 34 | Import screen v2 | Opus | done |
 | 35 | Real full re-import and owner acceptance (supersedes 25c) | Opus | - |
-| 36 | Brand palette into tokens | Opus | **partial - uncommitted working tree** |
+| 36 | Brand palette into tokens | Opus | done |
 | 37 | Logo, icons, sign-in screen | Sonnet | - |
 | 38 | "S&P 500" wording | Haiku | - |
 | 39 | Dashboard facelift | Opus | - |
@@ -167,3 +167,19 @@ separately or leave it; either way it is not yours to revert.
 
 **Next:** finish the four steps above, then `tasks/37-brand-assets.md`. Task 38 is independent of
 all of this and can run at any time.
+
+## Task 36 completion - 2026-10-17 - Codex
+Status: done.
+
+Completed:
+- Re-ran `npm run palette`: all 42 recorded contrast and colour-separation rows pass.
+- `npm run check` passes: typecheck, lint, 28 test files and 514 tests.
+- `npm run build` and `npm run screenshots` pass. `/kit` and home were reviewed at 390px and
+  1280px in light and dark; the owner approved the displayed screenshots by replying `push`.
+- Reviewed the final diff and status: only source, design documentation and the task handoff are
+  included; `private/`, local D1 state and generated screenshots remain ignored.
+- The local model menu was verified with `./scripts/codex-models.sh`; it lists `gpt-6-astra`.
+
+Open issues: none.
+
+**Next:** `tasks/codex/38.md` on `gpt-5.6-terra`, effort medium.
