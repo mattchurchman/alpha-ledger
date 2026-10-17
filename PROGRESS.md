@@ -18,7 +18,7 @@ read it end to end. Rev 3 plan and reasoning: `docs/REV3_ASSESSMENT.md`; order a
 | 36 | Brand palette into tokens | Opus | done |
 | 37 | Logo, icons, sign-in screen | Sonnet | done |
 | 38 | "S&P 500" wording | Haiku | done |
-| 39 | Dashboard facelift | Opus | partial — implemented; owner screenshot approval pending |
+| 39 | Dashboard facelift | Opus | done — owner approved screenshots |
 | 40 | Release rev 3 | Haiku | - |
 
 ## Rev 3 entries
@@ -270,3 +270,14 @@ Status: partial — checks complete; owner screenshot approval still pending.
 Owner action: approve the four `home-{390,1280}-{light,dark}.png` previews in
 `/tmp/alpha-ledger-task39-review`. Task 40 remains gated on that explicit approval.
 **Next:** finish task 39's owner review, then `tasks/codex/35.md`, `gpt-6-astra`, effort high.
+
+## Task 39 owner acceptance - 2026-10-17 - Codex
+Status: done.
+
+- The owner replied "yes" to the explicit approval question covering the mobile and desktop
+  dashboard previews in light and dark from `/tmp/alpha-ledger-task39-review`.
+- This closes task 39's screenshot approval gate. Source and financial calculations are unchanged.
+- `npm run check` passes: typecheck, lint, 28 test files and 514 tests.
+- Task 35's real-data validation and task 40's separate deployment approval remain outstanding.
+
+**Next:** `tasks/codex/35.md`, `gpt-6-astra`, effort high, on the owner's machine with private inputs.
