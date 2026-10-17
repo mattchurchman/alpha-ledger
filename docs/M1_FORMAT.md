@@ -75,7 +75,7 @@ after using `Transaction Type` to decide direction.
 | `FEE`              | `CURRENCY`    | _dropped_                                               | Dividend withholding and similar. Cash.                             |
 | `OTHER`            | `CURRENCY`    | _dropped_ **only if** the description reads as interest | Securities-lending interest and account interest. See Decisions.    |
 | `OTHER`            | anything else | _unrecognized_                                          | `OTHER` is a grab-bag; anything not plainly interest gets reported. |
-| `CASH`             | `CURRENCY`    | _unrecognized_                                          | Merger/buyout cash settlement; see Decisions.                      |
+| `CASH`             | `CURRENCY`    | _unrecognized_                                          | Merger/buyout cash settlement; see Decisions.                       |
 | anything else      | —             | _unrecognized_                                          | Reported with the raw row so it can be classified.                  |
 
 "Dropped" means recognized and deliberately discarded per SPEC section 3 ("Deposits,
@@ -103,14 +103,17 @@ consequences:
   would add a phantom holding the engine values at zero, and the share movement it describes
   is one SPEC 4 already applies from the price history. The parser therefore checks `Symbol`
   against `TICKER_PATTERN` (`src/engine/types.ts`, the same constant the Worker validates
-  with) and reports anything else as unrecognized.
+  with) and reports anything else as unrecognized. The import resolver
+  (`src/engine/m1/resolve.ts`) then auto-drops the row only when the stripped ticker has a split
+  event within its evidence window; without that proof it remains a question for the owner.
 - **The check has to happen in the parser, not only at the API.** Before it did, the preview
   counted the row as new and `POST /api/transactions/bulk` then rejected the entire batch with
   `400 "ticker" is not a valid ticker: PRESPLITCEIX` — one row blocking a whole file.
 
 Other corporate actions may well use the same placeholder trick under a different prefix. The
-pattern check catches the shape rather than the word, so they surface the same way: reported,
-skipped, and fixable with an `adjust` transaction if real shares moved.
+pattern check catches the shape rather than the word, so they surface the same way: reported and
+skipped. Only the known `PRESPLIT<ticker>` shape is resolved automatically, and only with the
+nearby split evidence above; anything else can be fixed with an `adjust` if real shares moved.
 
 ### Fractional shares
 
@@ -187,11 +190,14 @@ company that was acquired or taken private around the row's date (e.g. Twitter, 
 Blizzard) - this reads as M1's label for a merger/buyout cash settlement paid out when a held
 position stopped trading.
 
-It cannot be mapped automatically: there is no ticker on the row (the company name in
-`Description` is prose, not a `Symbol`) and no `Units`, so there is no share count to attach a
-`sell` to. Per the same rule as transfers in kind, the parser reports it rather than guessing -
-the owner enters a `sell` or `adjust` by hand with the ticker and share count from their own
-records.
+The parser still reports it rather than guessing from company-name prose. The import resolver
+(`src/engine/m1/resolve.ts`) handles that reported row from stronger evidence: an exact CUSIP
+match to earlier ticker rows is auto-fixed; otherwise one held ticker whose price history ends
+near the settlement and whose last close fits the cash per held share becomes a one-tap
+proposal. The share count always comes from the ledger through `closeOutPlan`, never from
+inventing one from the amount. Ambiguous or unsupported rows stay visible for the owner, and
+every resulting `sell` keeps the CASH row's own `source_row_hash` so it cannot return on the next
+full import.
 
 ## Decisions
 
@@ -205,9 +211,9 @@ records.
   the cent before being printed. `Amount` and `Units` are the authoritative pair.
 - **`Unit Type` decides cash vs securities, not `Symbol` emptiness.** This is what makes a
   transfer _in kind_ separable from a cash transfer — same `Transaction Type`, different
-  `Unit Type`. In-kind transfers are reported rather than auto-mapped, because SPEC 3
-  describes `adjust` as a manual correction and picking a share count for someone is not
-  the parser's call.
+  `Unit Type`. The parser reports in-kind transfers instead of silently importing an `adjust`;
+  the resolver turns a valid ticker and the row's own units into an evidence-backed proposal.
+  It never picks a share count that the export did not supply.
 - **`OTHER` is only dropped when the description reads as interest** (matching
   `securities lending` or the word `interest`). Dropping the whole grab-bag would risk
   discarding a spinoff or an in-kind movement. Anything else gets reported.

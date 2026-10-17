@@ -130,6 +130,7 @@ Negative-bucket tooltip text: "This position has paid you back more cash than th
 
 ## Decision log
 
+- 2026-10-16: **The import never invents a ticker or share count; it applies a fix only from evidence in the data, and ties each fix to its source row hash.** A `PRESPLIT<ticker>` row is auto-dropped only when that ticker has a nearby stored split event. A CASH settlement is auto-resolved only by an exact CUSIP match; a unique fit between a held position, its final closes and the cash per ledger share is shown as a proposal instead. Transfers in kind use their own ticker and units as a proposed `adjust`. Anything ambiguous stays a question, and saving or ignoring it under the source row's hash keeps a full re-import idempotent.
 - 2026-10-07: Sales mirrored dollar-for-dollar in per-ticker VOO buckets. Dividends treated as cash out of the stock. IRR for percent returns. Accounts combined. Idle cash ignored. Hosted database behind login accepted. (User confirmed.)
 - 2026-10-07: M1's CSV column layout is not publicly documented. Task 02 derives it from the user's real export.
 - 2026-10-08: **Cloudflare Access is dropped. (User decided.)** Its price is genuinely $0 for one user, but Zero Trust onboarding requires a payment method on file before an application can be created, which the user ruled a breach of the free-only rule. Section 2's stop-and-ask condition therefore fired, one step later than written - the pricing page confirmed the price, and the signup flow revealed the card. Sources in `docs/SETUP.md` section 0.

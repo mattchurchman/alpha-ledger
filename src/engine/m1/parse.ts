@@ -22,10 +22,26 @@ export interface UnrecognizedRow {
   fields: Record<string, string>
 }
 
+export type M1RowDisposition = 'transaction' | 'dropped' | 'unrecognized'
+
+/**
+ * Ephemeral source metadata used by the import resolver. It keeps enough of the CSV row to
+ * re-hash it after account inference and to explain a proposed fix, but is never persisted.
+ */
+export interface ParsedM1Row {
+  line: number
+  disposition: M1RowDisposition
+  fields: Record<string, string>
+  source_row_hash: string
+  hashOccurrence: number
+  reason: string | null
+}
+
 export interface ParseResult {
   transactions: NormalizedTransaction[]
   dropped: DroppedRow[]
   unrecognized: UnrecognizedRow[]
+  rows: ParsedM1Row[]
 }
 
 const REQUIRED_COLUMNS = [
@@ -84,13 +100,14 @@ export function parseM1Activity(csvText: string, accountLabel: string): ParseRes
     )
   }
 
-  const result: ParseResult = { transactions: [], dropped: [], unrecognized: [] }
+  const result: ParseResult = { transactions: [], dropped: [], unrecognized: [], rows: [] }
   const occurrences = new Map<string, number>()
 
   for (let i = headerRow + 1; i < rows.length; i++) {
     const row = rows[i]
     if (row.every((cell) => cell.trim() === '')) continue
-    classifyRow(row, columns, i + 1, accountLabel, occurrences, result)
+    const identity = rowHash(row, columns, accountLabel, occurrences)
+    classifyRow(row, columns, i + 1, accountLabel, identity, result)
   }
 
   return result
@@ -101,22 +118,35 @@ function classifyRow(
   columns: Record<string, number>,
   line: number,
   accountLabel: string,
-  occurrences: Map<string, number>,
+  identity: { hash: string; occurrence: number },
   result: ParseResult,
 ): void {
   const get = (name: string): string => (row[columns[name.toLowerCase()]] ?? '').trim()
+  const fields = rawFields(row, columns)
 
   const rawType = get('Transaction Type')
   const unitType = get('Unit Type').toUpperCase()
   const type = rawType.toUpperCase()
+
+  const record = (disposition: M1RowDisposition, reason: string | null): void => {
+    result.rows.push({
+      line,
+      disposition,
+      fields,
+      source_row_hash: identity.hash,
+      hashOccurrence: identity.occurrence,
+      reason,
+    })
+  }
 
   const reject = (reason: string): void => {
     result.unrecognized.push({
       line,
       transaction_type: rawType,
       reason,
-      fields: rawFields(row, columns),
+      fields,
     })
+    record('unrecognized', reason)
   }
 
   switch (type) {
@@ -130,12 +160,13 @@ function classifyRow(
         get,
         type === 'PURCHASED' ? 'buy' : 'sell',
         accountLabel,
-        occurrences,
-        row,
-        columns,
+        identity.hash,
       )
       if (typeof built === 'string') reject(built)
-      else result.transactions.push(built)
+      else {
+        result.transactions.push(built)
+        record('transaction', null)
+      }
       return
     }
 
@@ -144,15 +175,19 @@ function classifyRow(
         reject(`DIVIDEND row has Unit Type "${unitType}", expected CURRENCY`)
         return
       }
-      const built = buildDividendTransaction(get, accountLabel, occurrences, row, columns)
+      const built = buildDividendTransaction(get, accountLabel, identity.hash)
       if (typeof built === 'string') reject(built)
-      else result.transactions.push(built)
+      else {
+        result.transactions.push(built)
+        record('transaction', null)
+      }
       return
     }
 
     case 'TRANSFER': {
       if (unitType === 'CURRENCY') {
         result.dropped.push({ line, transaction_type: rawType, reason: 'cash transfer' })
+        record('dropped', 'cash transfer')
       } else {
         reject('transfer in kind; needs an adjust transaction with a share count')
       }
@@ -161,12 +196,14 @@ function classifyRow(
 
     case 'FEE': {
       result.dropped.push({ line, transaction_type: rawType, reason: 'cash fee' })
+      record('dropped', 'cash fee')
       return
     }
 
     case 'OTHER': {
       if (unitType === 'CURRENCY' && INTEREST_DESCRIPTION.test(get('Description'))) {
         result.dropped.push({ line, transaction_type: rawType, reason: 'interest' })
+        record('dropped', 'interest')
       } else {
         reject('OTHER row that does not read as interest')
       }
@@ -215,9 +252,7 @@ function buildSecurityTransaction(
   get: (name: string) => string,
   type: 'buy' | 'sell',
   accountLabel: string,
-  occurrences: Map<string, number>,
-  row: string[],
-  columns: Record<string, number>,
+  sourceRowHash: string,
 ): NormalizedTransaction | string {
   const ticker = get('Symbol').toUpperCase()
   if (ticker === '') return `${type} row has no Symbol`
@@ -241,7 +276,7 @@ function buildSecurityTransaction(
     shares: shares.toFixed(),
     amount_usd: amount.toFixed(),
     source: 'm1',
-    source_row_hash: rowHash(row, columns, accountLabel, occurrences),
+    source_row_hash: sourceRowHash,
     note: null,
     excluded: false,
   }
@@ -250,9 +285,7 @@ function buildSecurityTransaction(
 function buildDividendTransaction(
   get: (name: string) => string,
   accountLabel: string,
-  occurrences: Map<string, number>,
-  row: string[],
-  columns: Record<string, number>,
+  sourceRowHash: string,
 ): NormalizedTransaction | string {
   const ticker = get('Symbol').toUpperCase()
   if (ticker === '') return 'DIVIDEND row has no Symbol, so it cannot be attributed'
@@ -272,7 +305,7 @@ function buildDividendTransaction(
     shares: null,
     amount_usd: amount.toFixed(),
     source: 'm1',
-    source_row_hash: rowHash(row, columns, accountLabel, occurrences),
+    source_row_hash: sourceRowHash,
     note: null,
     excluded: false,
   }
@@ -327,18 +360,26 @@ function rowHash(
   columns: Record<string, number>,
   accountLabel: string,
   occurrences: Map<string, number>,
-): string {
-  const parts = ['m1', accountLabel]
-  for (const name of HASHED_COLUMNS) {
-    const i = columns[name.toLowerCase()]
-    parts.push(i === undefined ? '' : (row[i] ?? '').trim())
-  }
-
-  const content = parts.join('\x1f')
+): { hash: string; occurrence: number } {
+  const fields = rawFields(row, columns)
+  const content = hashContent(fields, accountLabel)
   const occurrence = (occurrences.get(content) ?? 0) + 1
   occurrences.set(content, occurrence)
 
-  return fnv1a64(`${content}\x1f${occurrence}`)
+  return { hash: fnv1a64(`${content}\x1f${occurrence}`), occurrence }
+}
+
+/** Rebuild a row hash after the resolver has supplied or inferred its account label. */
+export function rehashM1Row(row: ParsedM1Row, accountLabel: string): string {
+  return fnv1a64(`${hashContent(row.fields, accountLabel)}\x1f${row.hashOccurrence}`)
+}
+
+function hashContent(fields: Record<string, string>, accountLabel: string): string {
+  return [
+    'm1',
+    accountLabel,
+    ...HASHED_COLUMNS.map((name) => fields[name.toLowerCase()] ?? ''),
+  ].join('\x1f')
 }
 
 const FNV_OFFSET = 0xcbf29ce484222325n

@@ -1872,7 +1872,7 @@ there. Rev 3 plan and reasoning: `docs/REV3_ASSESSMENT.md`; order: `tasks/QUEUE.
 ## Rev 3 task status
 | # | Task | Model | Status |
 |---|------|-------|--------|
-| 32 | Import resolver: findings become rules | Opus | - |
+| 32 | Import resolver: findings become rules | Opus | done |
 | 33 | Persist import decisions | Sonnet | - |
 | 34 | Import screen v2 | Opus | - |
 | 35 | Real full re-import and owner acceptance (supersedes 25c) | Opus | - |
@@ -1899,3 +1899,28 @@ Verified: SVGs rendered at 16-700px in light and dark; `npm run check` untouched
 Open issues: whether M1 puts a Security Id on CASH rows is unverified - task 35 settles it.
 
 **Next:** tasks/32-import-resolver.md on Opus (effort high) - budget ~120k.
+
+## Task 32 - Import resolver: findings become rules - 2026-10-16 - Codex (Opus equivalent, high)
+Status: done.
+Built:
+- `src/engine/m1/resolve.ts`: pure import planning with account inference, dedupe/ignore memory,
+  split-placeholder proof, CUSIP and delisting cash-out resolution, and in-kind proposals.
+- `src/engine/m1/parse.ts`: ephemeral source-row metadata and account-label rehashing without
+  changing the stored transaction shape.
+- `tests/fixtures/m1/full-export-v1.csv`, `full-export-v2.csv` and `resolve.test.ts`: synthetic
+  full exports, every known shape, 50 newer v2 rows and the save/re-import proof.
+- `docs/M1_FORMAT.md` and `docs/SPEC.md`: resolver rules and the evidence/source-hash decision.
+Decisions:
+- Cash-out holdings are account-scoped. Delisting evidence requires the series to end before
+  the CASH row, no more than 15 market dates behind, and cash per ledger share within 20% of the
+  last close; all thresholds are named in `resolve.ts`.
+- v2 shape map: ordinary rows, both identical auto-invest rows, the dotted share class and 50
+  additions -> `fresh`; both `PRESPLITZZAB` rows -> `autoFixed` drops; CUSIP CASH -> `autoFixed`
+  sell; unique delisting CASH and in-kind transfer -> `proposals`; ambiguous CASH -> `needsYou`.
+Verified: tests were written and observed failing before implementation; `npm run check` passes
+(26 files, 504 tests). After saving v1's generated/accepted transactions and ignored split hashes,
+planning v2 returns 50 new rows and zero v1 `autoFixed`, `proposals` or `needsYou` (12 duplicates,
+2 ignored).
+Open issues: none.
+
+**Next:** tasks/33-import-persistence.md on Sonnet (effort medium) - budget ~60k.
