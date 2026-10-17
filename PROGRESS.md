@@ -14,7 +14,7 @@ read it end to end. Rev 3 plan and reasoning: `docs/REV3_ASSESSMENT.md`; order a
 | 32 | Import resolver: findings become rules | Opus | done |
 | 33 | Persist import decisions | Sonnet | done |
 | 34 | Import screen v2 | Opus | done |
-| 35 | Real full re-import and owner acceptance (supersedes 25c) | Opus | - |
+| 35 | Real full re-import and owner acceptance (supersedes 25c) | Opus | blocked — ledger backup missing; fresh full exports need owner confirmation |
 | 36 | Brand palette into tokens | Opus | done |
 | 37 | Logo, icons, sign-in screen | Sonnet | done |
 | 38 | "S&P 500" wording | Haiku | done |
@@ -281,3 +281,21 @@ Status: done.
 - Task 35's real-data validation and task 40's separate deployment approval remain outstanding.
 
 **Next:** `tasks/codex/35.md`, `gpt-6-astra`, effort high, on the owner's machine with private inputs.
+
+## Task 35 prerequisite and verification check - 2026-10-17 - Codex
+Status: blocked — required local ledger backup is missing; real-data validation has not started.
+
+- Local prerequisite check (`test -f private/export.json`) finds no ledger backup. CSV inputs
+  are present, but the owner must confirm they are fresh full exports covering every account.
+- `git check-ignore private/m1/test.csv private/export.json` confirms the input paths are ignored.
+  No financial contents were opened or included in this handoff; no database was modified.
+- `git fetch origin && git rev-list --left-right --count HEAD...origin/main` returned `0 0`
+  before this handoff: all existing implementation commits were already pushed.
+- `npm run check && npm run build` passes: typecheck, lint, 28 test files, 514 tests and build.
+  The initial sandbox run could not bind the local Worker port; the approved rerun passed.
+- `./scripts/codex-models.sh` confirms `gpt-6-astra` is available. No application changes needed.
+
+Owner action: export the deployed ledger to `private/export.json` and confirm `private/m1/`
+contains fresh full activity exports for every account. Independent M1 acceptance remains open.
+Task 40's production deployment approval also remains outstanding.
+**Next:** resume `tasks/codex/35.md`, `gpt-6-astra`, effort high, after those inputs are ready.
