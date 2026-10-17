@@ -1,43 +1,90 @@
-# Codex queue — Rev 3 finishing runbook
+# Codex queue - Rev 3 finishing runbook
 
-**For the owner (Omarchy + Codex CLI):** this is the Codex-specific queue. All original Claude instructions remain in `CLAUDE.md`, `tasks/QUEUE.md`, and `tasks/NN-*.md`. Task 32 is done. Codex must follow each short overlay in `tasks/codex/` plus its linked canonical task, not recreate the project plan.
+**For the owner (Omarchy + Codex CLI).** Claude's instructions stay in `CLAUDE.md`,
+`tasks/QUEUE.md` and `tasks/NN-*.md`. Codex reads `AGENTS.md` (automatically), this queue, and
+the one short overlay in `tasks/codex/` for the task being run. Tasks 32, 33 and 34 are done.
+**Task 36 is partially done and sitting uncommitted in the working tree** - see the state note
+below before touching it.
+
+## Models: read the menu, never recall it
+
+An agent cannot know which models your account offers; that is server-side state newer than any
+training data. A previous session guessed "GPT-6.1 Sol" and "GPT-6 Luna" into this file and both
+were fabricated. So:
+
+```
+./scripts/codex-models.sh      # prints exactly what /model offers on this machine
+```
+
+As of 2026-10-16 that is **`gpt-6-astra`** (frontier, current generation) and the older
+`gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`. Two tiers are all the fidelity that really
+exists here:
+
+| Tier | Model | Use for |
+|---|---|---|
+| **Heavy** | `gpt-6-astra`, effort **medium** (raise to **high** only for 35 and 39) | multi-file work, engine or import logic, anything with a real-data or acceptance gate |
+| **Light** | `gpt-5.6-terra`, effort **medium** | string changes, wording, docs, release checklists |
+
+If `scripts/codex-models.sh` disagrees with this table, **the script wins** - use the closest
+listed model and say which you substituted in your handoff. Never run a task on a model you did
+not see in that output.
 
 ## Start, then repeat for each row
 
-1. In the local `alpha-ledger` folder, run `git pull` **before** starting Codex (or have Codex check/pull before task work if the tree is clean). Open `codex` from that folder.
-2. Type `/model` and select the row's model and **reasoning effort**. If a model is missing, use the fallback below. Do not run a task with an unidentified, silently substituted model.
-3. Paste the row's exact prompt, e.g. `Do tasks/codex/33.md`.
-4. On success, verify Codex says **done and pushed**, exit/clear the session, use `git pull` if needed, and repeat with the next row. If it says **partial** or **blocked**, follow its owner step and **resume that same task**, not the next one.
-
-Model names reflect Codex with **ChatGPT sign-in** as of 2026-10-16. Preferred: **GPT-6.1 Sol** (`gpt-6.1-sol`) for multi-file work, **GPT-6 Luna** (`gpt-6-luna`) for focused changes. If Sol is unavailable in `/model`, select **GPT-6 Sol** and use the same effort. If Luna is missing, use Sol at **low** effort for that row. These are guidance, not a requirement to purchase API credits. If ChatGPT sign-in models differ, use the current available equivalent and state the substitution in the handoff. Prefer the currently supported GPT-6 family over the older GPT-5.x suggestions, subject to what your Codex `/model` menu actually offers.
+1. `git pull` in `alpha-ledger`, then open `codex` from that folder.
+2. `/model` - pick the row's model and reasoning effort.
+3. Paste the row's prompt, e.g. `Do tasks/codex/38.md`.
+4. On **done and pushed**, `/clear` and run the next row. On **partial** or **blocked**, do its
+   owner step and resume *that same task* in a fresh session - not the next one.
 
 ## Remaining work (one session per task)
 
-| # | Codex task prompt | Codex model | Effort | Working context target* | Canonical Claude model | Dependency |
-|---|---|---|---|---|---|---|
-| 33 | `Do tasks/codex/33.md` | GPT-6.1 Sol | medium | ~50k | Sonnet / medium | 32 done |
-| 34 | `Do tasks/codex/34.md` | GPT-6.1 Sol | high | ~90k | Opus / medium | 33 |
-| 35 | `Do tasks/codex/35.md` | GPT-6.1 Sol | xhigh | ~90k | Opus / high | 34 + owner files; **owner's machine only** |
-| 36 | `Do tasks/codex/36.md` | GPT-6.1 Sol | medium | ~60k | Opus / medium | none |
-| 37 | `Do tasks/codex/37.md` | GPT-6 Luna | high | ~40k | Sonnet / low | 36 |
-| 38 | `Do tasks/codex/38.md` | GPT-6 Luna | medium | ~30k | Haiku / low | none |
-| 39 | `Do tasks/codex/39.md` | GPT-6.1 Sol | high | ~90k | Opus / high | 36 + 38 |
-| 40 | `Do tasks/codex/40.md` | GPT-6 Luna | high | ~30k | Haiku / low | 32-34, 36-39 + owner approval of 39 |
+| # | Prompt | Model | Effort | Canonical Claude model | Depends on |
+|---|---|---|---|---|---|
+| 36 | `Do tasks/codex/36.md` | `gpt-6-astra` | medium | Opus / medium | **partial, see state note** |
+| 38 | `Do tasks/codex/38.md` | `gpt-5.6-terra` | medium | Haiku / low | nothing - fully independent |
+| 37 | `Do tasks/codex/37.md` | `gpt-6-astra` | medium | Sonnet / low | 36 committed |
+| 39 | `Do tasks/codex/39.md` | `gpt-6-astra` | high | Opus / high | 36 + 38, then owner's **yes** |
+| 35 | `Do tasks/codex/35.md` | `gpt-6-astra` | high | Opus / high | 34 + owner's private files; **owner's machine only** |
+| 40 | `Do tasks/codex/40.md` | `gpt-5.6-terra` | medium | Haiku / low | 36-39 + owner approval of 39 and of the deploy |
 
-*These are **planning targets**, not technical token limits or a guaranteed quota. Prefer bounded reads, targeted tests, and a clean handoff to endless context expansion. A reasoning effort is not itself a context allocation.
+**Order: 36 → 38 → 37 → 39 → 35 → 40.** This differs from the original 35-first order on
+purpose: 35 needs private files the owner may not have staged yet, and 38 is independent of
+everything, so neither should block visible progress. 35 must still land before 40 unless the
+owner accepts shipping with it open, recorded in `PROGRESS.md`. 40 can never skip 39's approval.
 
-**Order:** 33 → 34 → 35 → 36 → 37 → 38 → 39 → 40. If the owner hasn't supplied task 35's files, **skip 35 temporarily** and run 36–39, then return to 35 when ready. Task 40 may ship with 35 still open if that fact is clearly recorded; it cannot skip task 39's owner approval.
+## Task 36 state note - read before running 36
 
-## Owner actions that agents cannot honestly automate
+`src/index.css` and `docs/DESIGN.md` are **modified and uncommitted**. The brand tokens are
+already in and verified correct: every contrast figure was independently recomputed and
+`npm run palette` passes all 42 rows. **Do not redo the token work and do not revert the tree.**
+Only four things remain, and `PROGRESS.md`'s task 36 entry lists them: run `npm run palette`,
+`npm run build && npm run screenshots`, get the owner's visual review of `/kit` and home at
+390/1280 light and dark, then commit and flip the status row.
 
-- **35:** provide fresh M1 activity CSVs for **every** account under `private/m1/` and the live ledger backup under `private/export.json`, all gitignored. Compare the app's reconstructed share counts and portfolio total to M1 yourself when asked. Codex must not invent those independent answers or send your financial records to a remote repo/chat.
-- **36 and 39:** review the screenshots. Task 39 requires an explicit **yes** before release 40.
-- **40:** approve the production Cloudflare deployment. After successful deploy, remove/re-add the iPhone home-screen app to refresh the icon.
+**Which uncommitted files belong to what.** Task 36 owns `src/index.css` and the section 1/2
+changes in `docs/DESIGN.md`. Everything else uncommitted - `AGENTS.md`, `CLAUDE.md`,
+`PROGRESS.md`, `README.md`, `package.json`, `tasks/CODEX_QUEUE.md`, `tasks/codex/*.md`,
+`docs/history/`, `scripts/codex-models.sh`, `scripts/validate_palette.mjs`, and section 7 of
+`docs/DESIGN.md` - is a 2026-10-16 instruction and tooling refresh, not task work. Commit it
+separately or leave it; either way it is not yours to revert.
 
-## If Codex loses the thread or stops early
+## Owner actions no agent can honestly automate
 
-In a **fresh session on the same task's model/effort**, paste:
+- **35:** stage fresh M1 activity CSVs for **every** account under `private/m1/` and the ledger
+  backup at `private/export.json` (both gitignored). Compare the app's reconstructed share counts
+  and portfolio total against M1 yourself. Codex must never invent those figures or send your
+  financial records to a remote repo or chat.
+- **36 and 39:** review the screenshots. 39 needs an explicit **yes** before 40.
+- **40:** approve the production Cloudflare deploy. Afterwards remove and re-add the iPhone
+  home-screen app to refresh the icon.
 
-`Resume tasks/codex/NN.md. Read only its canonical task and latest matching PROGRESS.md handoff. Check git status, finish the unverified acceptance items, commit and push, then stop. Do not begin the next task.`
+## If Codex stops early or loses the thread
 
-Only escalate reasoning one level after a failed attempt attributable to reasoning, not for missing private inputs, tests needing credentials, or a permission prompt. Never mark blocked owner checks done. For model capabilities, see [OpenAI model selection](https://developers.openai.com/api/docs/guides/model-selection). Codex automatically reads repository `AGENTS.md` as part of its normal workflow; see [Codex development workflows](https://developers.openai.com/cookbook/examples/codex/iterating-development-workflows-with-codex).
+Fresh session, same model and effort, paste:
+
+`Resume tasks/codex/NN.md. Read only its canonical task and the matching PROGRESS.md entry. Check git status, finish the unverified acceptance items, commit and push, then stop. Do not begin the next task.`
+
+Escalate reasoning one level only after a failure actually caused by reasoning - never for
+missing private inputs, credentials, or a permission prompt. Never mark a blocked owner check
+done.

@@ -14,7 +14,8 @@
     "screenshots": "node scripts/screenshots.ts",
     "icons:gen": "node scripts/gen-icon.ts",
     "format": "prettier --write .",
-    "check": "npm run typecheck && npm run lint && npm run test"
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "palette": "node scripts/validate_palette.mjs"
   },
   "dependencies": {
     "decimal.js": "^10.6.0",

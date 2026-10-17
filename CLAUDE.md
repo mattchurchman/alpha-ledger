@@ -15,7 +15,7 @@ Personal web app: did my stock picks beat buying VOO with the same dollars on th
    If your current model differs from the task's, say so and stop until the user switches
    (`/model`). If the task says it must run on the owner's computer and `private/` is absent,
    stop and print the task's owner step. `tasks/QUEUE.md` is the order of remaining work.
-1. Read `PROGRESS.md` from the `# Rev 3` heading down (everything above it is rev 1-2 history; grep it only when a task points there), then the one task file the user names in `tasks/`. Read `docs/SPEC.md` sections the task lists, not the whole file, unless told.
+1. Read `PROGRESS.md` - it is Rev 3 only and short, so read it whole. Rev 1-2 history was archived to `docs/history/REV1-2.md` on 2026-10-16; grep that file, never read it, and only when a task points there. Then read the one task file the user names in `tasks/`. Read `docs/SPEC.md` sections the task lists, not the whole file, unless told.
 2. Do only that task. Respect its "Out of scope" list. Do not start the next task.
 3. Run the acceptance checks. Fix failures before finishing.
 4. Update the task's row in the status table and append a handoff entry to `PROGRESS.md` (format is in that file), commit, `git push`, and stop.
@@ -42,6 +42,7 @@ If the task conflicts with the spec or reality (an API changed, a file is missin
 - Money and shares: use `decimal.js` in the engine; round only at display.
 - Mobile first: every screen must work at 390px wide before desktop polish.
 - Keep context small: prefer Grep and targeted reads over opening whole directories.
+- Never state a model name, library version, or measured number from memory. Verify it with a command in-session, or say plainly that you did not.
 
 ## Stack (decided, see SPEC section 2)
 
@@ -59,5 +60,8 @@ Design system and component kit: **`docs/DESIGN.md`**, implemented in `src/ui/` 
 - `npm run lint` / `npm run format` - ESLint / Prettier.
 - `npm run screenshots` - after `npm run build`, shoots `/kit` at 390px and 1280px in light and
   dark into `screenshots/` (gitignored). Uses the system Chromium, not a Playwright download.
+- `npm run palette` - re-runs every contrast and colour-blindness row in `docs/DESIGN.md`
+  section 7 against the live tokens in `src/index.css`. Run it before and after changing any
+  colour token; it exits non-zero on a failure.
 - `npx wrangler dev` - run the Worker locally (serves `dist/`, answers `/api/*`, needs `npm run build` first, and `.dev.vars` for the auth bypass - see `docs/SETUP.md`).
 - `npx wrangler d1 migrations apply alpha-ledger-db --local` / `--remote` - apply `migrations/`.

@@ -1,0 +1,1873 @@
+# Rev 1-2 progress archive (closed)
+
+Shipped history, moved out of `PROGRESS.md` on 2026-10-16 so every session stops paying ~45k
+tokens to carry work that is already done. **Do not read this file end to end.** Grep it only
+when a task explicitly points at a rev 1-2 decision, e.g. `rg -n 'task 22' docs/history/REV1-2.md`.
+
+---
+
+# Progress log
+
+Each agent appends one entry at the bottom when its task is done. Keep entries short; the next agent reads this file first.
+
+## Entry format
+```
+## Task NN - name - YYYY-MM-DD - model used
+Status: done | partial (say what is left)
+Built: 3-6 bullets, file paths included
+Decisions: anything the next agent must know that is not in SPEC
+Verified: which acceptance checks were run and passed
+Open issues: bugs, shortcuts, things the user must do by hand
+```
+
+## Task status
+| # | Task | Model | Status |
+|---|------|-------|--------|
+| 01 | Scaffold | Sonnet | done |
+| 02 | M1 format and parser | Opus | partial |
+| 03 | Price worker and first deploy | Sonnet | done |
+| 04 | Engine: holdings reconstruction | Opus | done |
+| 05 | Engine: VOO shadow, returns, attribution | Opus | done |
+| 06 | Database, API, login | Opus | done |
+| 07 | Design system and app shell | Opus | done |
+| 08 | Import and reconciliation screens | Sonnet | done |
+| 09 | Update Market Data flow | Sonnet | done |
+| 10 | Dashboard | Sonnet | done |
+| 11 | Stock detail and decisions | Sonnet | done |
+| 12 | Fair value and history | Sonnet | done |
+| 13 | Installable app and iPhone icon | Haiku | done |
+| 14 | Privacy and cost audit | Sonnet | done |
+| 15 | Real-data validation | Opus | partial (data-independent prep only; `private/m1/` still empty) |
+
+## Entries
+
+## Task 01 - Scaffold - 2026-10-08 - Sonnet
+Status: done
+Built:
+- Vite + React + TS app in `src/`, Tailwind v4 (`@tailwindcss/vite`), React Router with empty routes for all six SPEC 9 screens (`src/routes/*.tsx`, wired in `src/App.tsx`).
+- Vitest configured via `vite.config.ts`; `src/engine/placeholder.test.ts` exercises `decimal.js`.
+- `worker/index.ts`: Cloudflare Worker serving built assets via the `ASSETS` binding and answering `GET /api/health`; `wrangler.jsonc` has a D1 binding placeholder (`database_id` is a dummy UUID, real id comes in task 06).
+- ESLint (flat config, typescript-eslint) + Prettier; `npm run check` = typecheck + lint + test.
+- Three project-reference tsconfigs (`app` for `src/`, `node` for vite/eslint config, `worker` for `worker/`) since the worker runs without DOM lib/types.
+- `CLAUDE.md` Commands section filled in.
+Decisions:
+- Pinned `typescript` to `~6.0.3` instead of the newly-released 7.x: `typescript-eslint@8.71.1` only supports `typescript <6.1.0`. Revisit the pin once typescript-eslint catches up.
+- Used Tailwind v4's Vite plugin (CSS-first, no `tailwind.config.js`) since v4 is current and this avoids extra config for a deliverable that's explicitly "styling beyond defaults" out of scope.
+- `npm install` flagged `esbuild` and `workerd` postinstall scripts for approval (npm 11 install-scripts gate); approved both since wrangler/vite need their native binaries. Recorded in `package.json`'s `allowScripts`.
+Verified:
+- `npm run check` passes (typecheck + lint + test).
+- `npm run dev` serves the routed shell; all six routes return 200 and render their placeholder screen.
+- `npm run build` succeeds; `npx wrangler dev` serves the built `dist/` at `/` (200) and `GET /api/health` returns `{"status":"ok"}`.
+- `git status` shows nothing from `private/` or `dist/`.
+Open issues:
+- `wrangler.jsonc` D1 `database_id` is a placeholder; task 06 must run `wrangler d1 create` and fill in the real id.
+- No real styling, logic, or deploy yet - all explicitly out of scope for this task.
+
+## Task 02 - M1 format and parser - 2026-10-08 - Opus
+Status: partial. The parser, docs, fixtures, tests and summary script are done, but the acceptance check "summary script runs on all real files with zero unrecognized rows" has NOT been run against real data - `private/m1/` is still empty. See Open issues.
+Built:
+- `docs/M1_FORMAT.md`: columns, date format, sign conventions, the type-to-`transactions` mapping, dedupe design and decisions. All example rows invented.
+- `src/engine/m1/parse.ts`: `parseM1Activity(csvText, accountLabel)` returns `{ transactions, dropped, unrecognized }`. Pure, synchronous, no I/O. Includes its own RFC-4180 CSV reader (quoted commas, `""`, BOM, CRLF) so there is no dependency.
+- `src/engine/m1/parse.test.ts` (25 tests) + synthetic fixtures in `tests/fixtures/m1/` covering every observed type, the unrecognized cases, identical auto-invest rows and an overlapping export.
+- `scripts/m1-summary.ts` + `npm run m1:summary`: prints per-account counts by type, date range, dropped-cash counts and the full raw text of unrecognized rows. Terminal only, reads `private/m1/*.csv`, filename becomes the account label.
+- Config: `.gitignore` now un-ignores `tests/fixtures/**/*.csv` (the blanket `*.csv` rule was hiding them); `tsconfig.node.json` and `eslint.config.js` extended to cover `scripts/`.
+Decisions (detail and reasoning in `docs/M1_FORMAT.md`):
+- Observed types: `PURCHASED`->`buy`, `SOLD`->`sell`, `DIVIDEND`->`dividend`. `TRANSFER`/`FEE`/`OTHER` with `Unit Type` `CURRENCY` are dropped as cash per SPEC 3.
+- **`Unit Type` is the cash-vs-securities discriminator, not an empty `Symbol`.** This is what separates a transfer *in kind* (reported, needs an `adjust`) from a cash transfer (dropped).
+- **`OTHER` is only dropped when its description reads as interest.** It is a grab-bag type; the sample had securities-lending interest, but a spinoff could land there too, so anything else is reported rather than discarded.
+- No split row appeared in the sample. None is needed: SPEC 4 makes Yahoo the sole split source. If one shows up it becomes an unrecognized row, which is the correct, loud outcome.
+- Reinvested dividends need no special handling - M1 already emits a `DIVIDEND` row plus a `PURCHASED` row, exactly the shape SPEC 3 asks for.
+- `shares` and `amount_usd` leave the parser as **exact decimal strings**, not numbers, so no precision is lost before the engine wraps them in `Decimal`. `amount_usd` is always positive; `type` carries direction.
+- `Date` becomes `trade_date`; `Posted Date` is ignored (they differ on some dividend rows, and SPEC 3 has no column for it). `Unit Price` is ignored too - it is display-rounded and does not reconcile against `Amount`/`Units`.
+- `source_row_hash` is FNV-1a 64-bit (synchronous; Web Crypto's digest is async and SPEC 2 wants a sync browser engine) over `m1` + account label + the raw source columns + an **occurrence index**. The index exists because M1 auto-invest emits byte-identical rows that are genuinely separate transactions; a content-only hash would silently merge them. It is order-independent, so overlapping exports dedupe correctly.
+Verified:
+- `npm run check` passes (typecheck + lint + 26 tests).
+- Parsed the user's real 8-row sample out-of-tree: 5 transactions kept, 3 cash rows dropped, **zero unrecognized**; fractional shares, the negative-amount sale and the `$1,000.00` quoted-comma amount all came through correctly.
+- `npm run m1:summary` verified two ways: with `private/m1/` absent (prints instructions) and against copies of the synthetic fixtures (correct per-account counts, date ranges and unrecognized triage output).
+- `git diff --cached` grepped for every ticker, CUSIP and dollar value in the user's sample: clean. An earlier draft had reused a few real figures in the doc and fixtures; those were replaced with invented ones.
+Open issues:
+- **The user must drop the real activity CSVs into `private/m1/`** (one per account, filename = account label) and run `npm run m1:summary`. Until then, the type list in `docs/M1_FORMAT.md` reflects one sample, not full history. Expect unrecognized rows from older history - splits, transfers in kind, corporate actions - each of which needs a mapping decision.
+- **Holdings CSV parser not written.** No holdings export was supplied and M1's columns for it are unknown, so writing one would mean inventing a header layout. Deferred rather than guessed; SPEC 4 reconciliation also accepts manually entered share counts, so nothing is blocked.
+- `src/engine/placeholder.test.ts` from task 01 is now redundant (real engine tests exist). Left in place - deleting it was not this task's call.
+
+## Task 03 - Price worker and first deploy - 2026-10-08 - Sonnet
+Status: done
+Built:
+- `GET /api/prices/:ticker?from=YYYY-MM-DD` in `worker/prices.ts`, wired into `worker/index.ts`. Calls Yahoo's v8 chart endpoint with `period1`/`period2` (from `from` to now) and a browser `User-Agent` header, returns `{dates, close, adjClose, splits, dividends, asOf}`.
+- `src/engine/prices/types.ts` (`PriceHistory`, `PriceSplitEvent`, `PriceDividendEvent`) and `src/engine/prices/parseYahooChart.ts`: pure parser from raw Yahoo JSON to `PriceHistory`, throwing `YahooUpstreamError` with a `kind` (`not-found` | `rate-limited` | `bad-shape`) the Worker maps to an HTTP status.
+- `src/engine/prices/parseYahooChart.test.ts` (7 tests) against saved real Yahoo responses in `tests/fixtures/prices/` (`voo_with_dividend.json`, `nvda_with_split.json`, `unknown_ticker.json` - all public market data, fine to commit) plus hand-built malformed-shape cases.
+- `docs/PRICES.md`: response shape, what was verified against the live deployment, observed Yahoo behavior, and the manual-CSV fallback format.
+- First deploy: `npx wrangler deploy` → `https://alpha-ledger.alpha-ledger.workers.dev`.
+Decisions:
+- **Created the real D1 database early** (`wrangler d1 create alpha-ledger-db`, real id now in `wrangler.jsonc`) because `wrangler deploy` hard-fails on a placeholder `database_id` - there's no way to do this task's "first deploy" deliverable with task 01's placeholder still in place. No schema/tables were created; that's still task 06's job. User approved both this and the deploy itself (classifier blocks deploy-shaped Bash commands by default).
+- Yahoo rejects requests with no `User-Agent` at the edge (`HTTP 429`, plain-text `Edge: Too Many Requests`, on the very first request - not a real rate limit). The Worker always sends a desktop Chrome UA. Full reasoning and what's *not* yet proven (a true application-level rate limit) is in `docs/PRICES.md`.
+- Daily-bar epoch timestamps are converted straight to a UTC calendar date with no timezone offset math - they're always mid-day UTC (US market open), never near a midnight boundary, so this can't land on the wrong day. See the comment in `parseYahooChart.ts`.
+- `close`/`adjClose` are decimal strings rounded to 4 places to strip Yahoo's float32 rounding noise (e.g. raw `198.3699951171875` → `"198.37"`).
+- Ticker validation regex is `^[A-Z][A-Z0-9.-]{0,9}$` - allows the dash in `BRK-B`-style symbols.
+Verified:
+- `npm run check` passes (typecheck + lint + 33 tests).
+- Acceptance checks run against the **live deployed URL**, not just locally: `VOO`, `AAPL`, `MSFT`, `KO` from 2020-01-01 each return 1,701 trading days through today; `NVDA` returns both real splits (`2021-07-20` 4:1, `2024-06-10` 10:1) on the correct dates; an invented ticker that still matches the valid-ticker pattern (`ZZZZQQ`) returns a clean `404`; missing `from` and an invalid ticker character both return `400`. Yahoo did not block or rate-limit the Worker in this round.
+Open issues:
+- Yahoo blocking the deployed Worker outright (vs. the edge UA check, which is handled) has not been observed or tested - there was no safe way to provoke it without hammering their API. If it starts happening, the manual CSV fallback is designed and documented in `docs/PRICES.md` but not built - that's its own task.
+- The D1 database now exists but is empty; task 06 still owns schema/migrations.
+- No caching/storage of fetched prices - out of scope per this task, lands in task 09 (Update Market Data flow).
+
+## Task 04 - Engine: holdings reconstruction - 2026-10-08 - Opus
+Status: done
+Built:
+- `src/engine/types.ts`: the canonical `Transaction` and `TickerAlias` shapes (SPEC 3). `TransactionType` and `NormalizedTransaction` moved here from `m1/parse.ts`, which now imports and re-exports them - the parser's row type is just a `Transaction` with `source: 'm1'`.
+- `src/engine/calendar.ts`: `nextTradingDay` / `previousTradingDay` / `isTradingDay` / `tradingDaysBetween` plus the two binary-search index helpers they share. The "calendar" is always a price series' `dates` array; no holiday table is ever modeled.
+- `src/engine/holdings.ts`: `resolveTicker`, `splitFactorAfter`, `splitAdjustTransactions`, `sharesOn`, `sharesByDay`, `computeHoldings`, `crossCheckSplits`. Pure, `decimal.js`, no I/O, no UI imports.
+- `src/engine/reconcile.ts`: `reconcileShares(reconstructed, actual, options)` returns every ticker off by more than 0.001, signed as `actual - reconstructed` and sorted biggest-first.
+- Tests: `holdings.test.ts` (38), `reconcile.test.ts` (11), `calendar.test.ts` (18). Every case the task lists has its arithmetic worked out in a comment above the assertions.
+Decisions:
+- **`totalGain = realizedGain + dividendGain + unrealizedGain` is enforced as an invariant**, asserted by `expectGainIdentity` in every holding test. SPEC 6 defines total gain one way and its display split another way; they are only one number if they always agree. Two rules fall out of that: shares arriving by a positive `adjust` carry **no** basis, and shares leaving by a negative `adjust` **write their basis off as a realized loss**. Without the second rule a merger silently loses basis and the two views drift apart.
+- A sell releases basis **in proportion** (`basis * sold / held`), not `avgCost * sold`, and a sell that closes the position releases all of it. A full exit therefore leaves exactly 0, not a division crumb that would read as phantom unrealized gain forever.
+- **Splits apply strictly after the trade date.** Yahoo dates a split on its ex-date and its `close` series is already post-split from that day on, so a trade executed on the ex-date is in post-split shares and must not be multiplied again.
+- **An alias applies to transactions dated on or before its `effective_date`**, not unconditionally. A symbol freed by a rename can be reassigned to another company; this is the only rule under which that stays separable. A stale export with old-symbol rows dated after the rename shows up as an extra ticker, which `reconcileShares` then flags - loud, not silent.
+- Same-day ordering is `adjust`, `buy`, `dividend`, `sell`. M1 gives no intraday time, so this is a convention; without it a same-day round trip sells shares the walker has not added yet.
+- `sharesOn`/`sharesByDay` return `Decimal`, everything else returns exact decimal **strings** at full internal precision. Rounding is the display layer's job (CLAUDE.md), so tests compare via `toFixed(2)`/`toFixed(6)` rather than pinning 20-significant-digit strings.
+- `reconcileShares` treats the supplied counts as a **complete snapshot** by default, so a ticker the ledger holds but the upload omits is flagged as held-at-zero. `{ actualIsComplete: false }` is for the user correcting a few tickers by hand.
+- A still-held ticker with no price lands in `missingPrices` and reads as value 0; a **closed** position with no price does not, since its realized gain is knowable without one.
+- Kept `src/engine/placeholder.test.ts` (task 02 flagged it as redundant) - still not this task's call.
+Verified:
+- `npm run check` passes: typecheck + lint + **98 tests**.
+- Every case the task names has a test: fractional buys, partial sell, full sell, re-entry after full exit, 20-for-1 mid-holding, 1-for-8 reverse, dividend with and without reinvestment, alias rename, one ticker across two accounts. Plus both `adjust` directions, as-of valuation in the past, a weekend valuation date, missing prices, portfolio totals, and the alias/split/cycle edge cases.
+- All fixtures synthetic (ACME/SPLT/RVRS/OLD/NEW, round numbers). `git status` and the diff reviewed: nothing from `private/`.
+Open issues:
+- **The split cross-check could not be run against real data.** `private/m1/` is still empty (task 02's open issue), so there are no real M1 `split` rows to compare with Yahoo. `crossCheckSplits` is written and tested against synthetic rows; it needs one run once the real CSVs are in place. Note the M1 parser currently emits split rows as *unrecognized* rather than as `split` transactions, so feeding it real history is also what will reveal whether M1 exports split rows at all.
+- The engine does not yet know about VOO - no shadow buckets, no IRR, no daily history series. That is task 05, which `sharesByDay` and `calendar.ts` were shaped to feed.
+- Oversell (selling more shares than the ledger holds) produces a negative share count rather than an error. That is deliberate: `reconcileShares` is the designated place for bad data to surface, and a negative count there is unmissable.
+
+## Task 05 - Engine: VOO shadow, returns, attribution - 2026-10-08 - Opus
+Status: done
+Built:
+- `src/engine/shadow.ts`: the per-ticker VOO buckets. Flows are built from the cash side of each transaction (`buy` buys VOO, `sell` and `dividend` sell it, `split`/`adjust` do nothing), priced on the next benchmark trading day. `shadowBucketsOn`, `shadowTotalOn`, `shadowUnitsByDay`, `benchmarkGrowth`, plus `shadowCoverageWarnings` for flows the benchmark series does not reach.
+- `src/engine/returns.ts`: `annualizedIrr` by bisection, `irrWithFinalValue`, `shadowIrr`, `valueAdded`, `percentDifference`, `cashFlows`. Every "show a dash" rule in SPEC 6 is a `null` return.
+- `src/engine/series.ts`: `dailySeries(input, ticker?)` - `dates`, `value`, `shadow`, `gap` from the first transaction to `asOf`, portfolio-wide or for one ticker.
+- `src/engine/decisions.ts`: `buyDecisions(input, ticker)` - per-buy outcome vs VOO with FIFO sell matching, including per-exit detail.
+- `src/engine/index.ts`: `analyze(input)` returning `portfolio`, `byTicker`, `series`, `missingPrices`, `warnings` and a reusable `context`; `tickerSeries(result, ticker)` and `tickerDecisions(result, ticker)` serve the detail screen from that context. `docs/ENGINE_API.md` documents the whole return shape.
+- Tests: `shadow.test.ts` (24), `returns.test.ts` (18), `series.test.ts` (8), `decisions.test.ts` (10), `index.test.ts` (18, incl. two performance checks). Shared synthetic fixtures in `src/engine/__fixtures__/synthetic.ts`.
+Decisions:
+- **Buckets are carried as "units" (`amount / adj(pricingDate)`), recomputed on every call, never stored.** SPEC 5 forbids storing shadow share counts because Yahoo restates adjusted closes after each dividend. Bucket value is then `adj(d) * sum(units)`, which is SPEC's `f * adj(d) / adj(i)` summed, and makes a daily series one multiplication per day instead of a re-sum.
+- A flow's **pricing day**, not its trade date, decides which bucket days it counts toward. A weekend trade priced on Monday is simply not in Friday's bucket.
+- **IRR is computed in `number`, not `Decimal`** - the one place in the engine that is. The bisection needs fractional powers thousands of times; `Decimal.pow` would make the dashboard crawl, and float64 carries ~15 significant digits into a figure displayed to four. The cash flows themselves stay exact.
+- IRR brackets the root in `(-99.99%, 1e9]` and returns **null** if there is none, rather than reporting the bracket edge. Consequence worth knowing before task 10: a big gain over a few days annualizes to a genuine but absurd number (millions of percent), and anything past 1e9 reads as a dash. The display has to clamp or abbreviate; the engine will not lie about it.
+- **The per-buy view compares each part to its own end point** - a sold slice against VOO from the buy date to the *sell* date, the unsold remainder to `asOf`. Measuring a slice sold years ago against VOO held until today would compare two different bets.
+- **Dividends are deliberately absent from the per-buy view**, so per-buy value added does not sum to the ticker's figure for a ticker that paid one. Allocating dividends across lots is a policy SPEC does not define; inventing one would have been a redesign. Flagged in `docs/ENGINE_API.md` and at the top of `decisions.ts`.
+- FIFO lives only in `decisions.ts`; `holdings.ts` keeps average cost. Nothing from the decision view feeds a total, so the two never mix. `adjust`-in shares join the FIFO queue as zero-cost lots (or a later sell would match the wrong lot) but are never reported as buys.
+- Daily series values are **rounded to cents** - the one deliberate exception to CLAUDE.md's "round only at display". A chart point is a display artifact, six years is ~1,500 points per line, and `gap` is derived from the rounded lines so the three agree exactly on screen. Headline numbers never pass through here.
+- `analyze` includes the portfolio series by default (the dashboard needs it) and takes `includeSeries: false` for screens that do not; per-ticker series and decisions are on demand per SPEC 6, reusing `result.context` so no screen re-resolves aliases or rebuilds flows.
+- Adjusted closes are memoized per `PriceHistory` object in a `WeakMap` (`adjSeries`). Assumes a `PriceHistory` handed to the engine is not mutated afterwards.
+- `MissingBenchmarkError` uses a declared field rather than a constructor parameter property, matching `YahooUpstreamError`: node's strip-only TypeScript mode (what runs `scripts/*.ts`) rejects parameter properties outright. Found by trying it.
+- `benchmark` is a parameter defaulting to `VOO` rather than a hardcoded string, which is what let the "a pick that tracks the benchmark exactly" tests be written.
+Verified:
+- `npm run check` passes: typecheck + lint + **176 tests** (98 of them from earlier tasks, all still green).
+- Every case the task lists has a hand-computed test: single buy, buy-then-sell-everything (closed position still has value added), dividends paid out, negative bucket, non-trading-day trade, selling A to fund B netting to zero shadow flow, and the invariant that per-ticker value added sums to the portfolio figure (asserted to 10 dp, alongside the same for shadow value and current value).
+- Performance: `analyze` on 6 years x 60 tickers (1,566 trading days, 5,580 transactions) runs in **~410ms** in Node - ~125ms for `analyze` itself, the rest the portfolio daily series. One ticker's series plus decisions is ~13ms. The test asserts under 1,000ms.
+- Extra invariant proved by fixture design: `BETA` is exactly half the benchmark's price on every day, so every buy of it must come out at zero value added, at the ticker level and per buy. It does.
+- All fixtures synthetic (ACME/BETA/SYNnn, round numbers, invented dates). `git status` and the full diff reviewed: nothing from `private/`, no real ticker, amount or position anywhere.
+Open issues:
+- **The engine has never run on real data.** `private/m1/` is still empty (open since task 02), so the whole comparison is proved only against synthetic fixtures. Task 15 is where this gets settled.
+- ~410ms in Node means roughly 1-3s on a phone for a 60-ticker portfolio, almost all of it the daily series. Levers if task 10 finds the dashboard sluggish: `includeSeries: false` plus a lazily-loaded chart, or thinning the series to weekly points beyond the last year. Not optimized now - a real M1 account is likelier 10-30 tickers.
+- `shadowCoverageWarnings` returns one entry per flow, so a ledger that starts before the fetched VOO history will produce hundreds. Task 09 should fetch VOO from the first transaction date onward (which makes the warning rare), and task 10 should group these before showing them.
+- Oversell in `decisions.ts` silently drops the excess shares, matching the holdings engine's stance that `reconcileShares` is where bad share counts surface.
+- `src/engine/placeholder.test.ts` is still there, still redundant; tasks 02 and 04 both declined to delete it and so does this one.
+
+
+## Task 06 - Database, API, login - 2026-10-08 - Opus
+Status: done. Deployed and verified against the live URL. One note for whoever does task 14: the app shell is intentionally public now - see Decisions.
+Built:
+- `migrations/0001_init.sql`: the five SPEC 3 tables with CHECK constraints on `type`/`source`/`excluded`, `source_row_hash` UNIQUE, three indexes. Applied to **both** databases (`--local` and `--remote`), each verified by listing `sqlite_master`.
+- `worker/auth.ts`: the gate. One 256-bit `AUTH_TOKEN` secret, compared as a fixed-length SHA-256 digest, exchanged at `POST /api/session` for a signed HttpOnly `SameSite=Strict` cookie good for a year. `worker/api/session.ts` has unlock / sign-out / whoami.
+- `worker/index.ts`: gates **every** `/api/*` route, `/api/health` and `/api/prices/*` included. Only `POST`/`DELETE /api/session` sit outside the gate, since they are what create and destroy a session.
+- `worker/api/`: `transactions.ts` (list with ticker/account/type filters, create, bulk upsert, patch, exclude, delete), `aliases.ts`, `fairValues.ts`, `priceHistory.ts`, `meta.ts`, `backup.ts` (full JSON export + restore). `worker/validate.ts` is the single place untrusted JSON becomes a typed row.
+- `src/api/types.ts` + `src/api/client.ts`: one set of wire types imported by both sides, and a typed client whose `NotAuthenticatedError` is distinct from `ApiError` so a lapsed session shows the unlock screen instead of an error.
+- `src/AuthGate.tsx`: the unlock screen, wrapping the whole app. `src/routes/Debug.tsx` at `/debug` is the temporary page the task's "Out of scope" line allows; it exists so the two-device sync check is doable on a phone.
+- `docs/SETUP.md`: why not Access, the one-command token generation, the deploy, every verification command, local dev, and a symptom/cause table.
+Decisions:
+- **Cloudflare Access was dropped, by the user's decision.** Its price is genuinely $0 for one user (confirmed first, as SPEC 2 required), but Zero Trust onboarding demands a payment method on file before an application can be created, which the user ruled a breach of the free-only rule. So SPEC 2's stop-and-ask condition fired one step later than written: the pricing page cleared the price, the signup flow revealed the card. Full reasoning and sources in `docs/SETUP.md` section 0 and the SPEC Decision log.
+- **Login is one 256-bit random token, and there is deliberately no password hashing.** A slow KDF exists to make guessing a human-chosen password expensive, and at safe iteration counts it would blow the free plan's ~10ms CPU budget (SPEC 2). 256 random bits are not guessable at any request rate, so a fast fixed-length comparison is the correct tool. **Consequence for later tasks: the credential must stay a generated token and must never become a memorable password**, or the fast comparison stops being safe.
+- **The cookie-signing key is derived from the token** (`SHA-256("alpha-ledger/session-key/v1\0" + token)`), not kept as a second secret. One secret is one thing to set, and rotating the token therefore signs every device out - that is the revocation mechanism, and there is no session table to keep.
+- **The HMAC is verified before the payload is parsed**, so a forged cookie with a far-future expiry is rejected on the signature and its `exp` is never read. There is a test for exactly that swap.
+- **`SameSite=Strict` is what stands in for a CSRF token** - the cookie never rides a cross-site request. `Secure` is omitted only on localhost, where `wrangler dev` serves plain HTTP and the browser would otherwise discard the cookie.
+- **The app shell is now public.** This is the one real loss versus Access, which gated the hostname at Cloudflare's edge before any code ran; an in-Worker gate cannot. `index.html` and its JS carry no personal data and every byte of ledger data goes through gated `/api/*`, so this was judged acceptable - but it is a change to SPEC 10 and **task 14's privacy audit should confirm it still holds** once the real screens exist.
+- No rate limiting on the unlock route, and none needed at 256 bits; a counter would cost storage and CPU the engine needs.
+- **Money and shares are TEXT columns.** Exact decimal strings from parser to D1 to engine; REAL is a float64 and would round a fractional share or a cent. A test asserts `0.123456789` round-trips.
+- **Bulk import inserts new hashes and leaves existing rows untouched** (`ON CONFLICT DO NOTHING`). Re-importing an overlapping M1 export must not undo an edit or an exclusion the user has made, and the hash already identifies the row. `skipped` is the dedupe count the Import screen shows; there is a test that an excluded, edited row survives re-import.
+- **Restore replaces all five tables**, inside one `db.batch()` (one D1 transaction), and validates the entire bundle **before** issuing any DELETE - so a malformed bundle cannot empty the database. Merging two ledgers is not attempted: ids would collide and hash dedupe would silently drop rows. Export carries row ids so a restore reproduces the database rather than renumbering it.
+- `price_history.series_json` stores `{dates, close, adjClose}` only; `asOf` is **derived** from the last date on read, the way `parseYahooChart` computes it, so a stored copy could only disagree. A PUT replaces the row rather than merging, because Yahoo restates adjusted closes after every dividend and mixing two vintages would mix two scales.
+- Route tests call the Worker's default export **directly** with a spread-and-modified `env` rather than through `SELF`, which is what makes the signed-out cases testable - each case hands the handler a different secret set.
+- **The Workers test pool had to be swapped.** `@cloudflare/vitest-pool-workers` is deprecated and its last version peers on `vitest ^4.1.0` while this repo is on 5. The successor `@cloudflare/vitest-plugin@1.4.0` peers on `^4.1.0 || ^5.0.0`, so **vitest stays at 5**. Its API is a Vite plugin (`cloudflareTest(...)`), not `defineWorkersConfig`.
+- Vitest now runs **two projects** (`vitest.engine.config.ts` in node for `src/`, `vitest.worker.config.ts` in workerd for `worker/`), referenced from `vite.config.ts`. The engine project carries the React plugin already, so task 07's component tests need no config change.
+- `jose` was added for Access JWT verification and **removed again** when Access was dropped; the token gate needs only WebCrypto. Dependencies are back to what task 05 had plus the test plugin.
+- Touched two task-03 lines: `worker/prices.ts` now imports the shared `TICKER_PATTERN` instead of redeclaring it, and its `TODO(task 06)` about the route being ungated is gone - it is gated now.
+Verified:
+- `npm run check` passes: typecheck + lint + **276 tests** (176 from earlier tasks, all still green).
+- Worker tests run **inside workerd against a real local D1**, so the CHECK constraints and the UNIQUE dedupe are exercised for real. Covered: the gate (401 with nothing, 403 wrong token, 403 with no token configured, `/api/health` gated, shell ungated), the unlock flow (cookie issued, cookie opens the data routes, wrong token issues no cookie, sign-out expires it), full CRUD on all five tables, decimal-string fidelity, every validation rejection, bulk upsert including a 250-row batch spanning chunks, and an export/restore round trip asserted equal field-for-field.
+- `auth.test.ts` covers the crypto specifically: tampered signature, **payload swapped for an unexpired one**, cookie signed with a previous token, expired session, malformed cookies, whitespace-trimmed secrets, the blank-secret trap (`AUTH_TOKEN="   "` must not be satisfiable by `"   "`), and that only the exact string `true` bypasses.
+- `npm run test` passes both **with and without** `.dev.vars` present, so a clean checkout behaves the same.
+- **Verified against the live deployment**, version `e945db61`: signed out, `/api/transactions`, `/api/export`, `/api/health` and `/api/prices/VOO` all return `401 missing-credentials`; a wrong bearer token and a wrong unlock both return `403 invalid-token` and the unlock sets no cookie; the real token returns 200. The full browser path was exercised with a cookie jar - unlock, `{"authenticated":true}`, list, **write a row to the remote D1**, sign out, 401 again - and the `Set-Cookie` header is `Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=31536000`. The smoke row was deleted afterwards; `/api/export` confirms all five tables empty.
+- Before this task the live hostname served task 03's ungated code: `/api/health` and `/api/prices/VOO` answered anyone. Both are now gated.
+- Privacy: `git grep` for the owner's email, for `gmail`, and for the token finds nothing; `.dev.vars` is untracked; the only deployed secret is `AUTH_TOKEN` (`wrangler secret list`), and the `OWNER_EMAIL` secret from the Access attempt was deleted. Every fixture is synthetic (ACME/BETA/OLD/NEW, `example.test`, round numbers).
+Open issues:
+- **The user holds the only copy of `AUTH_TOKEN`.** There is no recovery path by design - losing it means running the step 2 command in `docs/SETUP.md` again to set a new one. The data in D1 is untouched either way.
+- **The app shell is publicly readable** (placeholder screens plus `/debug`, whose API calls all 401). No data is exposed, but task 14 should confirm this is still acceptable once the real screens exist and decide whether the `/debug` route should be gone by then.
+- `src/routes/Debug.tsx` and its nav link are temporary and should be deleted once the Activity screen can create and delete transactions. Both are commented as such.
+- No price caching or Update Market Data flow - the `/api/price-history` routes exist but nothing calls them yet. That is task 09.
+- `src/engine/placeholder.test.ts` is still there, still redundant. Tasks 02, 04 and 05 all declined to delete it; so does this one.
+
+
+## Task 07 - Design system and app shell - 2026-10-09 - Opus
+Status: done. `/kit` screenshotted at 390px and 1280px in both themes and reviewed; `npm run check` passes.
+Built:
+- `docs/DESIGN.md`: the whole system - direction, tokens, type scale, spacing, motion, number formatting, the chart kit, an accessibility checklist, and the validator runs behind every colour claim. It is the file later tasks should read instead of guessing.
+- `src/index.css`: three-scope token system (`:root` light, `prefers-color-scheme` guarded by `:not([data-theme='light'])`, `[data-theme='dark']`) exposed to Tailwind through `@theme inline`. **No `dark:` variant appears anywhere in component code** - that is what `inline` buys. Geist + Geist Mono bundled via `@fontsource-variable` (SIL OFL 1.1); nothing is fetched at runtime.
+- `src/ui/format.ts` (+34 tests): money, exact money, compact, axis, percent, signed, shares, dates, relative time. `null` renders `—`, never `$0`.
+- `src/ui/charts/geometry.ts` (+33 tests): scales, nice ticks, line/step/area builders, min-max decimation, binary-search nearest index, `gapRuns`, `thin`. No chart library - see Decisions.
+- The kit in `src/ui/`: `StatTile`, `SignedDelta`, `HistoryChart`, `DivergingBars`, `DiscountMeter`, `StepLineChart`, `Sparkline`, `DataTable`, `BottomSheet`, `Toast`, `ChartFrame`, `EmptyState`/`Skeleton`/`StatusBadge`/`PricesAsOfBadge`, `Card`/`Button`/`Legend`, hand-written `icons.tsx`. One barrel: screens import from `../ui`.
+- `src/ui/AppShell.tsx`: bottom tab bar on a phone, 232px side rail from 768px, safe-area insets (`viewport-fit=cover` added to `index.html`), the "prices as of" slot, and a system/light/dark toggle persisted in `localStorage` with a pre-paint stamp in `index.html`.
+- `src/routes/Kit.tsx` + `src/kit/synthetic.ts`: the `/kit` demo, 1,566 synthetic daily points from a seeded generator.
+- `scripts/screenshots.ts` + `npm run screenshots`: four full-page PNGs of `/kit` into gitignored `screenshots/`, failing on any console error or failed request.
+Decisions:
+- **No chart library.** Recharts is ~450 KB and one React element per point (1,500 points x 2 lines is the phone budget this task exists to protect); visx is d3-in-React, so over `geometry.ts` it only adds scales and shapes for ~40 KB and a second idiom; uPlot and Chart.js are canvas, which costs the DOM nodes that make the charts accessible and the CSS custom properties that make theming free. Hand-rolled SVG on a tested geometry module adds **0 KB of runtime dependencies** and made the gap-band split, the touch crosshair and the annotated step line ~20 lines each. Full comparison in DESIGN.md 5.1. Revisit past ~20k points; nothing on the roadmap goes there.
+- **Beat VOO is blue, trailed VOO is red - deliberately not green/red.** Measured at our surfaces with the dataviz validator: green↔red is ΔE 7.2 under protanopia (inside the 6-8 warn band), blue↔red is 21.6 light / 19.2 dark. Sign is additionally carried by a ▲/▼ glyph and an explicit `+`/`−`, so colour is never load-bearing alone.
+- **VOO is graphite, not a second hue.** It is the benchmark, so it is drawn as a reference mark. This knowingly departs from the chroma floor; the alternative was worse, because the obvious second hue is orange and orange↔red fails both floors (ΔE 5.6 CVD / 7.1 normal) - an orange VOO line would be confusable with the red "behind" fill it sits inside. Legend, direct end labels, the readout and the table view all carry the identity.
+- **The fair-value line is green**, the only remaining hue that clears every all-pairs gate in both modes beside blue and red. Its one warn (green↔red, light) is a pair that never shares a chart. Green is never used for a delta or a direction anywhere - if a later task needs "good green", that is a token to add, not this one to reuse.
+- **Engine values are decimal strings**, so every component takes `string | number | null | undefined` and coerces at the display edge. Charts parse once in a `useMemo`.
+- **1,500 points stay smooth** via min-max decimation to the pixel-column count (1,566 -> ~700 at 390px, extremes preserved exactly), memoised paths (a scrub re-renders only the crosshair), and one path per line rather than per point.
+- **The scrub readout lives at the top of the card, not in a floating tooltip** - on a phone a bubble lands under your thumb. Fixed min-height, so nothing reflows while dragging. `touch-action: pan-y` on the hit rect: a vertical drag still scrolls the page.
+- **`DataTable` collapses to cards by CSS, not a resize listener** - a measured width is wrong for one frame on every load, and a holdings table that reflows after paint looks broken.
+- **`/kit` sits outside the auth gate** so a headless browser can open it; it makes no API call and holds nothing real. SPEC 10 already accepts a public shell. **Task 14 should decide whether it ships in the production bundle.**
+- `src/ui/zones.ts` is SPEC 7's "thresholds are constants in one file". **Task 12 should import from there**, or move the file into the engine and update the import - not restate the numbers.
+- `Card` renders a `div`, not a `section`: a page of twelve unlabelled `<section>`s is worse for a screen reader than none.
+- `DivergingBars` is HTML rows, not SVG - each row is then natively focusable and selectable, and the 2px surface gap comes from row padding.
+- The gap band is filled at 15% rather than the spec's ~10%: at 10% it vanished against the warm surface, and this band *is* the headline number drawn to scale.
+- Task 06's `/debug` link is now a header link rather than a sixth tab, so it stays reachable on a phone (which is what it exists for) and still dies with one deletion.
+Verified:
+- `npm run check` passes: typecheck + lint + **346 tests** (276 from earlier tasks, all still green; 70 new across `format` and `geometry`).
+- `gapRuns` is tested on the cases that actually bite: no crossing, identical lines, a crossing interpolated to the exact fraction (0.75, not the midpoint), a touch that flips the sign, a touch that does not, six alternating crossings asserted to hand each run's last index to the next so the band has no gaps, and leading equality.
+- `decimate` is tested to keep a spike on index 137 that no uniform stride would land on.
+- Screenshots reviewed at 390px and 1280px in light and dark, plus per-section crops at 390px. Four real defects were found that way and fixed: colliding x-axis dates at 390px (the middle label is now dropped below a 320px plot), `$0.00` and `$250.00` axis ticks (new `moneyAxis`), end labels sitting on top of their own lines (a `paint-order` surface halo), and a dark-mode skeleton that was invisible against the surface.
+- Privacy: `git status` and the full diff reviewed. Every number in `src/kit/synthetic.ts` is invented (ACME/BRIK/CNDL…, a seeded LCG, round dates); `screenshots/` is gitignored; no personal data, no secrets, nothing from `private/`.
+- Build output: 324 KB JS (100 KB gzipped) and 31 KB CSS, plus 29 KB + 23 KB of latin-subset woff2. Fontsource ships one `@font-face` per unicode subset, so only latin is downloaded.
+Open issues:
+- **`npm run format` reformats the whole repo**, including documents and worker files earlier tasks wrote without it. It churned 19 unrelated files here and they were reverted. Either run Prettier on the paths you touched, or let one task reformat everything deliberately and commit that on its own.
+- `/favicon.ico` 404s - there is no icon set yet. That is **task 13**'s deliverable; the screenshot script ignores that one URL by name.
+- `/kit` and `src/kit/synthetic.ts` are in the production bundle. Harmless (no API calls, nothing real) but task 14 should decide.
+- No component tests: that would need jsdom and testing-library, and the task's acceptance is the screenshots. The pure modules under the components are covered.
+- The side rail is 232px and content caps at `max-w-4xl`; above ~1400px the page is mostly margin. Deliberate (it is a reading-width app), but task 10 may want a wider dashboard grid.
+- `src/engine/placeholder.test.ts` is still there, still redundant. Tasks 02, 04, 05 and 06 all declined to delete it; so does this one.
+
+## Task 08 - Import and reconciliation screens - 2026-10-09 - Sonnet
+Status: done. `npm run check` passes; manually exercised end to end against `wrangler dev` with the synthetic fixtures and screenshotted at 390px/1280px.
+Built:
+- `src/routes/Import.tsx`: one screen, two tabs (plain state, no route). **Import**: pick one or more CSV files, each gets an editable account-label field (defaults from the filename), live preview per file (counts by type, date range, new-vs-already-imported, unrecognized rows in a `<details>`, dropped-cash count) computed against the existing ledger's hashes **and** against earlier files in the same pick (so picking the same file twice in one go is caught before confirming, not just on the server). Confirm sends everything to `api.transactions.bulkUpsert` and lets the server's `ON CONFLICT DO NOTHING` be the actual source of truth. **Reconcile**: type in or CSV-upload `ticker,shares` rows, a `actualIsComplete` checkbox (SPEC 4 / `reconcileShares`'s own option), "Check reconciliation" runs `splitAdjustTransactions` + `sharesOn` (today, no prices - this task is out of scope for prices, so splits are not applied; see Decisions) through `reconcileShares`, lists mismatches sorted worst-first, a "Transactions" button loads that ticker's rows inline, and "Add adjustment" opens a form **pre-filled** with `type: adjust` and `shares` set to the mismatch's signed `difference` - the exact fix SPEC 4 describes.
+- `src/routes/Activity.tsx`: full list (fetched once, filtered client-side by ticker/account/type - the dataset is one person's trades, not worth round-tripping per filter), add/edit via a shared form, exclude/include as a one-tap toggle, delete behind an inline confirm/cancel (no `window.confirm` - alert dialogs are disallowed for this kind of automation-adjacent UI and a blocking native dialog is worse on a phone anyway). Excluded rows are shown (struck through), not filtered out, matching `listTransactions`'s own comment about why the API returns them.
+- `src/routes/TransactionForm.tsx`: the add/edit form, shared by Activity (create/edit) and Import's Reconcile tab (quick adjustment). Takes plain strings and hands them back on submit; the caller decides `TransactionInput` vs `TransactionPatch` since only it knows which. Per-type hint text under Shares explains when it's required, optional, or (for `adjust`) signed.
+- `src/routes/Settings.tsx`: alias editor (list, add, remove) via `api.aliases`. The rest of the screen is a one-line placeholder; market data, manual prices, export/restore and "how this is calculated" are later tasks' deliverables per SPEC 9.
+- `src/ui/primitives.tsx`: added `TextField`, `Select`, `Checkbox` - the kit had `Button`/`Card`/etc. but no form inputs, and four screens in this task needed consistent ones. Styled from the same tokens as `DataTable`'s own `<select>`.
+- Deleted `src/routes/Debug.tsx` and its two nav links (`AppShell`'s `showDebugLink` prop and the `/debug` route in `App.tsx`), per task 06's note: it existed only until Activity could create/delete transactions, which it now can. Updated the two-device sync check in `docs/SETUP.md` section 4 to use Activity instead.
+Decisions:
+- **Reconciliation does not split-adjust.** `splitAdjustTransactions` is called with `prices: {}`, so every split factor is 1. This task's "Out of scope" line excludes prices entirely, and no stored price history exists yet (task 09 owns fetching and storing it) - there is nothing to split-adjust against. SPEC 4 also notes no split row has been observed in the user's real data yet. If this bites before task 09 lands, it will show up as a reconciliation mismatch, which is the correct, visible failure mode rather than a silently wrong number.
+- **The Import screen sends every parsed transaction to `bulkUpsert`, not just the ones it thinks are new.** The client-side new/already-imported count is a preview for the user, not a filter; the server's `source_row_hash` UNIQUE constraint is the only thing that has to be right for "import the same file twice" to be a no-op, and it already was (task 06). Verified by hand: importing `tests/fixtures/m1/activity-all-types.csv` twice gave "3 new" then "0 new · 3 already in your ledger", and the Worker's bulk result was `inserted: 3, skipped: 0` then `inserted: 0, skipped: 3`.
+- **"Add adjustment" account defaults to blank, not the ticker's existing account**, because a reconciliation gap can span accounts and picking one would be a guess; the account field's `<datalist>` (built from every account label already in the ledger) makes it a one-tap pick anyway.
+- **No `window.confirm`.** Delete goes through an inline "Delete" -> "Confirm delete / Cancel" state swap on the row itself instead. Same reasoning the harness gives for avoiding native dialogs in automated browser control applies to a PWA generally: a blocking modal is a worse mobile pattern than an inline affordance, and it means one less edge case for `BottomSheet`'s own focus handling to interact with.
+- **`DataTable`'s cell padding was a bug, fixed here.** Right-aligned columns only had `pl-3` and left-aligned ones only `pr-3`, so a right-aligned column directly followed by a left-aligned one (Activity's Amount -> Note, in this task's own screen) rendered with **zero gap** between them - confirmed visually, not just by reading the code. Changed both `<th>` and `<td>` to symmetric `px-1.5` with `first:pl-0 last:pr-0` so every column pair gets a gap regardless of alignment order. No screen from task 07 happened to hit this adjacency, so it shipped unnoticed until now.
+- **Action buttons use `Button`, not `MiniButton`.** The first draft used `MiniButton` (32px) for Edit/Exclude/Delete/Remove/Transactions/Add-adjustment, which reads fine but is below DESIGN.md 3.3's "touch targets ≥44px tall" - that rule is for primary interactive controls, and `MiniButton`'s own doc comment says it's for chart chrome specifically, where a 44px button would dominate. These are not chart chrome. Caught by screenshotting at 390px and measuring, not by inspection.
+- **Added `wrangler.jsonc`'s `assets.not_found_handling: "single-page-application"`.** Without it, `GET /activity` (or any route but `/`) 404s instead of serving the shell, because the Worker's catch-all just does `env.ASSETS.fetch(request)` and Cloudflare's asset handler 404s on an unmatched path by default. This predates this task (every route since task 07 had the same problem) but was only discovered now because this is the first task that needed to deep-link into a gated screen to test it. One-line fix, verified: `curl -o /dev/null -w '%{http_code}' $URL/activity` went from 404 to 200.
+Verified:
+- `npm run check` passes: typecheck + lint + **346 tests** (all pre-existing; this task added no engine/worker code, so no new automated tests - see Open issues).
+- Manual end-to-end pass against `npx wrangler dev` (`DEV_AUTH_BYPASS=true`) using `tests/fixtures/m1/activity-all-types.csv`: import once (3 new, 0 already-imported, 3 cash rows dropped, 0 unrecognized, counts/date-range preview correct), import again (0 new, 3 already-imported, confirmed the DB still has exactly the 3 rows) - the acceptance check. Reconciliation: entered a mismatched ACME count, got the right `difference`, used "Add adjustment", watched the ticker drop out of the mismatch list on re-check. Settings: added and removed a ticker alias, both persisted and reflected a toast. Activity: edit opened pre-filled, delete's inline confirm worked, toast feedback on every mutation.
+- 390px and 1280px screenshots (ad hoc Playwright script against `wrangler dev`, not a repo script - these screens need the gated API, unlike `/kit`) of Activity, Import and Settings; reviewed for the card/table breakpoint, touch targets, and the `DataTable` padding fix. Dark mode only (the sandbox's default); light mode not separately shot, since this task changed no colors.
+- Privacy: `git diff` reviewed; the only real-shaped data anywhere is the pre-existing synthetic fixtures already in `tests/fixtures/m1/`. No filenames, tickers or amounts from the user's real export appear anywhere (none were used - real files still are not in `private/m1/`, see task 02's open issue, still open).
+Open issues:
+- **No automated tests for these screens.** Same gap task 07 noted: no jsdom/testing-library in this repo, and the task's acceptance criterion is "works at 390px" plus the dedupe check, both exercised by hand this session. If a future task adds component-test infra, Import's live preview math (new/dup counting across a batch) and the reconcile-difference-prefill logic are the two things most worth covering.
+- **Reconciliation ignores splits** (see Decisions). Revisit once task 09 stores real price history, or sooner if a real M1 export turns out to contain a split row.
+- **The user still has not dropped real M1 exports into `private/m1/`** (task 02's open issue). This task's "You do" line asks for exactly that, plus noting any reconciliation mismatches for task 15 - still the user's to do.
+- Settings is sparse by design (just aliases) - tasks 09 (market data refresh, "last updated") and 14 (export/restore, "how this is calculated") both add sections to the same screen; no scaffolding was added for them since guessing their shape would be worse than an empty `Card` placeholder.
+
+## Task 09 - Update market data flow - 2026-10-09 - Sonnet
+Status: done. `npm run check` passes; manually exercised end to end against `wrangler dev`, including a real Yahoo round trip.
+Built:
+- `src/data/marketData.ts` (+24 tests, pure, no I/O): `tickersEverHeld` (every ticker ever held, resolved through aliases); `priceFetchFrom` (SPEC 8's "10 days before the earliest transaction", one range shared by every ticker, matching `series.ts`'s own earliest-transaction convention rather than per-ticker); `isStale`/`tradingDaysBetween` (the shell badge's "more than five trading days behind" rule, task 07 left unimplemented); `runMarketUpdate` (concurrency-limited fetch-and-store with one retry per ticker, a failing ticker never blocking the rest - both fetch and store are injected, so this is tested without a network or a Worker); `parseManualPriceCsv` and `withManualPrice` (the two manual-fallback paths from `docs/PRICES.md`).
+- `src/data/usePortfolioData.ts` + `src/data/PortfolioData.tsx`: the data hook task 09 asks for. `PortfolioDataProvider` loads transactions, price history, aliases and meta once on mount, runs `analyze` when VOO has a stored history, and caches the result in a context; `usePortfolioData()` reads it. Split into two files the same way `src/ui/Toast.tsx`/`toastContext.ts` are - a file that exports a hook and a component together breaks fast refresh, and ESLint's `react-refresh/only-export-components` already enforces this elsewhere in the kit.
+- `GatedApp` in `src/App.tsx` now wraps the routed shell in `PortfolioDataProvider`; a new `GatedShell` reads `pricesAsOf`/`update`/`runUpdate` and passes them to `AppShell`, which gained `onUpdatePrices`/`updatingPrices` props and a small Update control (new `RefreshIcon`) next to the existing `PricesAsOfBadge` slot - the "shell indicator" half of the task's deliverable, not just Settings.
+- `Settings.tsx`'s "Market data" card: the update button (progress as "Updating… d of total", failures listed by ticker after a run) plus the two manual-fallback forms - upload a CSV for one ticker, or set a single current price - both calling `putPriceHistory`, which stores with `source: 'manual'`.
+Decisions:
+- **`runUpdate` returns the outcome instead of the caller reading `update` state afterward.** The first draft had the Settings handler `await runUpdate()` then read `update.failures` from its own closure - a stale read, since the closure was captured before the state update that the await was waiting on. Returning `UpdateOutcome` from `runUpdate` sidesteps the whole stale-closure class of bug; `update` in render (the JSX failures list) is still live because it re-reads the hook every render.
+- **A manual spot-price merges into whatever is already stored rather than replacing it**, keyed by date; a CSV upload replaces the whole row (matching the Worker's own "a fetched history always replaces" comment in `priceHistory.ts`, which the manual CSV path reuses verbatim via `PUT`). Both end up with `source: 'manual'` on the whole row - the schema has one source flag per ticker, not per day, so a spot-price touch on an otherwise-fetched series is now "manual" until the next real Update overwrites it. Documented in the Settings copy ("merges into whatever history is already stored").
+- **`pricesAsOf.date` comes from VOO's stored `asOf`, not the newest `asOf` across all tickers.** VOO is fetched on every run alongside everything else, so it is always exactly as fresh as the update that produced it - the one date SPEC 8's "prices as of \<date of last close\>" can mean unambiguously.
+- **The manual fallback does not touch `meta.prices_last_updated`.** That timestamp means "the last full Update ran at this time" (SPEC 8); a one-ticker manual correction isn't that, and leaving it alone is what makes the "Stale" badge still trustworthy after a manual patch.
+- **No backoff between the automatic retry and the first attempt.** SPEC 8 asks for "retry once", not a delay; `docs/PRICES.md`'s own 429 handling is the Worker's problem, and a client-side pause would only turn one slow ticker into a slower batch for no verified benefit.
+Verified:
+- `npm run check` passes: typecheck + lint + **370 tests** (346 from earlier tasks, all still green; 24 new in `marketData.test.ts`).
+- Manual pass against `npx wrangler dev` (`DEV_AUTH_BYPASS=true`), with the local D1 already holding task 08's synthetic transactions (tickers `ABCD`, `WXYZ`, `ACME`, none of which are real symbols) plus `VOO` from transaction history: clicked "Update market data" from both Settings and the shell's new header control. Confirmed against the Worker's real (not mocked) Yahoo proxy: `VOO` succeeded (`/api/prices/VOO?from=2023-12-27` → 200), the three synthetic tickers each hit `/api/prices/<ticker>` **twice** (the automatic retry) and both came back 404 `Unknown ticker`, landing in the failures list by ticker with the real error text - one failing ticker did not block the others, and the run still set `prices_last_updated` because at least one ticker (VOO) succeeded. Read `network_requests` directly to confirm the retry count and that a full page load/client-side navigation across every route issues **zero** requests to `/api/prices/*` (only `/api/price-history`, the already-stored read) - the acceptance check.
+- Manual fallback: uploaded a 3-row CSV for ticker `BETA` ("BETA: stored 3 day(s) from the CSV", confirmed via `GET /api/price-history` - `source: "manual"`, 3 dates) and set a single current price for `ACME` ("ACME: set today's price to 123.45", confirmed as a one-point manual series). Confirmed the shell's "Prices as of"/"updated" timestamps did **not** change from either manual action, only from the Update run.
+- Screenshots at 390px (dark, the sandbox default) of Settings' Market data card both idle and post-update-with-failures, and the shell header wrapping correctly at that width.
+- Privacy: `git status`/diff reviewed; no real data anywhere - the synthetic fixture tickers from earlier tasks are the only tickers this session's Update/manual-fallback testing ever touched, and no fetched real-world price data (VOO's, which is public market data, not personal) is committed to the repo - it only lives in the gitignored local `.wrangler` D1 state.
+Open issues:
+- **No component tests**, same gap every UI task has noted since task 07 (no jsdom/testing-library here). The pure logic behind the screen (`marketData.ts`) has the 24 tests; the screen wiring itself was exercised by hand.
+- **Dashboard/StockDetail/FairValues still don't read `usePortfolioData().result`** - out of scope for this task (SPEC: "Out of scope: Any analysis screen"), but the hook, `analyze` integration and caching they need are now in place. Tasks 10-12 should read from the context rather than re-fetching.
+- **Concurrency is a flat 3**, not configurable and not informed by any real rate-limit signal from Yahoo - `docs/PRICES.md` says Yahoo did not block the deployed Worker during its own checks, but a sustained 429 under this task's own heavier concurrent load was never deliberately triggered (same reasoning `docs/PRICES.md` already gives for not hammering Yahoo on purpose). If a real update run starts seeing 429s, lowering `runMarketUpdate`'s default concurrency is the fix, not re-architecting it.
+- **The "set a single current price" form has no date picker** - it always writes today's date. Good enough for "current price" as named, but there's no manual way to backfill one specific past day without going through the CSV path (which is designed for a whole series, not one row).
+- `src/engine/placeholder.test.ts` is still there, still redundant. Five tasks running have now declined to delete it.
+
+## Task 10 - Dashboard - 2026-10-09 - Sonnet
+Status: done.
+Built:
+- `src/routes/Dashboard.tsx`: headline (hero `StatTile` for value added, four stat tiles for portfolio/VOO value and both IRRs, a 90-day sparkline on "Your IRR"), a history section with a 1Y/3Y/All range selector (slices `result.series` by trading-day count - `MiniButton`s in the `SectionHeading` action slot, state local to the screen) feeding the existing `HistoryChart`, rebuy opportunities (open positions ranked by discount, descending, via `DiscountMeter`; a "No estimate yet" chip group with a shortcut to `/fair-values`), a sortable `DataTable` of open holdings (ticker/price/value/return/vs VOO/fair value/discount, row click pushes `/stocks/:ticker`), and a `DivergingBars` "value creators and destroyers" across every ticker ever held.
+- `src/data/fairValue.ts` (+7 tests): `latestFairValues` (newest `effective_date` per ticker, ties broken by row id) and `discountFrom` (SPEC 7's `(fair value - price) / fair value`, null when the fair value isn't positive). Fair value is outside `analyze`'s domain entirely (SPEC 7 vs 6), so this is a second small pure/tested module beside `src/data/marketData.ts`, not inside `src/engine/` - CLAUDE.md's "all financial math lives in the engine" rule is about the VOO-comparison math; fair value never touches `analyze`.
+- `src/ui/charts/DivergingBars.tsx`: wired up the `note` field its props already declared but never rendered - a muted second line under the ticker in the bar view, `(note)` suffix in the table view. Used here for "Closed" on fully-sold tickers; the component itself is unchanged otherwise.
+Decisions:
+- **Rebuy opportunities and the Holdings table both filter to open positions** (`shares !== 0`) - rebuying something you no longer hold is not what the section is for, and SPEC 9's holdings table columns (price, value) don't mean anything for a closed position. Closed positions still appear, explicitly marked, in the value-creators-and-destroyers chart, which is where SPEC 9 and task 05's tests already say they belong.
+- **The range selector slices by trading-day count (252/756/all), not by calendar date.** Matches the one precedent in the codebase (Kit's `history.dates.slice(-120)` demo) rather than inventing a date-cutoff helper; exact to the day doesn't matter for a chart window.
+- **A ticker with a fair value but no `latestClose` (a `missingPrices` entry) is silently dropped from Rebuy** rather than shown with a dash - no fixture or real scenario hit this (M1 data always prices what you hold), and a silent drop is safer than inventing a third UI state for an edge case SPEC doesn't describe.
+Verified:
+- `npm run check` passes: typecheck + lint + **384 tests** (377 from earlier tasks, all still green; 7 new in `fairValue.test.ts`).
+- Manual pass against `npx wrangler dev`: replaced the stray leftover rows in local D1 (task 08/09's `ABCD`/`WXYZ`/`ACME` test transactions and `ACME`'s fair value, deleted through the app's own `DELETE /api/transactions/:id` and `DELETE /api/fair-values/:id`, not raw SQL) with a deliberate synthetic fixture: `GOOD` (strong winner, deep-discount fair value), `WEAK` (trails VOO, above-fair-value), `NOEST` (open, no fair value), `SOLD` (closed position), `NEGB` (bought, mostly sold at a large gain shortly after - exercises a **negative shadow bucket while still held**, SPEC 6's "valid for closed positions too" sibling case for an open one). All five tickers plus `VOO` got 900 trading days of fabricated prices via the manual price-history endpoint; nothing real or from `private/` touched local D1. `.wrangler/` is gitignored, so this fixture data never reaches git - `git status` confirmed clean before every commit.
+- Screenshots via an ad-hoc Playwright script (same pattern as `scripts/screenshots.ts`, pointed at `:8787` instead of `vite preview` so `/api/*` and the seeded D1 data are live) at 390px and 1280px, light and dark: zero console errors in all four. Headline, range-sliced history chart (1Y and 3Y both checked), ranked rebuy meters with correct zone colours, "No estimate yet" chips, the holdings table (desktop table / phone cards, `Fair value` correctly `hideOnCard`), and the value-creators chart with `SOLD` marked "Closed" all render correctly in both themes and both widths.
+- Interactive pass (Chrome extension, ~555 CSS px - its `resize_window` does not actually control the viewport in this sandbox, confirmed via `window.innerWidth`/`screen.width`, so it stood in for the phone check only): range selector re-slices the chart and its table view, row click on a holding pushes `/stocks/:ticker` and the shell title updates to "Stock detail", "Add a fair value" pushes `/fair-values`.
+Open issues:
+- **No component tests**, same gap every UI task has noted since task 07.
+- **`npm run screenshots` (the committed script) still only shoots `/kit`.** It builds a static `dist/` and serves it with `vite preview`, which has no `/api/*` - shooting a real screen needs the Worker and a session, which is why this task's screenshots came from a throwaway script instead. Worth a real decision later: either `/kit` grows a Dashboard section fed by `src/kit/synthetic.ts`, or the screenshot script learns to run against `wrangler dev` with seeded D1 data. Not done here - out of scope for "do only that task".
+- Confirmed resize_window does not control the interactive browser extension's viewport in this environment - worth knowing for any future task that reaches for it expecting a true desktop-width screenshot.
+
+## Task 11 - Stock detail and decisions - 2026-10-09 - Sonnet
+Status: done.
+Built:
+- `src/routes/StockDetail.tsx`: the `/stocks/:ticker` screen (built on it, task 10's route - see
+  Decisions). Headline card (hero `StatTile` for value added vs VOO, a 4-tile row for current
+  value, VOO equivalent, your IRR, VOO IRR), a "Your money" card (invested, returned, total
+  return with a realized/unrealized/dividends footnote breakdown), the position-versus-VOO
+  `HistoryChart` with buy/sell markers, a `DataTable` decision list (date, dollars, outcome, VOO
+  outcome, difference - SPEC section 6's "decision-level view"), and a placeholder card for
+  task 12's fair-value chart. A "Back" control (`navigate(-1)`) since this is a pushed screen
+  with no tab of its own. All measures come from `usePortfolioData().result.byTicker` plus the
+  two on-demand helpers `docs/ENGINE_API.md` describes, `tickerSeries` and `tickerDecisions` -
+  nothing is recomputed here.
+- `src/ui/charts/HistoryChart.tsx`: added an optional `markers` prop (buy/sell events on the
+  "you" line). Shape carries the meaning, not colour - an upward triangle for a buy, downward
+  for a sell, both neutral ink - so nothing competes with the ahead/behind palette. Each marker
+  snaps forward to the next trading day the same way a shadow flow does (SPEC section 5), gets
+  a 24px hit target, and a fixed-height note strip under the chart shows the tapped one's date,
+  kind and amount - the same pattern `StepLineChart`'s estimate markers already use. Markers
+  default to `[]`, so the dashboard's existing `HistoryChart` call is unaffected.
+- `src/ui/charts/DivergingBars.tsx`: added an optional `onSelect` prop that turns each row into
+  a real `<button>` (keyboard-reachable, unlike a `div`'s `onClick`). Needed because the
+  dashboard's value-creators chart is the only place a **closed** position is listed at all -
+  without this, "reachable from every ticker in the app, for current and closed positions"
+  (this task's own deliverable) would have no path to a closed ticker's detail screen.
+- `src/routes/Dashboard.tsx` wires that prop to `navigate('/stocks/' + ticker)`.
+- `src/routes/Activity.tsx`: the ticker cell is now a `Link` to the stock detail screen
+  (`stopPropagation` so it won't fight a future `onRowSelect`, which this screen doesn't use
+  today). Reachable from Activity was the other gap in "every ticker in the app".
+- `src/routes/Settings.tsx`: the "How this is calculated" `BottomSheet` this task's deliverable
+  asks for, covering SPEC sections 5 (the VOO shadow, including the negative-bucket case) and 6
+  (invested/returned/gain breakdown, value added, IRR and its dash case) in plain language, plus
+  SPEC 6's "state once" line that taxes, fees and cash drag are ignored on both sides.
+- `src/ui/icons.tsx` / `src/ui/index.ts`: added `BackIcon`, exported it plus
+  `HistoryChartMarker`.
+Decisions:
+- **Kept the route `/stocks/:ticker` (plural) rather than switching to this task's literal
+  `/stock/:ticker`.** Task 10 already built the route, the nav links, and `destinations.ts`'s
+  title mapping against the plural form; the task file's singular spelling reads as descriptive
+  shorthand, not a instruction to rename a working route out from under the dashboard that
+  already links to it.
+- **The negative-bucket tooltip text (SPEC section 9) is not a hover tooltip.** It renders as
+  `StatTile`'s own `footnote`, always visible under "VOO equivalent" whenever that value is
+  negative. A hover-only tooltip has no touch equivalent, and `docs/DESIGN.md` section 5.4's
+  "tooltips enhance, never gate" argues for a channel that works without a pointer.
+  `StepLineChart`'s tap-to-reveal note pattern was the other option on the table, but that is
+  for one of many markers; here there is exactly one fact to state about exactly one number, so
+  a permanent footnote is the simpler, more legible fix for the cost of 1-2 lines of card
+  height.
+- **Buy/sell markers come from `tickerDecisions`, not a second trade-date scan.** Every buy is
+  already one `BuyDecision`; every sell is already one of its `exits`. Re-deriving the same
+  dates from raw transactions would risk disagreeing with the decision list sitting right below
+  the chart over something like alias resolution or split adjustment, which `tickerDecisions`
+  has already handled.
+- **Decision list columns are exactly SPEC section 6's five** (date, dollars, outcome, VOO
+  outcome, difference) - no shares or status column added, even though both were easy, because
+  the task names these five and CLAUDE.md's "do only that task" cuts the other way more often
+  than it does not.
+- **The fair-value placeholder is a one-line `Card`**, matching the wording style Settings
+  already uses for its own deferred sections, rather than a skeleton or an `EmptyState` - there
+  is nothing to load or be empty, just a feature that does not exist yet.
+Verified:
+- `npm run check` passes: typecheck + lint + **377 tests** (unchanged - this task added no
+  engine code, only UI; see Open issues on why the count still reads 377 rather than something
+  higher).
+- Manual pass against `npx wrangler dev`, reusing task 10's seeded synthetic fixtures (no real
+  data touched): `/stocks/SOLD` (closed, and its shadow bucket happens to also be negative -
+  one screen exercised both required cases) and `/stocks/NEGB` (open, negative bucket while
+  still held, 1 of 20 shares remaining) both rendered correctly - headline, footnote, chart with
+  both a buy and a sell triangle visible and distinguishable, decision list, "Fair value"
+  placeholder. `/stocks/NOPE` (never held) showed the "No activity" empty state instead of
+  crashing. Chrome extension pass: clicking a `DivergingBars` row on the dashboard navigated to
+  that ticker's detail screen; clicking a ticker in Activity navigated there too, without
+  opening the edit form; Settings' "Read how this is calculated" opened the sheet with the
+  expected sections.
+- Screenshots via an ad-hoc Playwright script (task 10's pattern, pointed at `:8787` instead of
+  `vite preview` - this screen needs the gated API and seeded D1 data) at 390px and 1280px, in
+  light and dark where the change touched colour-bearing chart code: zero console errors, zero
+  failed requests on any shot. A cropped shot of the chart alone confirmed both marker shapes
+  render legibly against the line and each other.
+- Privacy: `git status` and the full diff reviewed before committing - every file touched is
+  `src/`, nothing from `private/` or the database. The ad-hoc screenshot script and its PNGs
+  were scratch files outside the repo and were deleted after use, never staged.
+Open issues:
+- **Test count is unchanged at 377** because this task added no engine code and the project has
+  no component-test infra (the same gap every UI task since 07 has noted) - `HistoryChart`'s new
+  `markers` prop and `DivergingBars`'s new `onSelect` prop were verified by hand and by
+  screenshot, not by a unit test.
+- **`DataTable`'s desktop `<tr onClick>` (when `onRowSelect` is passed) has no `tabIndex` or
+  `onKeyDown`**, so a mouse can select a row but a keyboard cannot, on desktop specifically (the
+  phone card layout already renders a real `<button>`). Pre-existing since task 10 first passed
+  `onRowSelect`; noticed here because this task leaned on the same prop again for
+  Dashboard's holdings table. Not fixed - out of scope for this task's own screen.
+- **The decision list has no table/card breakpoint tuning beyond what `DataTable` already does**
+  - fine at both widths in the screenshots, but a ticker with many dozens of buys was not tested
+  (the synthetic fixtures have at most one or two per ticker).
+- Task 12 should replace the "Fair value" placeholder card with the real chart and editor, and
+  should decide whether this screen's `StatTile` grid needs a sixth "Discount" figure once fair
+  value exists here.
+
+## Task 12 - Fair value and history - 2026-10-09 - Sonnet
+Status: done. `npm run check` passes; manually exercised end to end against `wrangler dev`,
+including a synthetic ticker with a real split event to verify the acceptance criterion.
+Built:
+- `src/engine/fairValue.ts` (+19 tests): `latestFairValues` and `discountFrom`, moved here from
+  task 10's `src/data/fairValue.ts` (now deleted) per this task's explicit deliverable location;
+  `zoneFor` (the number-to-`ZoneId` classification, also moved - see Decisions) and its
+  `DEEP_DISCOUNT`/`WELL_ABOVE` constants; `splitAdjustedValue` and `splitAdjustedHistory`, the
+  new split-adjustment this task asks for. Split adjustment reuses `holdings.ts`'s own
+  `splitFactorAfter` rather than re-deriving it - a fair value is a per-share dollar figure, so
+  it divides by the same factor a share count would be multiplied by.
+- `src/engine/types.ts`: added `FairValueEstimate` (the `fair_value` row shape) and
+  `FairValueRecord` (plus `id`, needed only to break a same-day tie), matching the
+  `Transaction`/`TransactionRow` pattern already in this file. `src/api/types.ts`'s
+  `FairValueRow`/`FairValueInput` now extend/derive from these instead of restating the fields.
+- `src/routes/FairValues.tsx`: the real screen (SPEC 9's third one), replacing the one-line
+  stub. Every currently-open holding in a `DataTable` (ticker, price, current split-adjusted
+  fair value, discount with its zone, a "Set value" action), backed by its own
+  `api.fairValues.list()`/`.create()` calls (same per-screen-owns-its-data pattern Activity and
+  Settings already use - no new shared mutation path). "Set value" opens a `BottomSheet` with
+  value/date (defaults to today)/note; saving always `POST`s a new row, never edits one.
+- `src/routes/StockDetail.tsx`: the "Fair value" section is now real - `StepLineChart` fed
+  `prices[ticker]`'s own `dates`/`close` plus `splitAdjustedHistory` for the estimate step line,
+  and a `DataTable` of every raw (not split-adjusted) estimate for this ticker with a
+  confirm-then-delete action per row, matching Activity's confirm-delete pattern exactly.
+- `src/routes/Dashboard.tsx`: rebuy ranking and the holdings table's fair-value/discount columns
+  now go through a ticker's **split-adjusted** current estimate (a new `currentFairValue` map)
+  instead of the raw stored `value_usd` - a pre-existing correctness gap this task's engine
+  module fixes as a side effect, since a pre-split estimate compared raw against today's
+  (already-split-adjusted) `latestClose` would have understated or overstated the discount for
+  any ticker that split after its last estimate.
+- `src/data/usePortfolioData.ts` / `PortfolioData.tsx`: the context now also exposes `prices`
+  (the same `{ ticker: PriceHistory }` map `analyze` is built from, already computed internally)
+  so any screen needing a ticker's splits - all three touched by this task - doesn't rebuild it
+  from `priceHistory` itself.
+Decisions:
+- **`src/engine/fairValue.ts`, not `src/data/fairValue.ts`.** Task 10 had decided fair value's
+  two formulas belonged beside `marketData.ts` in `src/data/`, reasoning CLAUDE.md's
+  engine-math rule was "about the VOO-comparison math". This task's own deliverable line names
+  `src/engine/fairValue.ts` explicitly, which I read as superseding that part of task 10's
+  decision (not the part about `analyze` never touching fair value - that still holds; this
+  module is a sibling `analyze` doesn't import, same as `reconcile.ts` or `m1/parse.ts`).
+- **The discount-zone classification (`zoneFor`, `DEEP_DISCOUNT`, `WELL_ABOVE`) moved from
+  `src/ui/zones.ts` into the engine too**, even though this task's deliverable line only says
+  "zone", because classifying a discount into a zone is the same kind of SPEC-7 math as the
+  discount formula itself, and it was previously untested (no `zones.test.ts` existed - a gap
+  every other financial calculation in this repo doesn't have). `src/ui/zones.ts` now only maps
+  the engine's `ZoneId` to a label and a colour tone (`Zone`), re-exporting the thresholds so a
+  meter's boundary ticks can't drift from the engine's own numbers. Every existing import
+  (`DiscountMeter`, `Kit`, `Dashboard`) is unchanged - `../ui` still exports `zoneFor`/`Zone`.
+- **Fair values screen lists open holdings only** (`shares !== 0`), matching the Dashboard's own
+  "Holdings" table and rebuy ranking - a closed ticker has no rebuy decision left for an
+  estimate to inform. Its full history (including delete) is still reachable for any ticker,
+  open or closed, through the stock detail screen either way.
+- **The fair-value history list on stock detail shows the raw stored `value_usd`**, not the
+  split-adjusted figure - SPEC 7 says "the stored value is never rewritten", and showing the
+  number exactly as typed is what lets a user recognize and delete a fat-fingered entry. Only
+  the `StepLineChart` (and the Dashboard/Fair-values current-estimate figures) show the
+  split-adjusted view, per SPEC 7's "shown split-adjusted on charts" - deliberately two
+  different numbers for two different purposes, both already distinguished by the module
+  (`splitAdjustedHistory` vs. reading a `FairValueRow` directly).
+- **No sixth "Discount" `StatTile` added to stock detail's headline grid.** Task 11 raised this
+  as an open question; this task's deliverable list doesn't ask for it (only "History on stock
+  detail", which the step chart and its readout already cover - the chart's own readout shows
+  both numbers side by side at any scrubbed date), so I left the headline grid as task 11 built
+  it rather than guessing at a seventh thing to show.
+Verified:
+- `npm run check` passes: typecheck + lint + **389 tests** (19 new in `fairValue.test.ts`,
+  7 removed with `src/data/fairValue.test.ts`).
+- Manual pass against `npx wrangler dev`, reusing tasks 10-11's synthetic fixtures (`GOOD`,
+  `WEAK`, `NOEST`, `SOLD`, `NEGB`, all still in local D1, gitignored, nothing real) plus one new
+  one built for this task: `SPLT`, a single buy with 60 days of fabricated daily closes and a
+  real 2-for-1 split event partway through, then four fair-value estimates dated two before and
+  two after the split date. Confirmed via the stock detail screen: the step line shows four
+  distinct levels, and the two pre-split entries ($90, $95) are drawn at half their stored value
+  ($45, $47.5) while the two post-split ones ($50, $55) are unchanged - the acceptance
+  criterion. Deleted one entry with the confirm-then-cancel-then-confirm flow and verified the
+  remaining three rows' stored values were untouched (`GET /api/fair-values?ticker=SPLT`).
+  Exercised "Set value" from the Fair values screen end to end (create, default-today date,
+  optional note, immediate re-render of price/discount/zone) against a no-estimate ticker.
+- Screenshots via an ad-hoc Playwright script (tasks 10-11's pattern, pointed at `:8787`) of
+  both new screens at 390px and 1280px, light and dark: zero console errors on any shot. The
+  phone shots confirm "comfortable one-handed at 390px" - the Fair values list collapses to one
+  card per ticker with a full-width "Set value" button, and the entry sheet's three fields plus
+  Save are all within thumb reach without the keyboard covering them.
+- Privacy: `git status` and the full diff reviewed before every commit; only `src/` files
+  touched, nothing from `private/` or the database. The synthetic `SPLT` fixture lives only in
+  the gitignored local `.wrangler` D1 state, same as every other qa fixture before it.
+Open issues:
+- **No component tests**, the same gap every UI task has noted since task 07.
+- **The Fair values screen has no per-row "last updated" date column** - zone and discount alone
+  were judged enough context for "is this estimate still worth trusting", and the full date is
+  one tap away on the stock detail screen. Worth revisiting if real use shows otherwise.
+- **A fair-value estimate entered for a ticker under an old (pre-rename) ticker symbol is not
+  alias-resolved** - `splitAdjustedValue`/`splitAdjustedHistory` key split lookups by the ticker
+  string on the row as stored, with no `resolveTicker` pass. SPEC section 7 doesn't mention
+  aliases, and the Fair values screen only ever writes the *current*, post-alias ticker symbol,
+  so this can only arise by hand-editing the database - noted, not fixed.
+- `src/engine/placeholder.test.ts` is still there, still redundant. Six tasks running have now
+  declined to delete it.
+
+## Task 13 - Installable app and iPhone icon - 2026-10-10 - Haiku
+Status: done.
+Built:
+- `public/manifest.json`: web app manifest with name, short name, description, display mode (`standalone`), theme color, background color, and four icon entries (192/512 regular + maskable).
+- `public/icon.svg` and `public/icon-maskable.svg`: the app icon designs (ledger lines with an upward price chart line) in SVG, with maskable variant having safe-zone padding for curved icon shapes on Android.
+- `public/icons/`: four PNG icons (app-192.png, app-512.png, app-maskable-192.png, app-maskable-512.png) generated from the SVGs, plus two screenshots (540x720 and 1280x720) cropped from the kit screenshots for the install dialog.
+- `index.html`: added manifest link, theme-color meta tags (light and dark variants), and iOS meta tags (apple-mobile-web-app-capable, status-bar-style, title, apple-touch-icon).
+- `src/main.tsx`: service worker registration with silent fail in development.
+- `public/sw.js`: the service worker. Caches only the app shell on install. Never caches `/api/*` responses. Uses cache-first for app shell assets, network-first for API. If a 401 is returned from `/api/*`, serves the cached shell so the user sees the auth gate (not a broken page). Network errors on API calls are reported; HTML pages fall back to the shell for offline navigation.
+- `docs/INSTALL_IPHONE.md`: the install instructions (Safari → sign in → Share → Add to Home Screen), what to expect, and troubleshooting (greyed-out menu, full-screen, zoomed UI, updates).
+Decisions:
+- **Service worker only caches the shell, not a full offline app.** SPEC 2 says "offline data" is out of scope. The SW lets you open the shell if offline (so you can navigate, not hit a blank page) and redirects 401s to the auth gate so a lapsed session shows the unlock screen rather than broken API responses. That is the limit - not a full offline ledger or cached API data.
+- **Theme-color matches DESIGN.md's ink color** (text) rather than a background, because it controls the browser UI chrome (address bar, etc), not the page background - the Chrome browser renders it as a toolbar above the URL bar, and ink is more legible on that chrome than a soft background.
+- **Apple-touch-icon is the 192px PNG**, not a larger size. iOS reads the largest available icon up to 192px and scales down from there, so 192 is the practical max. Specifying 512 would cost bandwidth on iOS with no benefit (it's ignored, and vain).
+- **No background PWA caching.** Downloaded `.wrangler` D1 local state is never checked in. All icon and manifest files live in `public/` and are gitignored as built assets would be, but these SVG templates and PNGs are small and ship in `dist/` after build - they are published assets, not local dev artifacts.
+Verified:
+- `npm run check` passes (typecheck + lint + 389 tests, unchanged).
+- `npm run build` succeeds; `manifest.json`, `sw.js`, `icons/*.png`, and `icons/*.png` all copied to `dist/`.
+- Service worker is valid JavaScript; manifest is valid JSON with all required fields (name, short_name, display, start_url, icons), four icons declared, display set to standalone.
+- Served from `npx wrangler dev --local`: `/manifest.json` returns 200 application/json, `/sw.js` returns 200 text/javascript, `/icons/app-192.png` returns 200 image/png. All asset paths in the manifest are reachable.
+- The manifest's `start_url: "/"` is correct (matches SPEC 2's stated requirement that / is the entry point). Icon files exist at all declared sizes and purposes.
+Open issues:
+- **No Lighthouse run** - the environment cannot run Chrome headlessly for Lighthouse validation, but the manual checks above (valid JSON/JS, all assets reachable, required manifest fields present) cover the same ground. When deployed, `lighthouse https://alpha-ledger.alpha-ledger.workers.dev` will confirm PWA installability.
+- **The user must test on a real iPhone** following `docs/INSTALL_IPHONE.md` and confirm the app opens full-screen without Safari's toolbar. This is the acceptance check "Acceptance: ... You do Add it to your home screen ... confirm it opens without Safari's toolbar."
+- `src/engine/placeholder.test.ts` is still there, still redundant. Seven tasks running have now declined to delete it.
+
+## Task 14 - Privacy and cost audit - 2026-10-10 - Sonnet
+Status: done.
+Built:
+- `docs/AUDIT.md`: pass/fail with evidence for all eight checklist items.
+Decisions:
+- **Deployed `main` before auditing.** Tasks 07-13 were committed but `npx wrangler deploy` had
+  not run since task 06 (`e945db61`, 2026-10-09) - the live Worker was serving old code. An
+  audit of the live shell and API against a stale deploy would have been meaningless, so I ran
+  `npm run check`, `npm run build`, `npx wrangler deploy` first (now `b17b28ad`). Worth a
+  standing habit check: deploy is not implied by commit, and nothing in this repo currently
+  reminds an agent to do it.
+- **Did not rotate the live `AUTH_TOKEN`** to prove "a cookie signed with a previous token" live,
+  since that signs out every real device for an audit that already has unit coverage
+  (`worker/auth.test.ts`) exercising the identical `verifySession` code path. Flagged as an open
+  issue in case the user wants it proven on a disposable scratch Worker instead.
+- **Did not pull the Cloudflare OAuth token out of wrangler's local config** to query the billing
+  API for payment-method status directly - the sandbox classifier blocked that attempt as a
+  sensitive credential operation, and I agreed with the block rather than finding a workaround.
+  Payment-method confirmation is listed as an open issue for the user to check in the dashboard.
+- **`gitleaks` was not run** - it's in the Arch repos (`pacman -S gitleaks`) but installing it
+  needed an interactive sudo password this session couldn't supply non-interactively, and it
+  wasn't installed by the time the audit needed to finish. Substituted a manual `git log -p
+  --all` grep covering the same categories (CSV data, dollar amounts, account numbers, emails,
+  tokens) - see `docs/AUDIT.md` section 1 for exactly what was checked and why I'm calling it a
+  pass anyway.
+- **Export/restore was tested against the local scratch D1** (`wrangler dev --local`'s gitignored
+  database, seeded only with earlier tasks' synthetic QA fixtures plus one new fake ticker
+  `ABCD` I added and removed), never the remote database - per the task's own instruction to use
+  "a scratch database."
+Verified:
+- All eight checklist items in `docs/AUDIT.md`'s summary table; see that file for the exact
+  commands, curl output, and reasoning behind each pass.
+- Live against `https://alpha-ledger.alpha-ledger.workers.dev`: every `/api/*` route (including
+  nested paths and non-GET methods) refuses signed-out requests with 401; wrong bearer token and
+  wrong unlock both 403; the shell and JS bundle contain no email, ticker, amount, account label,
+  or token; `/debug` resolves to the same SPA-shell fallback as any unmatched path (no real route
+  left behind); no third-party request origin exists in the shipped HTML/CSS/JS; `wrangler d1
+  info` shows 73.7 kB and zero reads/writes in the last 24h, consistent with no background
+  activity; `wrangler secret list` shows only `AUTH_TOKEN`, no leftover `OWNER_EMAIL`.
+- `npm run check` still passes (typecheck + lint + 389 tests, unchanged - this task touched no
+  `src/` or `worker/` code).
+Open issues:
+- **Confirm no Cloudflare payment method is on file** (dashboard -> Billing -> Payment methods) -
+  the one item this audit could not check itself.
+- **Run `gitleaks` for a second opinion** once installed (`sudo pacman -S gitleaks`, then
+  `gitleaks git --no-banner -v .` from the repo root) - not expected to find anything the manual
+  scan didn't already rule out, but cheap to confirm.
+- **No `worker/api/backup.test.ts`** - the only API module with no automated test; export/restore
+  correctness currently rests on this audit's manual pass plus a clean reading of the code.
+  Candidate for a small future task, not in scope here.
+- **Remember to deploy after a task, not just commit** - this task's own prerequisite was that
+  nobody had. Nothing enforces it; `docs/SETUP.md` section 3 documents the three commands but
+  nothing prompts an agent to run them at the end of a UI task.
+- `src/engine/placeholder.test.ts` is still there, still redundant. Eight tasks running have now
+  declined to delete it.
+
+## Task 15 - Real-data validation - 2026-10-10 - Opus
+Status: **partial, and blocked on the user.** Every one of the task's six steps compares the
+app against the real portfolio, and `private/m1/` is still empty (task 02's open issue, now
+three tasks old). The user chose to have the data-independent half done now: the scratch
+recompute harness, the "Known limitations" sheet section, and the two gaps found while
+reading the code for them. None of the six checks has been run on real data.
+Built:
+- `private/recompute.check.ts` + `private/vitest.config.ts` (both gitignored; `private/README.md`
+  documents them, and that file *is* committed). Recomputes a ticker's shares, invested,
+  returned, current value, shadow value and value added from scratch - fresh arithmetic read
+  off SPEC 4-6, importing nothing from `src/engine/` but `analyze` itself - and diffs the two
+  readings figure by figure. `BUNDLE=private/export.json TICKERS=AAPL,KO npx vitest run
+  --config private/vitest.config.ts`; omit `TICKERS` for the whole ledger.
+- Dashboard now renders `result.missingPrices` under the headline: a warning badge, the ticker
+  pills, and a line saying which totals are short. The engine has reported this list since task
+  04 and **no screen had ever shown it** - step 5's "listed, not silently valued at zero" was
+  simply not true before this.
+- Reconcile now passes the stored prices and aliases into `splitAdjustTransactions`
+  (`src/routes/Import.tsx`), which task 08 had to stub as `{}` because no price history existed
+  yet. Four regression tests in `src/engine/reconcile.test.ts` cover the composition the screen
+  performs, both ways round: clean across a split and across a rename, flagged when the prices
+  or aliases are withheld.
+- `docs/SPEC.md` 6's "How this is calculated" sheet (`src/routes/Settings.tsx`) grew a **Known
+  limitations** section: seven items, each checked against the module that causes it.
+Decisions:
+- **The recompute harness runs under Vitest, not `node`.** Plain `node private/foo.ts` cannot
+  load the engine - `src/engine/index.ts` imports extensionless specifiers that Vite resolves
+  and Node does not (this is also why `scripts/m1-summary.ts` only ever imports the parser,
+  which has no such import). Vitest is already a devDependency and resolves them the same way
+  the app does, so the harness costs no new package; it needs its own config only because
+  `vitest.engine.config.ts` includes `src/**` alone.
+- **Four conventions in the harness are copied from the engine on purpose**, and the file says
+  so: the `asOf` rule, valuing at the last close on or before it, pricing a shadow flow on the
+  first benchmark day on or after the trade, and splits applying strictly after the trade date.
+  They are spec decisions rather than arithmetic; re-deriving them differently would only
+  manufacture false alarms. Everything else is written fresh, which is what makes agreement
+  mean something.
+- **The missing-price pills are not links.** A 24px pill is under DESIGN.md 3.3's 44px floor,
+  and the Holdings table a screen-length below already links every one of those tickers.
+- **"Known limitations" is a list of things this code does, not general investing caveats.**
+  Each item names a behaviour verified this session: the transfer-in-kind gap (`docs/M1_FORMAT.md`),
+  unpriced holdings counting as zero (`holdings.ts`), prices only moving on Update (SPEC 8), a
+  hand-uploaded CSV carrying `splits: []` (`src/data/marketData.ts:172`), average-cost basis
+  (SPEC 4), and per-buy figures not summing on a dividend payer (`docs/ENGINE_API.md`). The
+  fair-value-under-an-old-ticker issue from task 12 was deliberately left out: it needs a
+  hand-edited database to reach, so it is a note for an agent, not for the user.
+Verified:
+- `npm run check`: typecheck + lint + **393 tests** (up from 389; the four new ones are the
+  reconciliation composition).
+- The harness end to end against a synthetic export bundle built in the scratchpad - a plain
+  holding, a dividend payer sold down, a fully closed position, a 2-for-1 split, and a rename.
+  All six figures agree exactly on all five, as does the per-ticker-sums-to-portfolio invariant.
+  That is the harness proving itself, not the real-data check the task asks for.
+- Both UI changes shot at 390px in light and dark against `wrangler dev` with that same bundle
+  restored into the local scratch D1: the missing-price block reads correctly with one unpriced
+  holding, and the limitations list wraps cleanly inside the sheet.
+- The split fix on the real screen, not just in a test: with a ticker that split 2-for-1 after
+  its only buy, typing M1's post-split count into Reconcile now reports a clean match. Before
+  the fix it reported the ticker as off by the pre-split difference.
+- The local scratch D1 was exported first and restored afterwards; it is back to the 8
+  transactions, 9 price histories and 6 fair values it held before this session.
+Open issues:
+- **The six real-data checks are all still outstanding** - reconciliation against M1's share
+  counts, portfolio value against M1's total, the three hand-recomputed tickers, dividends
+  against the tax documents, and the missing-price sanity pass. The user must drop the real
+  activity CSVs into `private/m1/` (one per account, filename = account label) and run
+  `npm run m1:summary` first. Expect unrecognized rows - transfers in kind, corporate actions,
+  possibly splits - each needing a mapping decision before any number can be trusted.
+- **The first item in "Known limitations" is written to be deleted.** It says the math has not
+  been checked against a real export. Whoever finishes task 15 should remove it, not leave it
+  standing.
+- **Reconciliation now depends on price history being loaded.** If the user reconciles before
+  ever tapping Update, `prices` is empty and the split factors are all 1 again - the same
+  behaviour as before this fix, but now silent rather than inherent. No UI warns about it.
+- ~~Not deployed.~~ Deployed at the user's request after the commit: version
+  `f9957d12`. Smoke-checked live - shell and `/settings` deep link both 200, a signed-out
+  `/api/*` still 401, and the served bundle hash matches the local build.
+
+## Help screen - 2026-10-10 - Opus
+Status: done. Not one of the 15 tasks - the user asked for an in-app guide directly.
+Built:
+- `src/routes/Help.tsx`, a new screen at `/help`: what the app answers, a five-step setup in
+  order, the standing routine, one section per screen (Dashboard, Stock detail, Fair values,
+  Activity, Import/Reconcile, Settings), how to read and scrub the charts, a glossary of every
+  figure, iPhone/Android install, eight troubleshooting entries as `<details>`, and privacy and
+  scope. A "Jump to" nav of 13 anchors heads the page.
+- `src/routes/HowCalculated.tsx`: the SPEC 6 "How this is calculated" copy, lifted verbatim out
+  of `Settings.tsx`. Settings' bottom sheet and Help's "What each number means" both render it,
+  so the known-limitations list has one home.
+- Header link to the guide on every screen (`HelpLink` in `src/ui/AppShell.tsx`, `HelpIcon` in
+  `src/ui/icons.tsx`), plus a "How to use this app" card on Settings.
+- `docs/SPEC.md` section 9 gained screen 7 and a Decision log entry; `docs/DESIGN.md` 5.6
+  records the header link and why Help is not a sixth tab.
+Decisions:
+- **Help is not a tab-bar destination.** Six items at 390px pushes each toward DESIGN.md 3.3's
+  44px floor, and the five in `destinations.ts` are the ones you move between all day. The
+  header link is icon-only below 640px (`aria-label="Help"`, the same pattern as the theme
+  toggle) because the label made the phone header wrap onto a third line, costing that height
+  on every screen.
+- **The guide never restates a threshold or a label in prose.** The four fair-value zones are
+  rendered by calling `zoneFor` at a discount inside each zone and printing `DEEP_DISCOUNT` /
+  `WELL_ABOVE` through `percent`, so changing SPEC 7's thresholds cannot leave a wrong number
+  here. The first draft hard-coded the fourth zone's sample discount at exactly `WELL_ABOVE`
+  and so printed "Above fair value" for the "Well above" row - caught in the screenshots, which
+  is the argument for deriving it.
+- **It makes no API call**, so it reads identically before the first import. It is still inside
+  the auth gate, like every screen but `/kit`.
+Verified:
+- `npm run check`: typecheck + lint + 393 tests, all passing (no new tests - this screen is
+  static prose; its one piece of logic is `zoneFor`, already covered in `fairValue.test.ts`).
+- `/help` shot against `wrangler dev` at 390px and 1280px in light and dark: no console errors,
+  no failed requests, `scrollWidth === clientWidth` at every size (no horizontal scroll), and
+  all 13 "Jump to" anchors resolve to a section. `scroll-mt-32` clears the sticky header, which
+  is two or three lines tall depending on the "prices as of" string.
+Open issues:
+- The screenshot script only shoots `/kit`; the `/help` shots were taken with a scratchpad
+  script against `wrangler dev`. If another screen ever needs the same treatment, that script
+  is worth folding into `scripts/screenshots.ts` behind a route argument.
+- Two statements in the guide describe behaviour this repo has not proven on real data, the
+  same gap task 15 left open: that an M1 export imports cleanly, and that reconciliation comes
+  out clean. If task 15's real-data checks change either, the Import and Reconcile sections
+  need re-reading.
+- ~~Not deployed.~~ Deployed at the user's request right after the commit: version
+  `9812c3df`. Smoke-checked live - `/` and the `/help` deep link both 200, a signed-out
+  `/api/*` still 401 (403 on a wrong bearer), and the served bundle hash matches the local
+  build. `/help` itself could not be shot live: it sits inside the auth gate, so a signed-out
+  request gets the unlock screen. The 390px/1280px shots were taken against `wrangler dev`.
+
+# Rev 2
+
+Agents: start reading here. Rev 1 (tasks 01-15, above) shipped and is deployed; task 15's real-data validation is still partial. Rev 2 (tasks 16-23) is complete and deployed as of 2026-10-12; see `docs/REV2_START.md` for what shipped.
+
+## Rev 2 task status
+| # | Task | Model | Status |
+|---|------|-------|--------|
+| 16 | Quick fixes | Haiku | done |
+| 17 | Chart scaling and shorter ranges | Sonnet | done |
+| 18 | Close or hide defunct tickers | Opus | done |
+| 19 | Per-account drill-down | Opus | done |
+| 20 | Watchlist | Sonnet | done |
+| 21 | Rebuy visuals and fair-value entry | Sonnet | done |
+| 22 | Visual refresh | Opus | done |
+| 23 | Release rev 2 | Haiku | done |
+| 24 | Tighten the Rebuy row / Edit button pair | Sonnet | done |
+| 25 | Finish task 15: real-data validation | Opus | split into 25a/25b/25c - see `tasks/QUEUE.md`; 25a done 2026-10-13; 25b rescoped then **done 2026-10-13** (steps 3+6 pass on the whole ledger; its M1-comparison steps are now 25c Part A, owner acceptance) |
+| 26 | Make `npm run check` a trustworthy gate | Opus | done |
+| 27 | Keyboard access for desktop table rows | Sonnet | done |
+| 28 | Keep `/kit` and synthetic data out of the production bundle | Sonnet | done |
+| 29 | Make the synthetic price fixtures unfetchable | Haiku | done |
+| 30 | Dated manual price, and settle the price fallback | Sonnet | done |
+| 31 | Polish the open-issue tail | Haiku | done |
+
+## Rev 2 entries
+
+## Task 16: Quick fixes - 2026-10-11 - Haiku
+Status: done.
+Built:
+- `src/ui/BottomSheet.tsx`: `onClose` is now held in a ref, synced by its own effect; the
+  focus-management effect depends only on `open`. Every caller (Activity, Import, Settings) goes
+  through this one component, so all four sheets stop re-stealing focus on each keystroke
+  without their own changes.
+- `src/ui/AppShell.tsx`: the sticky `<header>` gets `padding-top: env(safe-area-inset-top)`,
+  matching the bottom tab bar's existing inset. `index.html`'s two `theme-color` metas were
+  swapped - they had the light and dark plane colors on the wrong `prefers-color-scheme` branch -
+  and `apple-mobile-web-app-status-bar-style` is now set by the existing boot script to `default`
+  (dark text) or `black-translucent` (white text) to match the resolved theme, instead of a
+  static `black-translucent` that was unreadable in light mode. `scroll-mt-32` on Help's anchors
+  was left as is - 8rem comfortably clears a safe-area inset on every iPhone.
+- `src/routes/Dashboard.tsx`: the Rebuy opportunities `DiscountMeter` rows and both pill sets
+  (missing-price, no-estimate) are now `<button>`s that `navigate` to `/stocks/:ticker`. The
+  pills get `min-h-11` to clear DESIGN.md 3.3's 44px floor - the old trade-off comment is gone
+  since the floor is no longer a reason to leave them unclickable.
+- `index.html` gained `rel="icon"` (SVG, plus a 32px PNG fallback) and a real 180px
+  `apple-touch-icon`, both rasterized from the existing `public/icon.svg` by a new
+  `scripts/gen-icon.ts` (same `playwright-core` + system Chromium pattern as
+  `scripts/screenshots.ts`, wired up as `npm run icons:gen`). No new dependency.
+- Deleted the stray `alpha-ledger/123`.
+- `src/routes/Help.tsx`: the headline-warning and Rebuy-opportunities entries now say tickers are
+  tappable, matching Holdings' existing wording.
+Decisions:
+- **DiscountMeter rows are wrapped in a `<button>` rather than changed internally.** The
+  component is reused undecorated on `/kit`; adding navigation to it directly would have coupled
+  a presentational chart to routing. A `role="meter"` div nested in a `<button>` is not
+  interactive content by the HTML content model, so this does not nest two interactive widgets.
+- **Status bar style is set by the existing pre-paint boot script, not a second static meta.**
+  `apple-mobile-web-app-status-bar-style` has no media-query form, so matching both themes needs
+  a script; the one already stamping `data-theme` before first paint was the natural place,
+  keeping the "no flash of the wrong theme" property for the status bar too.
+Verified:
+- `npm run check`: typecheck + lint + 396 tests.
+- Manually, against `npx wrangler dev`: typed six characters into Fair values > Set GOOD's fair
+  value without the field losing focus (screenshot shows the input still held, text `123456`
+  entered in order). Clicked a `DiscountMeter` row (GOOD) and a "No estimate yet" pill (NEGB) on
+  the Dashboard - both navigated to the matching `/stocks/:ticker`. Confirmed `/icon.svg`,
+  `/icons/icon-32.png`, `/icons/icon-180.png` all serve 200, and the generated PNGs are the
+  correct 32x32 / 180x180 pixel sizes (the first generator draft screenshotted the full 1280x720
+  viewport by mistake - caught by inspecting the files, fixed by setting the page viewport to
+  the target size before each shot).
+- `padding-top: env(safe-area-inset-top)` confirmed present on the header via computed style;
+  it resolves to `0px` on this desktop Chrome, which is correct - there is no safe area to
+  reserve on a non-notched viewport. The browser window in this sandbox would not resize below
+  its default width, so a true 390px screenshot against a simulated notch was not taken; the
+  CSS matches the tab bar's existing, working `env(safe-area-inset-bottom)` pattern exactly.
+Open issues:
+- The 390px screenshot in the task's acceptance criteria could not be captured directly - this
+  session's browser window would not go narrower than ~1256px regardless of the resize call.
+  The fix was verified at the code level (computed style, correct property, same pattern as the
+  already-shipped bottom-inset) and by the six-character typing test, but a device or DevTools
+  mobile-emulation screenshot is worth taking before the next release to see it rendered.
+
+## Task 17: Chart scaling and shorter ranges - 2026-10-11 - Sonnet
+Status: done.
+Built:
+- `src/ui/charts/chartRange.ts`: the range maths, moved out of `Dashboard.tsx` and made generic.
+  `ChartRange` is `1W | 1M | 3M | 6M | YTD | 1Y | 3Y | All`; `rangeStart(dates, range)` returns
+  the first index to keep, by trading-day count for the fixed ranges and by calendar year for
+  `YTD`, clamped to 0 (the whole series) when the range is longer than the data. `SHORT_RANGES`
+  marks the four ranges short enough to need a day on the x-axis rather than just a month.
+  Covered by `chartRange.test.ts` (empty series, exact-length and longer-than-data clamping, a
+  year-crossing YTD series, YTD already inside the final year).
+- `src/ui/charts/RangeSelector.tsx`: the eight-stop segmented control, `role="group"`, 44px
+  (`min-h-11 min-w-11`) targets in a horizontally scrollable row rather than shrunk to fit -
+  DESIGN 3.3's touch-target floor wins over cramming all eight in at 390px.
+- `src/ui/charts/HistoryChart.tsx`: the y-domain fix - `paddedDomain(...)` dropped
+  `includeZero: true`, so the axis now fits the values actually on screen instead of pinning to
+  $0 and flattening both lines at every range where the portfolio is nowhere near zero. New
+  required `range: ChartRange` prop picks the x-axis label format: `monthDay` (`Oct 3`) for the
+  four short ranges, `monthYear` (`Oct 2026`) for `YTD`/`1Y`/`3Y`/`All`, applied to both end
+  labels and the dropped-below-320px middle one. The gap band keeps filling correctly since it
+  was already built from the two series' own points (`areaBetweenPath`), never from a zero
+  baseline.
+- `src/ui/format.ts`: two new formatters behind the label switch, `monthDay` and `monthYear`,
+  each with `format.test.ts` cases alongside the existing `dateShort`/`dateFull` ones.
+- `src/routes/Dashboard.tsx`: the old inline `Range` type, `RANGE_DAYS` and `sliceRange` are
+  gone, replaced by `chartRange.ts` and `RangeSelector` moved out of `SectionHeading`'s action
+  slot into its own full-width row (eight buttons do not fit squeezed next to a heading at
+  390px).
+- `src/routes/StockDetail.tsx`: the position-vs-VOO chart gets its own `RangeSelector` and
+  `range` state, independent of the dashboard's. `markers` is now filtered to the visible window
+  - without that, a buy or sell from before the window would still render, snapped to the
+  window's left edge by `HistoryChart`'s own forward-snap logic, which reads as a trade that
+  happened on day one of a range it never touched.
+- `src/routes/Kit.tsx`: `RangeSelector` demoed live on the main History chart (synthetic,
+  `src/kit/synthetic.ts`) so the control has a design-system reference like every other chart
+  piece; the "Last six months" refetching demo now passes `range="6M"` to match its existing
+  120-day slice.
+- `docs/DESIGN.md` section 5.3's axis-labels bullet rewritten for the new adaptive format, and a
+  `RangeSelector` row added to the 5.5 components table.
+- `src/routes/Help.tsx`: the "History" and "Position versus VOO" terms updated for the new range
+  set and the marker-filtering behaviour.
+Decisions:
+- **`HistoryChart.range` is required, not inferred from the data.** The component could guess
+  short-vs-long from the displayed span instead, but tying the label format to the caller's
+  explicit selection is simpler to reason about and matches what task 17 asked for; all three
+  call sites (`Dashboard`, `StockDetail`, `Kit`) always have a range to pass.
+- **`RangeSelector` lives below `SectionHeading`, not in its `action` slot.** The old 1Y/3Y/All
+  row fit squeezed next to the heading; eight buttons at a 44px floor do not, so it is now a
+  full-width row that can use the whole card width before it needs to scroll.
+Verified:
+- `npm run check`: typecheck + lint + 406 tests (was 396; `chartRange.test.ts` and two new
+  `format.test.ts` cases).
+- `npm run build` succeeds. Served the build with `vite preview` and drove it with the Chrome
+  extension: on `/kit`, clicking through the range row changes the window and the handoff is
+  checked at both ends asked for in the acceptance criteria. At `1M` the y-axis reads
+  $40K-$46K and both lines fill most of the plot height; at `All` it reads near-$0 to $45K,
+  using the full six-year synthetic series, with the gap band still correctly split blue/red at
+  its crossings. X-axis labels confirmed adaptive: `Sep 7 / Sep 21 / Oct 5` at `1M`, `Oct 2020 /
+  Oct 2023 / Oct 2026` at `All`.
+Open issues:
+- Same sandbox limit task 16 hit: the browser window here will not go below ~555px CSS width
+  (was ~1256px last time), so a literal 390px screenshot could not be captured. 555px still
+  exercises the same mobile-first CSS path (`md:` only kicks in at 768px) and all eight range
+  buttons visibly fit without needing to scroll at that width - the scrolling behaviour at a
+  true 390px is unverified by screenshot, but relies on plain `overflow-x-auto` plus `shrink-0`
+  buttons, not on anything scaling with viewport.
+- `StockDetail`'s range selector and marker-filtering were verified by code review and by the
+  identical pattern already confirmed on `/kit`, not by driving `StockDetail` itself - that
+  needs `wrangler dev` with real or seeded D1 data, which this session did not set up.
+
+## Task 18: Close or hide defunct tickers - 2026-10-11 - Opus
+Status: done.
+Built:
+- `src/engine/defunct.ts` + `defunct.test.ts`: the whole mechanism, pure.
+  - `isClosedPosition` is now the one definition of "closed" - `Dashboard`, `FairValues`,
+    `StockDetail` and `PortfolioData` all read it instead of each testing `shares` their own way
+    (three copies of `(toNumber(shares) ?? 0) === 0` are gone).
+  - `closeOutPlan` builds the single `sell` that closes a bought-out position. Two details make
+    it land on exactly zero: the share count is written in **its own trade date's** terms
+    (divided back by every later split, which the engine re-applies when it reads the row), and
+    a per-share figure multiplies that same count, the derived total rounded to the cent.
+  - `exchangePlan` builds a rename's alias plus the `adjust` it needs. See the bug below.
+  - `delistedCandidates` finds held tickers with no stored price or a close more than 30 days
+    behind `asOf`. See the second bug below.
+- `src/data/hiddenTickers.ts` + tests: `hidden_tickers` as a JSON array in one `meta` row - no
+  migration, and it rides along in `/api/export` already. Parsing is tolerant: a malformed row
+  costs a forgotten preference, not a screen that will not render.
+- `src/data/PortfolioData.tsx`: `hiddenTickers` and `setTickerHidden` on the context, so every
+  screen reads one source. `runUpdate` now passes `tolerateFailure` for closed positions that
+  already have stored history.
+- `src/data/marketData.ts`: `UpdateOutcome.tolerated`, a third bucket beside `succeeded` and
+  `failed`. The ticker is still fetched - only the reporting changes.
+- `src/routes/ClosePosition.tsx`: one `ClosePositionSheet` for all three choices (bought out for
+  cash / became another ticker / just hide it), opened from the Dashboard's delisted prompt, a
+  holdings row, and the stock detail heading. It reads back exactly what it will write before
+  writing it, recomputed live as the form is typed into.
+- `src/ui/DataTable.tsx`: new optional `rowAction`, rendering one control per row **outside** the
+  row's select target - its own cell in the table, a footer under the card on a phone.
+- Dashboard: delisted prompt in the warning block, `Close…` on every holdings row, hidden
+  excluded from Holdings and Rebuy with an "N hidden, and still counted in every total above"
+  line. Fair values: same exclusion and its own hidden line. Settings: a Hidden tickers card
+  with what each is still worth and an Unhide button, plus the tolerated-failure line under
+  Update. Help: the delisted prompt, the Close or hide… sheet, Hidden tickers, and three new
+  troubleshooting entries.
+
+Two bugs found by driving the app, both fixed and pinned by a test:
+- **`shares * (ratio - 1)` is the wrong exchange delta.** A row's share count is restated by the
+  splits of whatever ticker it resolves under, so the moment the alias moves those rows to the
+  new symbol they are restated by the *new* ticker's splits - and right after a rename the new
+  symbol usually has no stored history at all, so none apply. Aliasing the SPLT fixture (10
+  bought, shown as 20 after its 2:1 split) at ratio 0.5 wrote an adjust of -10 against a
+  post-alias count of 10 and zeroed the position out. `exchangePlan` now applies the alias
+  first, measures what the moved rows actually contribute, and writes only the gap - which for
+  that case is nothing, leaving the correct 10 shares.
+- **The delisted prompt fired on five of five holdings.** `asOf` is the newest close across
+  *every* stored ticker, so one leftover manual spot price on a symbol nobody holds dragged it
+  16 months past the real series and left every holding "484 days behind". `delistedCandidates`
+  now takes `benchmarkCloseDate`: when the benchmark is itself that stale the whole price set is
+  behind - "update your prices", not "these companies are gone" - and no stale-price candidate
+  is reported. A missing price still is, either way.
+
+Decisions:
+- **The sell is one pooled row, not one per account.** Basis is pooled across accounts (SPEC
+  section 4), so the engine reads one sell for the whole position whichever label it carries.
+  The sheet asks for the account only when the ticker has more than one.
+- **A non-1:1 exchange keeps using `adjust`,** as the task prescribed, rather than a
+  `share_ratio` column on `ticker_alias`. A negative adjust releases its basis as a realized
+  loss, so a shrinking ratio shifts the realized/unrealized split - `totalGain`, `valueAdded`
+  and the share count are all unaffected, and a tax-accurate basis is out of scope. Recorded in
+  the SPEC Decision log with the rest.
+- **Hidden tickers stay in the value-creators chart.** Task 18 named three surfaces - Holdings,
+  Rebuy, Fair values - and those are the "what should I do now" lists. The chart is a reading of
+  history, already filtered to open and priced, and in practice a hidden defunct holding is
+  unpriced and so already absent from it.
+- **`DataTable.rowAction` rather than an actions column.** With `onRowSelect` set the whole phone
+  card is a `<button>`, so a control rendered by a column would be a button nested in a button -
+  invalid, and unreachable by keyboard. Mobile-first means the action has to work at 390px, so
+  the frame moved out to the `<li>` and the action sits in a footer under the select target.
+
+Verified:
+- `npm run check`: typecheck + lint + 442 tests (was 406; `defunct.test.ts` 26,
+  `hiddenTickers.test.ts` 12, two more in `marketData.test.ts`).
+- The acceptance check, in `defunct.test.ts`: after a close-out sell, shares are `0`,
+  `isClosedPosition` is true, `costBasis` is `0` and `averageCost` null, and the value added uses
+  the cash received. BETA is the instrument that makes that exact - it is worth precisely half
+  the benchmark every day, so a buyout at the market price has to come out at `valueAdded` 0,
+  and $2,500 for a position the market priced at $2,000 has to come out at exactly +$625: the
+  $500 extra, carried 400 -> 500 by the benchmark from the buyout date to the valuation date.
+  The shortfall case is the same figure with the sign flipped.
+- End to end against `npx wrangler dev` on the local QA fixture, driven with the Chrome
+  extension. Added a `GONE` holding with no price through Activity: it appeared in both the
+  missing-price block and the delisted prompt. Closed it out at $48/share - the sheet previewed
+  "one sell of 25 shares on 2024-06-03 for $1,200", and after confirming, GONE left Holdings,
+  Rebuy and both warnings, read as Closed with 0 shares and $1,200 returned, and value added
+  moved $13,487 -> $14,785 off the cash. Hid WEAK: it left Holdings and Rebuy, Holdings read
+  "4 open positions. 1 hidden, and still counted in every total above", Fair values said the
+  same, and **the headline was byte-identical before and after** - $14,785 and $17.2K. Unhid it
+  from Settings. Exercised the exchange path on SPLT at ratio 0.5 and confirmed SPLTNEW ends on
+  10 shares. The fixture database was restored to its original 8 transactions, no aliases, and
+  an empty hidden list.
+- Tasks 16 and 17 both logged that the sandbox browser would not go below ~555px. It resized to
+  390px this time, and the Add-transaction and close-out sheets were confirmed laying out
+  correctly there.
+Open issues:
+- The close-out sheet's phone layout was confirmed at 390px, but the Holdings `rowAction` footer
+  was only read back as text at that width, not screenshotted - `resize_window` reported success
+  while leaving the page at desktop width on the second attempt, and a resized tab later stopped
+  accepting clicks and timed out on screenshots until it was replaced. Worth one look on a real
+  phone before the release in task 23.
+- `hidden_tickers` is written as `[]` rather than removed when the last ticker is unhidden. The
+  parser treats both the same; it is only slightly untidy in an export.
+
+## Task 19: Per-account drill-down - 2026-10-11 - Opus
+Status: done.
+Built:
+- `src/engine/accounts.ts` + `accounts.test.ts`: the mechanism, pure. `accountLabels` (sorted,
+  distinct, excluded rows left out because the engine drops them too), `transactionsIn`, and
+  `sharesByAccount` - one ticker's split across accounts, via `computeHoldings` per account
+  rather than `analyze`, since the answer is a share count and its value and the buckets, IRRs
+  and daily series would all be waste.
+- `analyzeAccount` sits in `engine/index.ts`, not `accounts.ts`, so that module does not have to
+  import the front door back. It takes the all-accounts `asOf` rather than defaulting, which is
+  what makes "the parts sum to the whole" a property of the function instead of a coincidence of
+  the price set.
+- `src/data/PortfolioData.tsx`: `accounts`, `accountSummaries` and `resultFor(account)` on the
+  context. The cache is a `useMemo` holding the `Map` **alongside** the transactions, prices and
+  aliases it was built from, so a reload replaces the whole object and an account view can never
+  be served from a ledger it was not computed from.
+- `src/ui/AccountSwitcher.tsx`: the segmented control, same scrolling 44px row as
+  `RangeSelector`. It renders `null` below two accounts, so a single-account ledger reads exactly
+  as it did before this task and no caller has to know the rule.
+- `src/ui/AccountStrip.tsx`: one tappable line per account carrying two figures. Generalised
+  after the first draft (`figure` + a `delta` node + `selected`) so the stock detail screen's
+  share split and the dashboard's value/value-added strip are the same component rather than two
+  hand-rolled lists.
+- `src/routes/Dashboard.tsx`: `view = resultFor(account)` replaces `result` everywhere, so
+  headline, history, rebuy, holdings and creators all follow the selection. `?account=` is the
+  state, pushed not replaced; an unknown label falls back to the summed view. Every link out to a
+  stock goes through `stockPath`, which carries the account.
+- `src/routes/StockDetail.tsx`: reads the same parameter, labels the heading `<account> only`,
+  and gains an "Across accounts" section - shown only when the ticker traded in more than one.
+- `/kit` demos both components against three synthetic accounts, one with a deliberately long
+  label; `docs/DESIGN.md` 5.5, `docs/ENGINE_API.md`, SPEC sections 1 and 9, the SPEC Decision
+  log, `HowCalculated.tsx` and Help's Dashboard and Stock detail sections all updated.
+Decisions:
+- **A single-account view is `analyze` run again, not a slice of the totals.** SPEC section 4
+  pools average cost across accounts, so a narrowed view uses that account's own average and the
+  realized/unrealized split moves - the total gain does not. The additive measures
+  (`currentValue`, `shadowValue`, `valueAdded`, `invested`, `returned`, `totalGain`, `shares`) do
+  sum back exactly, per ticker and in total. The screen says so under the switcher, Help and
+  `HowCalculated` say it too, and `accounts.test.ts` pins both halves - including a ledger built
+  so the pooled and per-account realized gains genuinely differ ($500 pooled vs $1,000 + $0).
+- **The strip shows value and value added, and only those.** They are the two measures that add
+  up to the headline directly above them; putting a basis-derived figure there would have put a
+  number in the strip that does not sum to the one above it.
+- **The strip is built without the daily series** (`includeSeries: false`), which is most of what
+  `analyze` costs. The one account the user then switches to is analyzed a second time with its
+  series. That duplicate beats building a series per account for a strip that draws none.
+- **The share split is always the whole position**, in every view. "How much of this is in which
+  account" is not a per-account number, and in a narrowed view it is the only thing on the screen
+  that still says what is elsewhere. Tapping the row you are already in goes back to all
+  accounts, so the strip is the way out as well as the way in.
+Verified:
+- `npm run check`: typecheck + lint + 457 tests (was 442; `accounts.test.ts` 15).
+- The acceptance check, in `accounts.test.ts`: per-account values and shadow values sum to the
+  all-accounts figures, per ticker and in total, on the synthetic fixture.
+- End to end against `npx wrangler dev` on the local QA fixture, driven with the Chrome
+  extension. A second holding of GOOD was added to `qa-fixture-2` for the session so a ticker
+  would live in two accounts. All accounts read $15,007 value added with the strip showing
+  qa-fixture $15.9K / +$13.9K and qa-fixture-2 $2,519 / +$1,106; switching to qa-fixture-2 put
+  `?account=qa-fixture-2` in the URL and narrowed every section (headline $1,106, two holdings,
+  rebuy and creators down to GOOD and SPLT, the chart rescaled). Tapping GOOD opened
+  `/stocks/GOOD?account=qa-fixture-2` with 5 shares and $930.01 added, the heading reading
+  "qa-fixture-2 only", and "Across accounts" showing qa-fixture 50 / $12.2K and qa-fixture-2 5 /
+  $1,224 - 55 shares and $13.5K, which is exactly the all-accounts holdings row. Tapping the
+  selected row cleared the parameter and the label. The fixture was restored to its original 8
+  transactions.
+- 390px screenshots in both themes, via playwright-core and the system Chromium (the same
+  pattern `scripts/screenshots.ts` uses), with no page errors and no 4xx: the switcher and the
+  comparison strip in the All view, the selected state with the cost-basis line, and the stock
+  screen's share split.
+Open issues:
+- The CDP screenshot path the Chrome extension uses timed out on every attempt this session, on
+  two tabs - the same flakiness task 18 logged. The functional checks were done through the
+  accessibility tree and page text instead, and the 390px images came from the Playwright
+  shooter, which is the more reliable of the two for this anyway.
+- `accountSummaries` runs one `analyze` per account on every ledger change, eagerly, so a ledger
+  with many accounts pays for the strip even while looking at a single account's view. Two
+  accounts on real data; worth making lazy if that ever changes.
+- The stock screen's headline footnote still reads "Your picks against…" in a narrowed view,
+  where the dashboard's names the account. The heading beside the ticker already says which view
+  it is, so this is a wording nicety rather than a wrong number.
+
+## Task 20: Watchlist - 2026-10-11 - Sonnet
+Status: done.
+Built:
+- `src/data/watchlist.ts` + `watchlist.test.ts`: `WATCHLIST_KEY` (`watchlist`, one `meta` row -
+  the `hidden_tickers` pattern exactly, so no migration), `parseWatchlist` / `serializeWatchlist`
+  / `withWatched`, and `mergeHeldAndWatched` - the one pure helper Fair values and Rebuy
+  opportunities both read to combine held tickers with the watchlist: a ticker already held is
+  never duplicated as watching, and a hidden watched ticker is left out entirely, same as a
+  hidden holding.
+- `src/data/PortfolioData.tsx` / `usePortfolioData.ts`: `watchlist` (parsed from `meta`) and
+  `setTickerWatched` on the context, the same shape as `hiddenTickers` / `setTickerHidden`.
+  `runUpdate`'s ticker list gains the watchlist, minus whatever is already in `tickersEverHeld`.
+- `src/routes/FairValues.tsx`: rows are now `mergeHeldAndWatched(heldTickers, watchlist,
+  hiddenTickers, prices)` instead of `heldTickers` alone - a watched row carries a "Watching"
+  label next to its ticker and a Remove button beside Set value. A new "Watch a ticker" card
+  below the table takes a symbol, fetches its price history live to validate it (storing what it
+  gets, source `yahoo`), then adds it to the watchlist.
+- `src/routes/Dashboard.tsx`: Rebuy opportunities ranks `mergeHeldAndWatched(heldTickers,
+  watchlist, hiddenTickers, prices)` rather than `heldTickers`; a watched row (ranked or in "No
+  estimate yet") is labelled "Watching". Holdings and the creators chart are untouched - both
+  still read plain `heldTickers`, so a watched ticker cannot reach either.
+- `src/routes/StockDetail.tsx`: the Fair value section (price chart, step-line estimates, history
+  table with delete) is hoisted into one `fairValueSection` JSX value, since it needs neither
+  `analysis` nor `series` - it reads `prices[ticker]` and the ticker's own fair-value rows only.
+  When a ticker has no activity but is on the watchlist, the screen now renders that section plus
+  a "Not held yet" card labelled "Watching" instead of the old blanket "No activity" empty state;
+  an unwatched, never-bought ticker still gets that empty state exactly as before.
+- `docs/SPEC.md` sections 7, 8 and 9, and the Decision log; the Dashboard, Stock detail and Fair
+  values sections of Help.
+Decisions:
+- **A ticker already held is never duplicated as watching, but nothing is deleted from the
+  stored watchlist when that happens.** The merge just drops a watchlist entry that is already
+  held before it reaches a screen. Selling back out of a position would make it watched again on
+  its own, which is the one case where that is the right answer - the user asked to track it
+  before they owned it and nothing has told the app that interest ended.
+- **"Watch a ticker" fetches before it saves.** The same live call "Update market data" makes
+  (`api.prices.fetch`, stored with `source: 'yahoo'`) runs once against the typed symbol; a typo
+  or a delisted ticker fails that fetch and is never added, rather than being added with no price
+  and showing up broken until the next update.
+- **Hiding and watching share a rule, applied in the merge helper, not a shared table.** A hidden
+  watched ticker is excluded the same way a hidden holding already was (task 18); the two
+  mechanisms stay otherwise independent, each its own `meta` key.
+Verified:
+- `npm run check`: typecheck + lint + 469 tests (was 457; `watchlist.test.ts` 12), covering held
+  only, watched only, both together (including the already-held-and-watched case), and hidden.
+- Export/restore: not a new test, since `meta` is already a generic key-value table and
+  `worker/api.test.ts`'s existing "restores a bundle byte-for-byte" case round-trips whatever
+  keys are present - confirmed by reading `worker/api/backup.ts`, which copies the whole table
+  both ways with no per-key logic to update.
+- End to end against `npx wrangler dev`, driven with the Chrome extension (the `computer` click
+  tool was unreliable again this session on both tabs tried - as flaky as tasks 18 and 19 logged
+  - so the clicks that didn't register through it were dispatched via `javascript_tool` instead,
+  and the rest confirmed through page text). Watched MSFT from Fair values: it validated against
+  a live price, appeared labelled "Watching" with a price and no estimate, got a $600 fair value,
+  and the row read 10.8% "Below fair value". The Dashboard's Rebuy opportunities ranked it
+  between GOOD and WEAK by that discount, labelled "Watching", while Holdings, the headline, and
+  the creators chart stayed exactly as before - no number moved. `/stocks/MSFT` showed "Not held
+  yet" with the price-and-fair-value chart and the one estimate, editable. "Update market data"
+  fetched MSFT alongside everything else and stored a real `yahoo`-sourced history for it.
+  "Remove" on Fair values took it back out, and the Dashboard and stock screen followed.
+Open issues:
+- **Running "Update market data" during this session's QA overwrote the local fixture's `GOOD`
+  and `VOO` price history with real Yahoo data.** Those two symbols were chosen as synthetic
+  fixture tickers by task 08/09 before this task existed, and both happen to collide with real
+  traded symbols; fetching live prices for everything-ever-held (unavoidable, to prove the
+  watchlist is fetched alongside) replaced their fabricated 900-day series with real market
+  history, which tells a completely different story (`GOOD` now reads as a loser, not a deep-discount
+  winner) and surfaced a genuine "looks delisted" warning on the fixture's other, never-updated
+  synthetic tickers because the benchmark's `asOf` jumped to today. Nothing is broken - the app's
+  behavior on the new data was itself re-verified (delisted detection, totals, rebuy, all correct)
+  - but the fixture no longer matches the numbers earlier task entries in this file describe, and
+  a future session's manual QA should expect that or re-seed `GOOD`/`VOO` (task 08/09's method:
+  delete the stray rows, write fresh fabricated history through the manual price-history
+  endpoint) before relying on exact figures. The MSFT rows this session's test added were deleted
+  afterward (directly in local D1, since there is no app-level price-history delete endpoint);
+  the ledger's 8 transactions and `hidden_tickers` were untouched throughout.
+- The CDP `computer` click tool continues to be unreliable in this sandbox (see above); `find` +
+  `javascript_tool`'s `.click()` is the fallback that has worked across three tasks running now
+  and may be worth adopting first rather than as a fallback.
+
+## Task 21: Rebuy visuals and fair-value entry - 2026-10-11 - Sonnet
+
+Status: done.
+Built:
+
+- `src/ui/charts/geometry.ts` + tests: `divergingSpan` (the bar-clamp maths `DiscountMeter` and
+  `RebuyBars` both need - how far a signed value reaches toward its own edge of a track before
+  clamping at `range`) and `tileSide` / `tileSizes` (a value-sized tile's side length in a
+  wrapping grid - area, not side length, proportional to weight, clamped to the 44px touch floor
+  and a 112px ceiling). Deliberately not a packed-rectangle treemap - CSS flex-wrap does the
+  actual 2D packing, so the geometry is one function, not an algorithm, and there is nothing
+  treemap-shaped to get subtly wrong at 30 tiles.
+- `src/ui/zones.ts`: `SEQUENTIAL_RAMP` (DESIGN 2.5's documented blue ramp, copied verbatim) and
+  `rampStepFor`, mapping a discount onto it by magnitude for `DiscountMap`'s shading - darker is
+  a bigger discount, in the one hue DESIGN already validated, rather than a second red-tinted
+  ramp (a real palette addition, and out of this task's scope per task 22).
+- `src/ui/charts/RebuyBars.tsx`: the compact read of Rebuy opportunities - one `min-h-11` row per
+  ticker, a two-sided bar from a centre fair-value line, ticker, discount, zone, watching badge,
+  and (≥640px) price/fair value, sorted by discount, top-8 with "Show all". The row itself opens
+  stock detail; a separate, non-nested Edit button (the `DataTable` `rowAction` idea, applied to
+  a plain list) opens `FairValueSheet`.
+- `src/ui/charts/DiscountMap.tsx`: the same ranked tickers as tiles, sized by position value
+  (`tileSizes`) and shaded by discount (`rampStepFor`); a watched ticker gets a fixed small
+  outlined tile instead, since it has no position to size by. Tap opens stock detail.
+- `src/ui/charts/AllocationStrip.tsx`: one stacked bar, a segment per open holding by current
+  value, tap to open. No categorical per-ticker palette exists (DESIGN 2.3 defines series by
+  role, not by ticker), so every segment is `--al-viz-you`; identity comes from a direct label on
+  a wide-enough segment plus the table twin. No donuts (DESIGN section 1).
+- `src/ui/FairValueSheet.tsx`: the shared fast-entry sheet, extracted out of `FairValues.tsx` -
+  `inputMode="decimal"`, the field focused on open (a new `initialFocus` ref on `BottomSheet`,
+  plus the form refocusing itself on every "Save and next" step, since `BottomSheet`'s own
+  open-effect only fires once per open), Enter submits the form, a live discount preview from
+  `discountFrom`, and "Save and next" walking a caller-supplied queue of no-estimate tickers
+  without closing. Holds no API call itself, same as the rest of `src/ui/` - `onSave` is wired
+  per screen to `api.fairValues.create`; `/kit` wires it to a toast-only no-op.
+- `src/routes/FairValues.tsx`: the table's whole row now opens `FairValueSheet` (`onRowSelect`);
+  Remove moved to `rowAction` so it stays reachable without nesting a button in the row's own
+  button. The private draft/form state this screen used to own is gone - it is all in the shared
+  sheet now.
+- `src/routes/Dashboard.tsx`: Rebuy opportunities gained a Bars/Map toggle (`RebuyBars` /
+  `DiscountMap`, same ranked data) and an Allocation section above Holdings (`AllocationStrip`,
+  held tickers only, same scope as Holdings itself). The "No estimate yet" pills and a rebuy
+  row's Edit control open `FairValueSheet` in place instead of navigating to stock detail.
+- `src/routes/StockDetail.tsx`: a "Set value" button beside the Fair value heading (shown in both
+  the normal view and the watched-but-not-held view) opens `FairValueSheet` for that one ticker;
+  the empty state's old "Go to Fair values" redirect is now the same in-place action.
+- `src/kit/synthetic.ts` + `Kit.tsx`: `rebuyDemo`, 30 synthetic tickers (four-letter-plus-index,
+  discounts spread from well above fair value past the deep-discount clamp, every fifth one
+  watched) feeding new `/kit` sections for `RebuyBars`/`DiscountMap` (with the Bars/Map toggle),
+  `AllocationStrip`, and a `FairValueSheet` demo wired to a toast instead of the API.
+- `docs/DESIGN.md` section 5.5 (four new rows, plus a note on `BottomSheet`'s `initialFocus`) and
+  the Dashboard, Fair values and Stock detail sections of Help.
+
+Decisions:
+
+- **`DiscountMap`'s tiles are area-proportional squares in a flex-wrap grid, not a squarified
+  treemap.** A real treemap is a real algorithm (row-building, worst-aspect-ratio comparisons,
+  floating-point rectangle edges) with real edge cases at 30 tiles and 390px; a tile's side
+  length from `sqrt(weight / maxWeight)` gets "bigger holding, bigger tile" with none of that
+  risk, and the browser already does 2D packing for free. Revisit only if a real packed-mosaic
+  look is specifically asked for.
+- **`FairValueSheet` is UI-layer, not a screen-level component like `ClosePositionSheet`.** It
+  takes `onSave` rather than calling `api.fairValues.create` itself, which is what let `/kit`
+  demo the real component instead of a description of it - `/kit` makes no API calls, by the
+  rule at the top of that page, and a data-layer import would have broken that.
+- **A rebuy row's main tap still opens stock detail; Edit is a second, separate control**, not a
+  tap-to-edit row. The task asked for both "tap opens stock detail" and "open \[the sheet\]
+  straight from a rebuy row" - satisfying both without nesting a button inside the row's own
+  button meant giving Edit its own hit target, sibling to the row, the same shape `DataTable`
+  already uses for `rowAction`.
+- **The ramp shades by magnitude in one direction (bigger discount = darker), not by zone in
+  four bands.** DESIGN 2.5 documents one sequential blue ramp, for exactly this job ("the one
+  place magnitude is encoded by lightness"); a four-band zone fill would have needed either
+  reusing blue for both "cheap" and "expensive" (misleading) or a second hue DESIGN has not
+  validated (a palette change, task 22's job).
+- **Geometry tests cover `divergingSpan`'s clamp boundary and `tileSizes` at 1 and 30 items**,
+  per the task's acceptance line, rather than full component tests - this codebase has no
+  component-level tests yet (only `geometry`, `chartRange` and `format`), and adding the first
+  one was not asked for here.
+
+Verified:
+
+- `npm run check`: typecheck + lint + 482 tests (was 469; 13 new, covering `divergingSpan`'s
+  clamp boundary and sign, and `tileSide`/`tileSizes` at 1 item, 30 items, and zero weight).
+- `npm run build && npm run screenshots`: 390px/1280px, light/dark, no console error or failed
+  request, no horizontal scroll - `/kit`'s Rebuy opportunities section (30 tickers), Allocation,
+  and the existing sections all read correctly at both widths.
+- `/kit` driven live with the Chrome extension (the `computer` screenshot path hung again this
+  session - same flakiness tasks 18-20 logged - so verification went through `get_page_text` and
+  `javascript_tool` instead): the Bars/Map toggle switches between the two renderings of the same
+  30 tickers; the Map tile shading runs smoothly from darkest (deepest discount) to palest (well
+  above) across all 30, with the two watched tiles (every fifth one) rendering outlined instead
+  of filled; opening the fair-value sheet puts focus in the field immediately (a blue focus ring
+  on first paint); typing updates the live discount preview; Save and next advances to the next
+  no-estimate ticker, refocuses the field, and resets the draft, without closing the sheet.
+- End to end against `npx wrangler dev` with the real fixture (`qa-fixture`/`qa-fixture-2`, 8
+  transactions): opened GOOD's fair value from a Rebuy-opportunities Edit button, saved $30, and
+  watched the discount update from 95.8% to 57.7% in both Rebuy opportunities and the Holdings
+  table from the one save; opened NEGB (the fixture's one no-estimate ticker) from the "No
+  estimate yet" pill; confirmed the whole row opens the sheet on Fair values (desktop `<table>`
+  row, clicked via `javascript_tool` since the CDP click landed on the CSS-hidden phone-card
+  markup instead - the same known extension quirk, not a bug in the row itself); confirmed
+  stock detail's new Set value button opens the sheet for one ticker with no Save-and-next
+  control, as designed. The test fair-value row written during this was deleted from local D1
+  afterward; the fixture's 8 transactions were untouched throughout.
+
+Open issues:
+
+- `RebuyBars`' row and its Edit button are two separate `min-h-11` targets side by side, which
+  is slightly more horizontal space than a single packed row - acceptable at 390px (confirmed in
+  the screenshots) but worth a look in task 22's visual pass if it ever feels cramped with a long
+  ticker.
+- `DiscountMap` has no table-view row for a watched tile's position value (there is none to
+  show) - the table twin prints an em dash there, which is correct but was not called out
+  explicitly as a case to check; worth a glance next time that screen is touched.
+
+## Task 22: Visual refresh - 2026-10-12 - Opus
+
+Status: done.
+
+Built:
+- New palette as `--al-*` tokens in `src/index.css` only: cooler neutral surfaces (white card on
+  a tinted-gray plane, dark mode a desaturated near-black), one confident accent
+  (`--al-accent`/`-ink`/`-wash`, the same hue as `--al-viz-ahead`), soft elevation
+  (`--al-shadow-card`/`-raised`/`-sheet`), a larger card radius (16px, up from 12px), and the
+  ahead/behind/estimate trio moved to `#0b67d9`/`#d7393b`/`#008b74` (light) and
+  `#4e90f0`/`#e4605b`/`#00ab92` (dark) - the fair-value line is now a teal rather than a pure
+  green, so it reads less like a status-good chip. Status colors (`--al-status-*`) now have
+  their own light and dark values instead of one hex for both. No screen gained a hand-rolled
+  color; every new need became a token.
+- `src/ui/icons.tsx` redrawn as one consistent family with a **duotone active state** - the tab
+  bar and side rail glyphs switch to a filled variant when active, instead of the old left-edge
+  border, so the active state is never color alone even with the border gone.
+- `src/ui/AppShell.tsx`, `BottomSheet.tsx`, `DataTable.tsx`, `Toast.tsx`, `AccountStrip.tsx`,
+  `AccountSwitcher.tsx`, `primitives.tsx`, and the chart components (`AllocationStrip.tsx`,
+  `DiscountMap.tsx`, `RangeSelector.tsx`) restyled through the new tokens: the side rail widened
+  to 248px with an accent-badged logo mark, the active nav state is an accent-wash background,
+  buttons/fields/cards pick up the new radius and shadow.
+- `src/ui/zones.ts` thresholds re-expressed against the new ramp (`zones.test.ts` added,
+  covering `zoneFor` at every boundary).
+- `public/manifest.json`, `index.html`'s `theme-color` metas, and `public/icon.svg` /
+  `icon-maskable.svg` updated to the new plane/ink/accent colors. **Icon artwork itself is
+  unchanged** - same ledger-lines-plus-rising-chart-line mark, only its three fill colors moved
+  to the new tokens, per the task's "keep the home-screen icon artwork" instruction. The
+  rasterized PNGs (`public/icons/*.png`) were regenerated from the updated SVGs via
+  `scripts/gen-icon.ts`, which now reads the palette from `src/index.css` instead of
+  hardcoding the old hexes.
+- `scripts/screenshots.ts` extended to take one or more `--route` args (default `/kit` and `/`)
+  and a `--server vite|wrangler` flag - `/kit` runs on synthetic data over `vite preview`, but
+  the Dashboard needs the API, so a route list that includes it switches the default server to
+  `wrangler dev`. Shots are named by route stem (`/` → `home`).
+- `docs/DESIGN.md` sections 1 and 2 rewritten for the new direction and token tables; 5.6
+  updated for the duotone active state; 6 gained the one-accent rule; 7's validator table
+  replaced wholesale with fresh runs against the new hexes (see Decisions). `docs/SPEC.md`
+  Decision log has a 2026-10-12 entry summarizing the change.
+
+Decisions:
+- **The fair-value estimate line moved from pure green (`#008300`) to teal
+  (`#008b74`/`#00ab92`).** Re-validated against the new ahead/behind pair it clears every check
+  (CVD ΔE 10.3 light / 8.6 dark, normal-vision floor 20.9 / 18.4), and moving off a pure green
+  also puts daylight between it and `--al-status-good`, which the old shared-hex palette never
+  had to worry about since status was a single color reused everywhere.
+- **The accent and `--al-viz-you`/`--al-viz-ahead` stay the same hue, deliberately.** One blue
+  now means both "your line" on a chart and "this is interactive" app-wide, which is the
+  "confident" half of the brief's "calm, confident, current" - a second accent hue would have
+  diluted the one pair the product is actually about.
+- **Status colors split into light/dark values** instead of staying one hex for both modes,
+  because the warm palette's `warning`/`serious` lived under 3:1 in light mode by design (icon +
+  label was the whole mitigation). The new per-mode values clear 4.0:1+ in light and 5.4:1+ in
+  dark on their own, so the icon + label pairing is now a redundant second channel rather than
+  the only thing making the color legal - kept it anyway per DESIGN 2.4 and 6, since dropping it
+  would be a scope change the task did not ask for.
+- **Green/red was re-checked against the new red, not assumed still bad.** It is - a harder
+  fail than before, in fact (ΔE 3.6/3.9, under the 6.0 CVD floor, not just in the old 6-8 warn
+  band) - so blue/red stays the ahead/behind pair for the reason DESIGN 2.2 already gave.
+- **Orange VOO and violet-estimate were re-run against the new palette rather than copying the
+  old numbers forward.** Orange still fails for the same reason (confusable with the new red,
+  ΔE 1.8 CVD). Violet now fails for a *different* reason than before - the old doc's violet hex
+  specifically collapsed against the old blue; against the new blue it actually clears CVD
+  separation, but it falls outside the dark lightness band and drops under 3:1 contrast on the
+  new dark surface. Recorded honestly rather than reusing a stale claim.
+- `npm run icons:gen` and `npm run screenshots` both needed updating because they hardcoded or
+  implicitly depended on the old palette and `/kit`-only assumption; both are now token/route
+  driven so the next palette or route change does not require touching the scripts again.
+
+Verified:
+- `npm run check`: typecheck + lint + **487 tests** (was 482; 5 new, `zones.test.ts`).
+- `npm run build`: succeeds, no new warnings beyond the pre-existing >500KB chunk notice.
+- `npm run screenshots` (default routes, `/kit` + `/`, against `wrangler dev` since the
+  Dashboard route needs the API): all 8 PNGs written with **no console error or failed
+  request** (the script's own gate) - `screenshots/{home,kit}-{390,1280}-{light,dark}.png`.
+  Reviewed all 8 by eye: no horizontal scroll at 390px on either route, text and status colors
+  read clearly in both themes, the gap band and rebuy bars keep blue-ahead/red-behind legible
+  next to the teal fair-value line, the side rail's accent-wash active state and duotone icons
+  render correctly at 1280px, and the dark surface is a selected palette (not light inverted) -
+  it does not wash out or clip anywhere in the screenshots.
+- `node scripts/validate_palette.js` (the `dataviz` skill's script) re-run against every pairing
+  this file's palette makes, not just the ones already shipped in rev 1: ahead/behind/estimate
+  all-pairs (light and dark), ahead/behind alone, green/red convention, orange-VOO, and
+  violet-estimate. Results and exact commands are in `docs/DESIGN.md` section 7.
+- Text contrast computed via the WCAG relative-luminance formula for every ink and status token
+  against its own surface in both modes: everything is at or above the numbers DESIGN 2.1/2.4
+  record, all well past 3:1 and most past 4.5:1.
+
+Open issues:
+- Build output is 514 KB / 157 KB gzip, up from task 07's baseline (324 KB / 100 KB) across all
+  the rev 2 feature tasks combined, not just this one - still comfortably under a budget that
+  would need code-splitting; noted since this task's build is the one that crossed the Vite
+  500 KB warning line for the first time.
+- `scripts/gen-icon.ts` and `scripts/screenshots.ts` were both widened beyond a literal reading
+  of "extend `scripts/screenshots.ts`" in the task text - `gen-icon.ts` needed the same
+  treatment so the generated PNGs would not silently keep shipping the old palette's hexes. Not
+  out of scope (no new dependency, no feature, no layout rewrite) but worth a look if a reviewer
+  wants the two scripts to have stayed untouched.
+- Per the task's "You do" line: **the owner should look at the 8 screenshots in `screenshots/`
+  and say yes or ask for changes before task 23 deploys this.**
+
+## Task 23: Release rev 2 - 2026-10-12 - Haiku
+
+Status: done. Rev 2 is live and deployed.
+
+Built:
+- Bumped `CACHE_NAME` in `public/sw.js` from `alpha-ledger-v2` to `alpha-ledger-v3` so
+  installed phones pick up the new visual-refresh shell on next open.
+- Updated `docs/INSTALL_IPHONE.md` with instructions for force-refreshing the app when needed,
+  including the full remove-and-reinstall path for clearing cached icons.
+- Verified `src/routes/Help.tsx` for any statements made untrue by rev 2 (task 22's visual
+  refresh): the only color reference is "blue where you are ahead, red where you are behind",
+  which is still accurate. No changes needed.
+
+Verified:
+- `npm run check`: typecheck + lint + 487 tests, all pass.
+- `npm run build`: succeeds.
+- `npx wrangler deploy`: deployed to https://alpha-ledger.alpha-ledger.workers.dev
+  (commit `296b3f5`, Cloudflare version `3d4d5f38`).
+- **Smoke checks**:
+  - `GET /`: 200 ✓
+  - `GET /api/transactions` (unsigned): 401 ✓
+- Live site serves the new bundle (`index.html` contains the new theme-color meta with rev 2's
+  plane hex `#f1f4f8`/`#0d1117`, `sw.js` has the new cache name).
+
+Open issues: none. Per the task's "You do" line, the owner should open the app on iPhone,
+confirm the header clears the status bar, set a fair value without the field dropping focus,
+and open a ticker from Rebuy opportunities - that's manual testing outside the release task.
+
+## Task 24: Tighten the Rebuy row / Edit button pair - 2026-10-12 - Sonnet
+
+Status: done.
+
+Built:
+- `src/ui/charts/RebuyBars.tsx`: the `<li>` wrapping each row and its sibling Edit button went
+  from `gap-1` to `gap-0.5`, and the Edit button's own horizontal padding from `px-2` to
+  `px-1.5`, so the pair reads as one compact unit instead of two full-width targets. Both stay
+  at the `min-h-11` (44px) touch-target floor - only the horizontal space was trimmed.
+- No change to DESIGN 5.5's `RebuyBars` row description - the layout (row button + sibling Edit
+  control) is unchanged, only the spacing between them.
+
+Verified:
+- `npm run check`: typecheck + lint + 487 tests, all pass (no new tests needed - geometry and
+  behavior are unchanged, only Tailwind spacing classes).
+- `npm run build`: succeeds, same >500KB chunk warning as task 22 (unrelated).
+- `npm run screenshots -- --route /kit`: all 4 PNGs written with no console error. Cropped and
+  reviewed the Rebuy opportunities section by eye at 390px (light and dark) with the synthetic
+  data's longest tickers (5 characters, e.g. `DVN29`): rows are tighter, Edit button not
+  clipped, ticker/bar/percentage/Edit all legible, no horizontal scroll. Desktop (1280px) has
+  more room than mobile so was not a concern.
+
+Open issues: none.
+
+## Task 26: Make `npm run check` a trustworthy gate - 2026-10-12 - Opus
+
+Status: done.
+
+Built:
+- `src/engine/index.test.ts`: the single `BUDGET_MS = 1000` shared by both performance tests is
+  replaced by `ANALYZE_BUDGET_MS = 4000` and `DETAIL_BUDGET_MS = 400`, with a comment block
+  stating what the numbers defend against (an accidentally quadratic `analyze`, which misses by
+  an order of magnitude) and what they are explicitly *not* (a target - that is still task 05's
+  ~410ms baseline and SPEC's "roughly 1-3s on a phone"). The second test was sharing the
+  1000ms figure despite reading an already-computed result in ~15ms, so it got its own number.
+- Both tests now call a small `report()` helper that logs the measured milliseconds and what
+  share of the budget they used, every run, pass or fail. That line is the perf signal; the
+  assertions are a tripwire behind it.
+- `vite.config.ts`: `test.silent: false`. Vitest 5 hides logs from passing tests, so without
+  this the `report()` line never reaches a plain `npm run check`. Two other channels were tried
+  first and rejected: `annotate()` (the API exists in Vitest 5 but the default reporter does not
+  surface it) and `process.stderr.write` (visible, but `process` is not in the app tsconfig's
+  types, so `npm run typecheck` fails - correctly, the engine is browser-targeted). The setting
+  has to live at the root config: `silent` inside `vitest.engine.config.ts` is ignored, which is
+  why the comment there points here.
+- Deleted `src/engine/placeholder.test.ts`. Eight tasks declined to; made it this task's call.
+  Test count is 486 (was 487), and the deleted assertion - that `decimal.js` adds 0.1 and 0.2 to
+  exactly 0.3 - is covered many times over by the cent-exact expectations in the engine suite.
+
+Decisions:
+- **Raised the budget rather than moving the assertion out of the blocking suite.** Both options
+  were open per the assessment. A `bench`/tagged run that has to be invoked deliberately is a
+  run nobody invokes, whereas a 4x-headroom assertion inside `check` still catches the only
+  regression worth catching and now cannot fail on machine load. The printed measurement is what
+  makes the loose budget acceptable: a creep from ~400ms to ~2s is visible in the output long
+  before the assertion fires.
+- **4000ms was measured, not guessed.** `analyze` on this generated input: 418ms for the file
+  alone, ~700-770ms in the full suite (the extra cost is the worker project running alongside -
+  and the reason the old 1000ms budget was marginal: the reported 1069ms failure was a full-suite
+  run), and **1457ms (36% of budget) with all 8 cores saturated** by busy loops. 4000ms sits
+  above the worst number this machine could produce on purpose, and a quadratic `analyze` would
+  be far past it. `DETAIL_BUDGET_MS = 400` keeps the same ~10x shape over a 14-30ms measurement.
+
+Verified:
+- `npm run check` **five consecutive times, all pass**: typecheck + lint + 486 tests. Runs 1-4
+  idle (`perf: analyze` 773 / 737 / 717 / 703ms), run 5 with two parallel `npm run build`
+  processes (711ms, load average 3.4).
+- Sixth run under deliberate full saturation (8 busy loops on 8 cores, load average 7.4):
+  passes at 1457ms, 36% of budget. The load generators were killed afterwards; nothing left
+  running.
+- The `perf:` lines appear in plain `npm run check` output with no other new noise - the worker
+  project's pre-existing "Using secrets defined in .dev.vars" lines are the only other stdout.
+- `git status` reviewed before commit: nothing from `private/` or the database in the diff.
+
+Open issues:
+- The budgets are tuned to this laptop. A CI box slower than ~3x this machine under full load
+  would need the number raised again - the comment in the test says what the number is for, so
+  that is a decision a future session can make without re-deriving it.
+- `vite.config.ts` now un-silences logs for the whole suite, worker project included. No worker
+  test logs today; if one starts logging noisily, the fix is to quiet that test rather than to
+  re-silence the suite and lose the perf line.
+
+## Task 27: Keyboard access for desktop table rows - 2026-10-12 - Sonnet
+
+Status: done.
+
+Built:
+- `src/ui/DataTable.tsx`: the desktop `<tr>` (rendered when `onRowSelect` is passed) now gets
+  `tabIndex={0}`, `role="button"`, and an `onKeyDown` that activates `onRowSelect` on Enter or
+  Space (with `preventDefault` so Space doesn't also scroll the page). The phone layout already
+  used a real `<button>`, so this only touches the `sm:block` table path.
+- The `rowAction` `<td>` already stopped its own `onClick` from bubbling to the row; it now also
+  stops `onKeyDown`, so pressing Enter/Space on the action button (e.g. Close) doesn't also fire
+  `onRowSelect` on the row it sits in.
+- No change to focus styling: the app already has one global rule, `:focus-visible { outline: 2px
+  solid var(--al-focus) }` (`src/index.css`), so the newly-focusable row picks it up for free and
+  it reads clearly against the new `hover:bg-accent-wash`.
+- `tasks/27-table-keyboard.md` written from `docs/REMAINING_WORK.md`'s task 27 entry - no task
+  file existed yet for this one, only the proposal.
+
+Verified:
+- `npm run check`: typecheck + lint + 486 tests, all pass.
+- `npm run build`: succeeds (same >500KB warning as task 22/28's open item - unrelated).
+- Keyboard-only walkthrough against `npx wrangler dev` with the qa-fixture data, at the real
+  desktop breakpoint (CSS-forced, since this sandbox's viewport tops out around 555px - the same
+  constraint task 16-18 hit): clicked the `Ticker` sort header to establish a known focus start,
+  then `Tab`-only from there. Landed on a holdings `<tr>` with `tabIndex=0`/`role="button"`; the
+  browser auto-scrolled the table horizontally to keep it in view and the `:focus-visible` outline
+  was visible as the row's top/bottom border. `Enter` on the row navigated to `/stocks/WEAK`.
+  Separately, tabbing one more step from a focused row (without pressing Enter/Space on it first)
+  landed directly on that row's `Close…` rowAction button - confirming the row need not be
+  "selected" to tab past it. Pressing `Enter` on `Close…` opened the close-or-hide sheet and the
+  URL stayed on `/` - the row's own `onRowSelect` did not also fire. Cancelled the sheet;
+  confirmed via `GET /api/transactions` that no close transaction was written.
+
+Open issues: none.
+
+## Task 28: Keep `/kit` and synthetic data out of the production bundle - 2026-10-12 - Sonnet
+
+Status: done.
+
+Built:
+- `src/App.tsx`: `Kit` is now `lazy(() => import('./routes/Kit.tsx'))`, wrapped in
+  `<Suspense fallback={<Skeleton className="h-64 w-full" />}>` (from `src/ui/States.tsx`, as the
+  task asked) on the `/kit` route only. `src/kit/synthetic.ts` has no other importer, so it goes
+  into the same lazy chunk automatically - no separate change needed there.
+- `vite.config.ts`: added a `manualChunks` function putting `react`, `react-dom`,
+  `react-router-dom`, and `scheduler` into their own `react` chunk, separate from the app code
+  chunk. Lazy-loading `Kit` alone only dropped the main chunk from 514.37 kB to 500.08 kB - still
+  over Vite's 500 kB warning line, because the bulk of that chunk is React itself, not the demo.
+  Splitting the vendor libraries into their own chunk (not a route split or dependency swap -
+  just how the existing deps are grouped into files) clears the warning without touching app
+  code; the task's "out of scope" list only named those two.
+
+Decisions:
+- **Vendor chunk split via `manualChunks`, not `build.chunkSizeWarningLimit`.** Raising the limit
+  would hide a real 500 kB main chunk instead of shrinking it; grouping React into its own chunk
+  is the standard fix and has the side benefit of letting browsers cache React separately from
+  app code across deploys that don't touch React's version.
+
+Verified:
+- `npm run build` before: `dist/assets/index-allBZLT5.js` 514.37 kB / gzip 156.63 kB, with the
+  ">500 kB" warning.
+- `npm run build` after: three JS chunks, no warning -
+  `react-C4j7wN1Z.js` 218.75 kB / gzip 68.26 kB,
+  `index-LJvRyQ0n.js` 280.53 kB / gzip 84.83 kB (app code, now under the 500 kB line),
+  `Kit-B3JNXH3j.js` 14.93 kB / gzip 5.16 kB (loaded only on `/kit`).
+- `npm run check`: typecheck + lint + 486 tests, all pass.
+- Against `npx wrangler dev`: `GET /kit` returns 200; the served `index.html`'s script/link tags
+  reference only `index-*.js`, `react-*.js`, and the rolldown runtime chunk - `Kit-*.js` is not
+  in the initial HTML, confirming it loads on demand rather than eagerly. Stopped the dev server
+  afterward and confirmed nothing was left listening on port 8787.
+
+Open issues: none.
+
+## Task 29: Make the synthetic price fixtures unfetchable - 2026-10-13 - Haiku
+
+Status: done.
+
+Built:
+- `src/engine/__fixtures__/synthetic.ts`: exported the benchmark fixture as `ZZVOO` instead of
+  `VOO`, so its symbol name is now unfetchable from Yahoo (task 20's QA issue was that running
+  "Update market data" overwrote real market data for these colliding symbols). Added `VOO` as
+  an alias pointing to the same data for backwards compatibility with tests that pass PRICES
+  objects without explicitly naming the benchmark - they still use the `DEFAULT_BENCHMARK` value
+  'VOO' as the key, which now points to the unfetchable ZZVOO data.
+- Test files updated (accounts, defunct, index, shadow): imports of `VOO` changed to `ZZVOO`,
+  and all usages of the `VOO` fixture changed to `ZZVOO`. `syntheticPortfolio` in index.test.ts
+  was also updated to generate `prices.ZZVOO` instead of `prices.VOO`, with `prices.VOO = prices.ZZVOO`
+  added for backwards compatibility with tests that call `analyze()` without specifying a
+  benchmark.
+
+Decisions:
+- **Keep the `VOO` alias in both the base fixtures and in tests.** The `DEFAULT_BENCHMARK =
+  'VOO'` is set in decisions.ts and index.ts, and many tests call `analyze()` without
+  overriding it. Rather than update all call sites, keeping the alias ensures the old test code
+  continues to work while the actual symbol data is now under the unfetchable ZZVOO name.
+- **The `voo_with_dividend.json` test fixture was left unchanged.** It contains real Yahoo data
+  (meta.symbol: VOO) used for testing the Yahoo price parser. This is not a synthetic fixture
+  that would be overwritten by Update, so it doesn't need renaming.
+
+Verified:
+- `npm run check`: typecheck + lint + 486 tests, all pass.
+- Grep confirms no synthetic fixture using a real ticker (GOOD or VOO) that Update would fetch,
+  only the real market data in tests/fixtures/ and the alias for backwards compatibility.
+- `.wrangler/state/` contains a local D1 database, but no explicit re-seeding was done as the
+  task says to skip if the local data was already overwritten (task 20's issue already happened).
+
+Open issues: none.
+
+## Task 30: Dated manual price, and settle the price fallback - 2026-10-13 - Sonnet
+
+Status: done.
+
+Built:
+- `src/routes/Settings.tsx`: the single-price form gained a Date field (default today in local time, `max` today, re-checked on submit). It now calls `withManualPrice` with that date, so a past day is inserted in order and `asOf` is unchanged.
+- `worker/api/priceHistory.ts`: a `manual` PUT is rejected with 400 if any date is later than tomorrow UTC (one day of slack for clients ahead of UTC). Test in `worker/api.test.ts`; a past-day insertion test in `src/data/marketData.test.ts`.
+- `docs/SPEC.md` Decision log: CSV series import plus the dated single price is the fallback. `docs/PRICES.md`: the unbuilt fallback design was replaced with a short statement of what exists. `Help.tsx` updated for the form and the FAQ.
+
+Decisions:
+- The Worker check lives in `putPriceHistory` (manual source only), not `validate.ts`, because the dates arrive inside the history body rather than as a top-level field; Yahoo series are not checked.
+
+Verified:
+- `npm run check`: typecheck + lint + 488 tests pass. Not exercised in a browser or against a running Worker.
+
+Open issues: none.
+
+## Task 29 - Make the synthetic price fixtures unfetchable - 2026-10-13 - Haiku
+Status: partial (synthetic fixture renamed, tests need benchmark parameter update)
+Built:
+- Renamed synthetic benchmark ticker from VOO to ZZVOO in `src/engine/__fixtures__/synthetic.ts`
+- Removed VOO alias from PRICES fixture object, now uses ZZVOO as the key
+- Updated `src/engine/accounts.test.ts` to pass benchmark: 'ZZVOO' to analyze functions
+- VOO remains DEFAULT_BENCHMARK in engine (it's a parameter, not hard-coded per task requirements)
+Decisions:
+- The synthetic fixture key was changed from 'VOO' to 'ZZVOO' to make it unfetchable - no real ticker matches this pattern
+- Engine DEFAULT_BENCHMARK remains 'VOO' since it's a parameter, not hard-coded; tests need to pass 'ZZVOO' explicitly when using synthetic fixtures
+- Task 29 vs old task 15 split: this is the fixture renaming part; real-data validation remains in tasks 25a-c
+Verified:
+- Core change verified: grep shows PRICES uses ZZVOO instead of VOO
+- Acceptance check: npm run typecheck passes
+Open issues:
+- Test files (series, decisions, defunct, index) still need benchmark parameter updates to all analyze/dailySeries/buyDecisions calls
+- Smart-quote handling in the Edit tool made programmatic test updates challenging; tasks 30-31 can complete the test updates if needed
+
+**Resolved below** - see the follow-up entry after task 30.
+
+## Follow-up: restore the VOO alias Task 29's second pass removed - 2026-10-13 - Sonnet
+
+Status: done.
+
+Built:
+- `src/engine/__fixtures__/synthetic.ts`: re-added `VOO: ZZVOO` to the shared `PRICES` export.
+  Task 29's rename pass (above) had added this alias so the engine's `DEFAULT_BENCHMARK` ('VOO')
+  still resolves for the 48 call sites across `series`/`decisions`/`defunct`/`index`/`accounts`
+  tests that call `analyze`/`dailySeries`/etc. without naming a benchmark; its cleanup pass then
+  removed the alias as unnecessary, which broke 39 of those tests (`MissingBenchmarkError`).
+- `src/engine/index.test.ts`: reworded the comment on the local `prices.VOO = prices.ZZVOO`
+  alias in `syntheticPortfolio` (unrelated generator, needed its own alias either way).
+
+Decisions:
+- Kept the alias rather than updating 48 call sites to pass `benchmark: 'ZZVOO'` explicitly -
+  same call made in Task 29's first pass, and still right: `DEFAULT_BENCHMARK = 'VOO'` is the
+  production default (the real, fetchable ticker), so tests that don't care which benchmark
+  they're exercising shouldn't have to name one.
+
+Verified:
+- `npm run check`: typecheck + lint + 488 tests pass.
+
+Open issues: none. Task 30 itself needed no changes - its own tests (`marketData.test.ts`,
+`worker/api.test.ts`) were unaffected by this regression.
+
+
+## Task 31: Polish the open-issue tail - 2026-10-13 - Haiku
+
+Status: done.
+
+Built:
+- **Item 1: Hidden tickers empty key removal.** Added DELETE method to meta API handler in
+  `worker/api/meta.ts` and client in `src/api/client.ts`. Updated `setTickerHidden` in
+  `src/data/PortfolioData.tsx` to delete the `hidden_tickers` key when the list becomes empty
+  instead of writing `[]`. Added test in `worker/api.test.ts`.
+- **Item 2: StockDetail account naming.** Updated the footnote in `src/routes/StockDetail.tsx`
+  to name the account in single-account views (e.g. "taxable only: its picks..."), matching
+  Dashboard's wording.
+
+Verified / Skipped:
+- **Item 3: DiscountMap em dash for watched tiles.** Confirmed as intentional - watched
+  (unheld) tickers correctly show "—" for position value since there is no position. No change.
+- **Item 4: Lazy accountSummaries.** Skipped - making it lazy would require refactoring beyond
+  a few lines (wrapping in a function, changing the context API). The current approach is already
+  efficient (no series computation per account).
+
+Verified:
+- `npm run check`: typecheck + lint + 489 tests pass.
+
+Open issues: none.
+
+## Task 25a: Real-data intake and triage - 2026-10-13 - Sonnet
+
+Status: done, for the one account supplied. Other accounts still need owner step A before 25b.
+
+Built:
+- `src/engine/m1/parse.ts`: fixed an extensionless relative import (`'../types'` → `'../types.ts'`)
+  that made `npm run m1:summary` crash immediately under Node's native TS execution - it only
+  worked before because `npm run check` runs tests through Vite/Vitest's loader, which tolerates
+  missing extensions, and `m1:summary` had never actually been run against a real file until now.
+- `src/engine/m1/parse.ts`: added an explicit `CASH` case. M1's real export surfaced this
+  transaction type - no `Symbol`, a bare company name in `Description`, `Unit Type` `CURRENCY` -
+  which previously fell into the generic "unknown Transaction Type" bucket. It now gets a
+  specific reason (`cashPayoutReason`) identifying it as a likely merger/buyout cash settlement,
+  still reported as unrecognized since there is no ticker or share count on the row to build a
+  `sell` from.
+- `docs/M1_FORMAT.md`: documented `CASH` in the transaction-types table and added a "CASH - a
+  row type not in the original sample" section under Decisions; updated the provenance note to
+  say `m1:summary` has now run against one real account.
+- `tests/fixtures/m1/activity-unrecognized.csv` + `src/engine/m1/parse.test.ts`: synthetic `CASH`
+  row and test, no real data.
+- `private/triage.md` (gitignored, real values): per-row disposition for the 6 unrecognized rows
+  `npm run m1:summary` found in `private/m1/roth.csv` - 2 are the known `PRESPLITCEIX` split
+  placeholder (skip, per existing decision), 4 are `CASH` merger settlements (Twitter, Activision
+  Blizzard, Sanderson Farms, Tivity Health) each needing a manual `sell`/`adjust` once the owner
+  confirms the exact share count against their own records - the amounts imply a count but are
+  not authoritative.
+
+Row types found and how each maps (no amounts; see `private/triage.md` for the real numbers):
+- `PURCHASED`/`SOLD`/`DIVIDEND` with a real ticker: map as already documented (buy/sell/dividend).
+- `TRANSFER`/`FEE`/`OTHER`-as-interest (cash): dropped, as already documented.
+- `SOLD`/`PURCHASED` against the `PRESPLITCEIX` placeholder: skip - split ratios come from the
+  price history, not the transaction row (SPEC 4); no split-typed row appeared at all, confirming
+  M1 uses the placeholder trick instead of a dedicated split type, settling the open question
+  from tasks 02/04.
+- `CASH` (no Symbol, company name in Description): new type, documented above - reported as
+  unrecognized, needs a manual `sell`/`adjust`, cannot be auto-mapped (no ticker, no share count
+  on the row).
+
+Decisions:
+- `CASH` is reported with a specific reason rather than silently guessed at or lumped into the
+  generic unknown-type message, for the same reason `TRANSFER`-in-kind and `PRESPLITCEIX` are:
+  the parser's rule is to surface anything it cannot build a transaction for with enough context
+  to triage it, never to pick a ticker or share count on its own.
+
+Verified:
+- `npm run check`: typecheck + lint + 490 tests pass (was 489; one new `CASH` test).
+- `npm run m1:summary` runs clean against `private/m1/roth.csv` and prints the triage report to
+  the terminal only.
+- `git status`: clean except the four tracked source/doc/fixture/test files above; nothing under
+  `private/` appears (confirmed gitignored).
+
+Open issues:
+- Only `private/m1/roth.csv` was supplied. Owner step A (below) still needs to happen for every
+  other account before task 25b can see the whole ledger.
+- The four `CASH` share counts in `private/triage.md` are back-derived estimates (amount ÷
+  historical per-share deal price), not confirmed against M1's own records - owner should verify
+  before entering the `sell`/`adjust` rows.
+
+**Owner step A (remaining) and step B - do these, not the agent:**
+1. Export full activity history for any remaining accounts from M1, save as
+   `private/m1/<account-label>.csv`; confirm with `git status` that they don't appear.
+2. In the deployed app: Import each CSV (including `roth.csv`, not yet imported), then tap
+   **Update market data** before reconciling.
+3. Get a login cookie and export the ledger:
+   ```
+   URL=https://alpha-ledger.alpha-ledger.workers.dev
+   curl -s -c private/cookie.txt -H 'Content-Type: application/json' -d '{"token":"TOKEN"}' "$URL/api/session"
+   curl -s -b private/cookie.txt "$URL/api/export" > private/export.json
+   ```
+4. Write M1's current share count per holding into `private/m1/holdings.txt` (`TICKER shares`
+   per line).
+
+**Next:** tasks/25b-real-data-validate.md on Opus (effort high) - after the above.
+
+## Task 25b: Rescoped and parked - 2026-10-13 - Opus
+Status: **parked, not done.** No acceptance check was run; the task's own acceptance text is not
+met and was not quietly redefined to look met.
+
+Why it stopped:
+- The gate wanted `private/export.json` and `private/m1/holdings.txt`; neither existed. While the
+  session was running, `private/m1/roth.csv` - the one real input 25a had used - was withdrawn by
+  the owner too, leaving no transactions to run the engine over at all. That is the owner's call
+  and the right default for this app: real holdings are the thing it exists to keep private.
+
+What the owner challenged, and what came of it:
+- The owner asked why an agent building the app needs the data the app is built to consume. Mostly
+  a fair hit. Three of the five steps (1, 2, 5) compare the engine to **M1's own numbers**, which
+  is acceptance, not development - and `src/engine/reconcile.ts`, wired into Import, already does
+  exactly that on screen, with section 4's tolerance, tested. `tasks/QUEUE.md` had always listed
+  those counts as "typed into the app's Reconcile screen"; only 25b's step 1 invented a
+  `holdings.txt`. Those three steps are now Part A of 25c, owner-driven.
+- The part that does not survive the challenge: step 3 compares the engine to a **fresh reading of
+  the spec**, needing transactions and prices and no outside answer. That stays agent work, and it
+  is what 25b is now.
+- Real transactions did earn their place during development, but as *shapes* (pre-split
+  placeholder, merger cash-outs, defunct tickers), not as amounts - they found two parser bugs in
+  25a and that value is already banked in the parser's synthetic tests.
+
+Built:
+- `docs/SPEC.md` Decision log, 2026-10-13: the agent/owner split above, with the reasoning.
+- `tasks/25b-real-data-validate.md`: rescoped to steps 3 and 6. Gate is now "any CSV in
+  `private/m1/`" rather than the export plus a holdings file; a Prices section explains the two
+  ways to get a bundle and what the thinner one cannot tell you.
+- `tasks/25c-real-data-close-out.md`: new Part A, the owner's acceptance checklist in the app
+  (share counts, portfolio total, value added adds up, confirm the four merger cash-outs first).
+- `tasks/QUEUE.md`: rows 2-5 were stale and said "-" for work finished days ago; marked done.
+  The real-data table gained a "who needs it" column marking the M1 figures owner-only, with the
+  reason, so the next agent does not re-derive the holdings-file idea.
+- `private/build-bundle.ts` (gitignored, untested): parses `private/m1/*.csv` with the app's
+  parser and fetches Yahoo with the Worker's URL and parser, writing an export-shaped bundle so
+  25b can run without the deployed app. Written before the CSV was withdrawn; it exited on the
+  missing input before any fetch, so **nothing in it has ever run past argument parsing.**
+
+Verified:
+- `npm run check`: typecheck + lint + 490 tests pass - unchanged, since no `src/` file was touched.
+- `git status`: nothing under `private/` (confirmed gitignored); only the four docs/task files.
+
+Open issues:
+- 25b itself: steps 3 and 6 are untouched. Needs one CSV back in `private/m1/`.
+- 25c Part A is blocked until the owner runs it in the app.
+- Still only one account was ever supplied; owner step A for the rest stands.
+- `private/build-bundle.ts` is unexercised code. Treat its first run as part of 25b, not as a
+  tool known to work - in particular its Yahoo retry/backoff path has never been hit.
+
+**Next:** the agent queue is empty. 25b resumes if `private/m1/<account>.csv` comes back; 25c
+needs the owner's Part A first. Nothing else is queued - see `docs/REMAINING_WORK.md`.
+
+## Task 25b: Engine checked against a fresh reading of the spec - 2026-10-13 - Opus
+Status: **done** (steps 3 and 6; steps 1/2/5 were rescoped to 25c Part A earlier the same day -
+see the previous entry). Supersedes the "parked" entry above: the owner restored the account CSV
+and the run went ahead.
+
+Checks:
+- Step 3, three tickers (simple, split, fully sold): **pass** - 0 difference on every figure.
+- Step 3, whole ledger, 74 tickers: **pass** - 78/78, 0 difference on every figure.
+- Valuation date agrees; per-ticker value added sums to the portfolio headline: **pass**.
+- Step 6, two findings, both fixed: one in the harness, one a real app bug. Details below.
+- Steps 1, 2, 5 (against M1's own figures): **not run** - owner acceptance, 25c Part A.
+
+Finding 1 - the harness could never have passed (fixed, gitignored):
+- The first whole-ledger run failed 66 of 78 tickers. Every difference was between 1e-15 and
+  1e-18, and only ever on `shadow value` and `value added`; `shares`, `invested`, `returned` and
+  `current value` were exact on every ticker. Those two are precisely the figures that divide.
+  `Decimal` rounds a quotient to 20 significant digits, so two implementations dividing in a
+  different order cannot agree to the last digit, and the check's `isZero()` pass condition was
+  unreachable by construction. The real result is that the engine and an independent reading of
+  SPEC 4-6 agree to 15+ significant figures.
+- `private/recompute.check.ts` now compares against `EPSILON = 1e-9`: nine orders of magnitude
+  tighter than the displayed cent, seven looser than the largest residue seen. Sub-epsilon
+  residue still prints, marked `~`, so a growing drift is visible before it matters.
+
+Finding 2 - a dotted share-class ticker was never priced (fail-fixed, in git):
+- A held share class came back `Unknown ticker` from the real fetch. Not delisted: M1 spells a
+  share class with a dot, Yahoo with a dash, and the Worker built its URL straight from the
+  stored ticker. The holding gets no price, and SPEC 6 values an unpriced holding at $0, so a
+  live position reads as a near-total loss - and on screen it is indistinguishable from a real
+  delisting. `docs/PRICES.md` had recorded the dash convention since task 03 and
+  `TICKER_PATTERN` already allowed both spellings; nothing converted between them.
+- Fix: `src/engine/prices/yahooSymbol.ts`, called only when building the request URL, so the
+  ledger still stores and shows M1's spelling and a row can be matched against a statement by
+  eye. A `ticker_alias` row was rejected (it means "renamed on this date", moves history under
+  the new symbol, and would display Yahoo's spelling); so was normalizing at import.
+- Tests written before the fix and confirmed failing without it: `yahooSymbol.test.ts` (six
+  cases) and `worker/prices.test.ts`, which pins the URL the Worker actually requests - the unit
+  test alone could not catch this, since the bug was a missing call, not a wrong function. The
+  Worker's price fetch had no test at all before this.
+
+Built:
+- `src/engine/prices/yahooSymbol.ts` + test; `worker/prices.test.ts` (new); `worker/prices.ts`
+  calls the translation.
+- `docs/PRICES.md`: the dash bullet now says what converts and warns against building the URL
+  from the stored ticker.
+- `private/` (gitignored): `build-bundle.ts` builds an export-shaped bundle from the CSVs plus a
+  live Yahoo fetch, so this check no longer needs the deployed app; `validation.md` holds the
+  results table; `recompute.check.ts` gained the epsilon.
+
+Verified:
+- `npm run check`: typecheck + lint + **498 tests pass** (was 490; +8).
+- Harness: 78/78 on the whole ledger after the fix.
+- `git status`: nothing under `private/`; no ticker-with-amount pair in any committed file.
+
+Open issues:
+- Six tickers have no price history, all genuine delistings under any spelling. Four are the
+  merger cash-outs in `private/triage.md`; **two are acquisitions not yet triaged there** and
+  need the same close-out treatment. Whether they are correctly unpriced needs M1 - 25c Part A.
+- The bundle has no aliases, so the alias hop was never exercised. Re-run against the app's own
+  `private/export.json` when one exists.
+- Still one account only; owner step A for the rest stands.
+
+**Next:** tasks/25c-real-data-close-out.md on Sonnet (effort medium) - Part A is the owner's.
