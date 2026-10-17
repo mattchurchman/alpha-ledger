@@ -316,3 +316,19 @@ Status: partial — awaiting explicit production deployment approval.
 
 **Next:** approve production deployment, then deploy, verify the live UI, record the actual version
 ID and complete `docs/REV3_START.md`'s What shipped section. Task 35 stays open.
+
+## Task 40 release verification follow-up - 2026-10-17 - Codex
+Status: partial — release checks pass; explicit production deployment approval remains pending.
+
+- `git fetch origin && git rev-list --left-right --count HEAD...origin/main` returned `0 0`:
+  the release implementation and preparation handoff were already pushed.
+- `npm run check && npm run build` passes: typecheck, lint, 28 test files and 514 tests.
+  The initial sandbox run could not start the local Worker; the permitted rerun passed.
+- `npx wrangler deploy --dry-run --outdir /tmp/alpha-ledger-release-verification` completed
+  successfully outside the sandbox. This was a dry run; nothing was deployed.
+- `git log -4 --oneline -- migrations` and `rg --files migrations` confirm no release migration
+  was added. `./scripts/codex-models.sh` confirms `gpt-6-astra` is available.
+- No application changes were needed. Task 35 remains owner-deferred and unverified.
+
+**Next:** owner approval for task 40's production deploy, then live verification and release notes.
+Queue recommendation for task 40: `gpt-5.6-terra`, effort medium (verified in the model menu).
