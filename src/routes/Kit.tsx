@@ -92,14 +92,14 @@ export default function Kit() {
     },
     {
       key: 'valueAdded',
-      header: 'vs VOO',
+      header: 'vs S&P 500',
       align: 'right',
       render: (row) => (
         <SignedDelta
           value={row.valueAdded}
           format="moneyCompact"
           size="sm"
-          describe={{ up: 'beat VOO by', down: 'trailed VOO by' }}
+          describe={{ up: 'beat S&P 500 by', down: 'trailed S&P 500 by' }}
         />
       ),
       sort: (row) => Number(row.valueAdded),
@@ -152,24 +152,24 @@ export default function Kit() {
         <Card>
           <StatTile
             hero
-            label="Value added vs VOO"
+            label="Value added vs S&P 500"
             value={money(headline.valueAdded)}
             delta={{
               value: headline.percentDifference,
               format: 'percent',
-              describe: { up: 'ahead of VOO by', down: 'behind VOO by' },
+              describe: { up: 'ahead of S&P 500 by', down: 'behind S&P 500 by' },
             }}
-            footnote="Your picks against the same dollars in VOO on the same dates."
+            footnote="Your picks against the same dollars in the S&P 500 on the same dates."
           />
           <div className="mt-5 grid grid-cols-2 gap-5 border-t border-rule pt-4 md:grid-cols-4">
             <StatTile label="Portfolio value" value={moneyCompact(headline.portfolioValue)} />
-            <StatTile label="VOO equivalent" value={moneyCompact(headline.shadowValue)} />
+            <StatTile label="S&P 500 equivalent" value={moneyCompact(headline.shadowValue)} />
             <StatTile
               label="Your IRR"
               value={percent(headline.irr, { sign: false })}
               trend={{ values: sparkline, label: 'Portfolio value over the last 90 trading days' }}
             />
-            <StatTile label="VOO IRR" value={percent(headline.shadowIrr, { sign: false })} />
+            <StatTile label="S&P 500 IRR" value={percent(headline.shadowIrr, { sign: false })} />
           </div>
         </Card>
       </section>
@@ -194,7 +194,7 @@ export default function Kit() {
                     value={summary.valueAdded}
                     format="moneyCompact"
                     size="sm"
-                    describe={{ up: 'beat VOO by', down: 'trailed VOO by' }}
+                    describe={{ up: 'beat S&P 500 by', down: 'trailed S&P 500 by' }}
                   />
                 ),
                 selected: summary.account === demoAccount,
@@ -317,7 +317,7 @@ export default function Kit() {
               <SignedDelta
                 value="18420.55"
                 size="lg"
-                describe={{ up: 'ahead of VOO by', down: 'behind VOO by' }}
+                describe={{ up: 'ahead of S&P 500 by', down: 'behind S&P 500 by' }}
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -325,7 +325,7 @@ export default function Kit() {
               <SignedDelta
                 value="-9260.10"
                 size="lg"
-                describe={{ up: 'ahead of VOO by', down: 'behind VOO by' }}
+                describe={{ up: 'ahead of S&P 500 by', down: 'behind S&P 500 by' }}
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -443,10 +443,10 @@ export default function Kit() {
           <Label>Series and polarity</Label>
           <ul className="mt-2 mb-5 grid grid-cols-2 gap-2 md:grid-cols-3">
             {[
-              ['Ahead / beat VOO', 'bg-ahead'],
-              ['Behind / trailed VOO', 'bg-behind'],
+              ['Ahead / beat S&P 500', 'bg-ahead'],
+              ['Behind / trailed S&P 500', 'bg-behind'],
               ['You', 'bg-you'],
-              ['VOO (reference)', 'bg-voo'],
+              ['S&P 500 (reference)', 'bg-voo'],
               ['Fair value', 'bg-estimate'],
               ['De-emphasised', 'bg-dim'],
             ].map(([name, background]) => (
@@ -487,7 +487,7 @@ export default function Kit() {
       >
         <div className="flex flex-col gap-3 text-body">
           <p>
-            Every dollar you put into a stock is mirrored into a VOO bucket on the same date. Sells
+            Every dollar you put into a stock is mirrored into an S&amp;P 500 bucket on the same date. Sells
             and dividends come back out of the bucket the same way.
           </p>
           <p>

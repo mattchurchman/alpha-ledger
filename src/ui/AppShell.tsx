@@ -102,7 +102,7 @@ export function AppShell({
             </span>
             <span className="flex flex-col gap-0.5">
               <span className="text-h3 font-semibold">Alpha Ledger</span>
-              <span className="label-micro">vs VOO</span>
+              <span className="label-micro">vs S&amp;P 500</span>
             </span>
           </Link>
           <ul className="flex flex-col gap-1">

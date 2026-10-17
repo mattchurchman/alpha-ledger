@@ -44,7 +44,7 @@ export default function Help() {
         <Card>
           <p className="max-w-prose text-body">
             Alpha Ledger answers two questions about your own portfolio: did your stock picks beat
-            putting the same dollars into VOO on the same dates, and which of your holdings are
+            the S&amp;P 500 (VOO, bought with the same dollars on the same dates), and which of your holdings are
             trading below your own fair-value estimate.
           </p>
           <p className="mt-3 max-w-prose text-small text-ink-secondary">
@@ -168,15 +168,15 @@ export default function Help() {
             </Term>
             <Term word="By account">
               In the All view, one line per account under the headline tiles: what it is worth, and
-              how it did against the same dollars in VOO. These two do add up to the headline above
+              how it did against the same dollars in the S&amp;P 500. These two do add up to the headline above
               them. Tap a line to switch to that account.
             </Term>
             <Term word="Headline">
-              <strong className="font-medium text-ink">Value added vs VOO</strong> is the one number
+              <strong className="font-medium text-ink">Value added vs S&amp;P 500</strong> is the one number
               the app exists for: what your holdings are worth today minus what the same dollars put
-              into VOO on the same days would be worth. The percentage beside it is that gap against
-              the VOO side, and it is shown only when the VOO side is positive. Below it sit
-              portfolio value, the VOO equivalent, and both IRRs.
+              into the S&amp;P 500 on the same days would be worth. The percentage beside it is that gap against
+              the S&amp;P 500 side, and it is shown only when the S&amp;P 500 side is positive. Below it sit
+              portfolio value, the S&amp;P 500 equivalent, and both IRRs.
             </Term>
             <Term word="A warning under the headline">
               If a holding has no stored price it is counted as $0 and listed there by ticker,
@@ -194,7 +194,7 @@ export default function Help() {
               here.
             </Term>
             <Term word="History">
-              Your portfolio and its VOO shadow as two lines, with the gap between them filled -
+              Your portfolio and its S&amp;P 500 shadow as two lines, with the gap between them filled -
               blue where you are ahead, red where you are behind. The range buttons (1W up to All)
               change the window and how closely the chart zooms in on it; they never change how
               anything is computed.
@@ -217,7 +217,7 @@ export default function Help() {
               slice&rsquo;s identity. Tap a segment to open that stock.
             </Term>
             <Term word="Holdings">
-              One row per open position: shares, price, value, return, value added vs VOO, your fair
+              One row per open position: shares, price, value, return, value added vs S&amp;P 500, your fair
               value, and the discount. Tap a column heading to sort, tap a row to open that stock.
               Below 640px the table becomes one card per row. Every row carries a Close… button, for
               a company that was bought out, merged, or that you simply want out of sight. If
@@ -226,7 +226,7 @@ export default function Help() {
             </Term>
             <Term word="Value creators and destroyers">
               The positions you still hold and still have a price for, as bars either side of zero -
-              sorted by how much value each added or destroyed against VOO. Positions you have
+              sorted by how much value each added or destroyed against the S&amp;P 500. Positions you have
               closed are left out, and so is anything with no stored price, because a missing price
               counts as $0 and would draw a holding as a total loss; the subtitle says how many of
               each. That means these bars do not add up to the headline above, which still counts
@@ -246,11 +246,11 @@ export default function Help() {
           </p>
           <dl className="flex flex-col gap-4">
             <Term word="The same headline, for one stock">
-              Value added vs VOO for this ticker, then the shares you hold, current value, its VOO
+              Value added vs S&amp;P 500 for this ticker, then the shares you hold, current value, its S&amp;P 500
               equivalent, and both IRRs. If no price is stored for the ticker, the shares tile says
               so, because the current value beside it then reads as $0 rather than as a real
               valuation. A position you have closed still has all of these: its current value is
-              zero, and the comparison is proceeds plus dividends against what VOO would have done
+              zero, and the comparison is proceeds plus dividends against what the S&amp;P 500 would have done
               with the same cash flows. Closed positions are labelled, and so are hidden ones. If
               you arrived from a dashboard narrowed to one account, every number here is that
               account&rsquo;s, and the heading beside the ticker says which. A ticker you are only
@@ -275,7 +275,7 @@ export default function Help() {
                   every share you held that day, so the shares go to zero and the ticker reads as
                   Closed from then on. The sheet says exactly what it will write before you confirm.
                   Value added then compares the cash you actually got against the same dollars in
-                  VOO - a buyout above the market price shows up as outperformance.
+                  the S&amp;P 500 - a buyout above the market price shows up as outperformance.
                 </li>
                 <li>
                   <strong className="font-medium text-ink">Became another ticker.</strong> Records
@@ -291,14 +291,14 @@ export default function Help() {
             <Term word="Your money">
               Invested, returned, and total return split into realized, unrealized and dividends.
             </Term>
-            <Term word="Position versus VOO">
-              This ticker against its own VOO bucket, with a marker at every buy and sell and the
+            <Term word="Position versus S&amp;P 500">
+              This ticker against its own S&amp;P 500 bucket, with a marker at every buy and sell and the
               same range buttons as the dashboard&rsquo;s History chart. A buy or sell from outside
               the chosen window is left off rather than drawn on day one of it.
             </Term>
             <Term word="Decisions">
               One row per buy: the dollars you put in, what those shares are worth now (or what they
-              sold for), what the same dollars in VOO would be worth to the same end point, and the
+              sold for), what the same dollars in the S&amp;P 500 would be worth to the same end point, and the
               difference. This answers &ldquo;was that particular purchase a good idea&rdquo;. On a
               stock that paid dividends these rows do not sum to the ticker&rsquo;s value added,
               because a dividend is not attributed to any one buy - the ticker-level number above is
@@ -384,11 +384,11 @@ export default function Help() {
             <p className="label-micro">The five types</p>
             <dl className="mt-2 flex flex-col gap-2">
               <Term word="Buy / Sell">
-                Shares and dollars, both required. These are the flows the VOO shadow mirrors.
+                Shares and dollars, both required. These are the flows the S&amp;P 500 shadow mirrors.
               </Term>
               <Term word="Dividend">
                 Cash the stock paid you. No share count. The shadow treats it as money taken out of
-                the position, so it sells that much VOO on the same day.
+                the position, so it sells that much of the S&amp;P 500 on the same day.
               </Term>
               <Term word="Split">
                 Recorded for reference only. Splits are applied from the market-data history, never
@@ -492,7 +492,7 @@ export default function Help() {
           </p>
           <dl className="flex flex-col gap-4">
             <Term word="Update market data">
-              The one action that fetches prices: VOO plus every ticker ever held, one request each,
+              The one action that fetches prices: the S&amp;P 500 (VOO) plus every ticker ever held, one request each,
               with a progress count. A ticker that fails is named rather than silently skipped. The
               header&rsquo;s Update control does the same thing from anywhere. A closed position
               whose symbol no longer trades is still asked for, but when it fails it is reported
@@ -515,7 +515,7 @@ export default function Help() {
             <Term word="Ticker aliases">
               For a rename or a merger. Record the old ticker, the new one, and the date it took
               effect: transactions on or before that date keep the old symbol, and holdings and the
-              VOO comparison resolve them under the new one. An alias carries no exchange ratio, so
+              S&amp;P 500 comparison resolve them under the new one. An alias carries no exchange ratio, so
               if one old share became something other than one new share, the share count needs a
               correction too - the Close or hide… sheet on the stock screen writes both together.
             </Term>
@@ -543,9 +543,9 @@ export default function Help() {
               <Legend
                 items={[
                   { label: 'Your portfolio', tone: 'you' },
-                  { label: 'The VOO shadow', tone: 'voo' },
-                  { label: 'Ahead of VOO', tone: 'ahead', shape: 'rect' },
-                  { label: 'Behind VOO', tone: 'behind', shape: 'rect' },
+                  { label: 'The S&P 500 shadow', tone: 'voo' },
+                  { label: 'Ahead of S&P 500', tone: 'ahead', shape: 'rect' },
+                  { label: 'Behind S&P 500', tone: 'behind', shape: 'rect' },
                   { label: 'Your fair value', tone: 'estimate' },
                 ]}
               />
@@ -583,12 +583,12 @@ export default function Help() {
       <Section id="numbers" title="What each number means">
         <Card className="flex flex-col gap-4">
           <dl className="flex flex-col gap-4 text-small text-ink-secondary">
-            <Term word="Value added vs VOO">
-              Current value minus the VOO shadow&rsquo;s value. The headline, and the only number
+            <Term word="Value added vs S&amp;P 500">
+              Current value minus the S&amp;P 500 shadow&rsquo;s value. The headline, and the only number
               that answers the question the app was built for.
             </Term>
-            <Term word="VOO equivalent / shadow value">
-              What the same dollars, moved into and out of VOO on the same dates, would be worth
+            <Term word="S&amp;P 500 equivalent / shadow value">
+              What the same dollars, moved into and out of the S&amp;P 500 on the same dates, would be worth
               today. It can be negative - see the note below.
             </Term>
             <Term word="Invested / Returned">
@@ -612,7 +612,7 @@ export default function Help() {
             </Term>
             <Term word="An em dash (—)">
               Not available, deliberately: an IRR with no sign change in its cash flows, or a
-              percentage against a VOO side that is not positive. The app shows a dash rather than a
+              percentage against an S&amp;P 500 side that is not positive. The app shows a dash rather than a
               number it would have to invent.
             </Term>
           </dl>
@@ -643,7 +643,7 @@ export default function Help() {
       <Section id="trouble" title="When something looks wrong">
         <Card className="flex flex-col gap-2 text-small text-ink-secondary">
           <Faq q="The dashboard says there is no comparison yet.">
-            Either nothing is imported, or VOO has no stored price history. Import an activity
+            Either nothing is imported, or the S&amp;P 500 has no stored price history. Import an activity
             export, then tap Update - the comparison needs the benchmark before it can draw
             anything.
           </Faq>
@@ -686,9 +686,9 @@ export default function Help() {
             otherwise use the manual price CSV or set a price by hand. If the position is closed,
             the failure is expected and is reported as such rather than as a problem.
           </Faq>
-          <Faq q="A whole position shows a negative VOO equivalent.">
+          <Faq q="A whole position shows a negative S&amp;P 500 equivalent.">
             That is real, not a bug: the stock has paid you back more cash than the same money would
-            be worth in VOO, so its shadow bucket is below zero. It is shown as-is rather than
+            be worth in the S&amp;P 500, so its shadow bucket is below zero. It is shown as-is rather than
             floored.
           </Faq>
           <Faq q="The import skipped rows I expected it to take.">

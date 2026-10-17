@@ -290,7 +290,7 @@ export default function Dashboard() {
             value={summary.valueAdded}
             format="moneyCompact"
             size="sm"
-            describe={{ up: 'beat VOO by', down: 'trailed VOO by' }}
+            describe={{ up: 'beat S&P 500 by', down: 'trailed S&P 500 by' }}
           />
         ),
       })),
@@ -301,7 +301,7 @@ export default function Dashboard() {
     const hidden: string[] = []
     if (creators.closed > 0) hidden.push(`${creators.closed} closed`)
     if (creators.unpriced > 0) hidden.push(`${creators.unpriced} with no stored price`)
-    const base = 'Open positions, against the same dollars in VOO.'
+    const base = 'Open positions, against the same dollars in the S&P 500.'
     return hidden.length === 0 ? base : `${base} ${hidden.join(' and ')} not shown.`
   }, [creators])
 
@@ -351,7 +351,7 @@ export default function Dashboard() {
       },
       {
         key: 'valueAdded',
-        header: 'vs VOO',
+        header: 'vs S&P 500',
         align: 'right',
         sort: (row) => Number(row.valueAdded),
         render: (row) => (
@@ -359,7 +359,7 @@ export default function Dashboard() {
             value={row.valueAdded}
             format="moneyCompact"
             size="sm"
-            describe={{ up: 'beat VOO by', down: 'trailed VOO by' }}
+            describe={{ up: 'beat S&P 500 by', down: 'trailed S&P 500 by' }}
           />
         ),
       },
@@ -425,7 +425,7 @@ export default function Dashboard() {
     return (
       <EmptyState
         title="No comparison yet"
-        body="Import your M1 activity and update market data - once VOO has a stored price history, this fills in from your first transaction onward."
+        body="Import your M1 activity and update market data - once the S&P 500 has a stored price history, this fills in from your first transaction onward."
         action={
           <Button variant="primary" onClick={() => navigate('/import')}>
             Go to Import
@@ -467,28 +467,28 @@ export default function Dashboard() {
         <Card>
           <StatTile
             hero
-            label="Value added vs VOO"
+            label="Value added vs S&P 500"
             value={money(portfolio.valueAdded)}
             delta={{
               value: portfolio.percentDifference,
               format: 'percent',
-              describe: { up: 'ahead of VOO by', down: 'behind VOO by' },
+              describe: { up: 'ahead of S&P 500 by', down: 'behind S&P 500 by' },
             }}
             footnote={
               account === null
-                ? 'Your picks against the same dollars in VOO on the same dates.'
-                : `${account} only: its picks against the same dollars in VOO on the same dates.`
+                ? 'Your picks against the same dollars in the S&P 500 on the same dates.'
+                : `${account} only: its picks against the same dollars in the S&P 500 on the same dates.`
             }
           />
           <div className="mt-5 grid grid-cols-2 gap-5 border-t border-rule pt-4 md:grid-cols-4">
             <StatTile label="Portfolio value" value={moneyCompact(portfolio.currentValue)} />
-            <StatTile label="VOO equivalent" value={moneyCompact(portfolio.shadowValue)} />
+            <StatTile label="S&P 500 equivalent" value={moneyCompact(portfolio.shadowValue)} />
             <StatTile
               label="Your IRR"
               value={percent(portfolio.irr, { sign: false })}
               trend={irrTrend}
             />
-            <StatTile label="VOO IRR" value={percent(portfolio.shadowIrr, { sign: false })} />
+            <StatTile label="S&P 500 IRR" value={percent(portfolio.shadowIrr, { sign: false })} />
           </div>
           {/*
            * The comparison strip, in the summed view only - inside the one account's view the

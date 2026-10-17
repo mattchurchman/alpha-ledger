@@ -9,22 +9,22 @@ export function HowCalculatedContent() {
   return (
     <div className="flex flex-col gap-4 text-small text-ink-secondary">
       <section>
-        <h3 className="mb-1 text-small font-semibold text-ink">The VOO comparison</h3>
+        <h3 className="mb-1 text-small font-semibold text-ink">The S&amp;P 500 comparison</h3>
         <p>
-          Every ticker gets its own shadow bucket of VOO. Whenever you buy, sell, or get paid a
-          dividend in a stock, the same dollars are imagined going into or out of VOO on the same
-          day. Because both sides see the same cash flows, the gap between them - what your shares
-          are worth today versus what that VOO bucket is worth today - is the result of your stock
-          picking, nothing else. VOO&rsquo;s bucket uses its adjusted close, which already includes
-          VOO&rsquo;s own reinvested dividends.
+          Every ticker gets its own shadow bucket of the S&amp;P 500 (VOO, bought with the same dollars
+          on the same dates). Whenever you buy, sell, or get paid a dividend in a stock, the same
+          dollars are imagined going into or out of that bucket. Because both sides see the same
+          cash flows, the gap between them - what your shares are worth today versus what that S&amp;P
+          500 bucket is worth today - is the result of your stock picking, nothing else. Its adjusted
+          close already includes reinvested dividends.
         </p>
       </section>
       <section>
         <h3 className="mb-1 text-small font-semibold text-ink">A bucket can go negative</h3>
         <p>
-          If a stock has paid you back more cash than the same money would be worth in VOO, its
+          If a stock has paid you back more cash than the same money would be worth in the S&amp;P 500, its
           shadow bucket shows as negative. That is shown as-is, not floored at zero - it means the
-          position has already returned more than a VOO equivalent would be worth.
+          position has already returned more than an S&amp;P 500 equivalent would be worth.
         </p>
       </section>
       <section>
@@ -32,10 +32,10 @@ export function HowCalculatedContent() {
         <p>
           Invested and returned are the sum of your buys and of your sells plus dividends. Total
           return splits into realized gain (from shares you have sold), unrealized gain (from shares
-          you still hold), and dividends. Value added is current value minus the VOO bucket, and it
+          you still hold), and dividends. Value added is current value minus the S&amp;P 500 bucket, and it
           stays meaningful for a closed position, where current value is zero. IRR is a
           money-weighted, annualized return solved from your actual cash flows - when there is no
-          sign change among them, or the VOO bucket is not positive, it shows a dash rather than a
+          sign change among them, or the S&amp;P 500 bucket is not positive, it shows a dash rather than a
           guess.
         </p>
       </section>
@@ -43,7 +43,7 @@ export function HowCalculatedContent() {
         <h3 className="mb-1 text-small font-semibold text-ink">What is ignored</h3>
         <p>
           Taxes, brokerage fees, and cash sitting idle between trades are ignored on both sides of
-          every comparison. This app answers one question - did the picks beat VOO - not what you
+          every comparison. This app answers one question - did the picks beat the S&amp;P 500 - not what you
           would have kept after taxes or fees.
         </p>
       </section>
@@ -103,7 +103,7 @@ export function HowCalculatedContent() {
             is for reading on a screen, not for a tax return. When you narrow the Dashboard to a
             single account, that view uses <em>that account&rsquo;s</em> own average cost instead,
             so the same total gain is split differently between realized and unrealized. Value, the
-            VOO equivalent and value added are unaffected: those do add up across accounts exactly.
+            S&amp;P 500 equivalent and value added are unaffected: those do add up across accounts exactly.
           </li>
           <li>
             <strong className="font-medium text-ink">

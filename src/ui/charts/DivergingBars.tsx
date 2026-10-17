@@ -68,7 +68,7 @@ export function DivergingBars({
   const table = (
     <div className="max-h-80 overflow-auto">
       <table className="w-full text-small tabular-nums">
-        <caption className="sr-only">Value added against VOO, by ticker</caption>
+        <caption className="sr-only">Value added against the S&amp;P 500, by ticker</caption>
         <thead className="sticky top-0 bg-surface">
           <tr className="border-b border-rule text-left">
             <th scope="col" className="label-micro py-1.5 pr-3 font-medium">
@@ -101,8 +101,8 @@ export function DivergingBars({
       busy={busy}
       table={table}
       legend={[
-        { label: 'Beat VOO', tone: 'ahead', shape: 'rect' },
-        { label: 'Trailed VOO', tone: 'behind', shape: 'rect' },
+        { label: 'Beat S&P 500', tone: 'ahead', shape: 'rect' },
+        { label: 'Trailed S&P 500', tone: 'behind', shape: 'rect' },
       ]}
     >
       <ul className="flex flex-col">
@@ -136,7 +136,7 @@ export function DivergingBars({
               <span className="col-span-2 text-right text-small tabular-nums sm:col-span-1">
                 <span className={ahead ? 'text-ahead' : 'text-behind'}>
                   <span className="sr-only">
-                    {item.label} {ahead ? 'beat VOO by' : 'trailed VOO by'}{' '}
+                    {item.label} {ahead ? 'beat S&P 500 by' : 'trailed S&P 500 by'}{' '}
                   </span>
                   <span aria-hidden="true">{ahead ? '▲ +' : '▼ −'}</span>
                   <span className="group-hover:hidden">{moneyCompact(Math.abs(item.number))}</span>

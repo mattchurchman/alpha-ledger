@@ -188,7 +188,7 @@ export default function Settings() {
       <Card>
         <h2 className="mb-1 text-h3 font-semibold">How this is calculated</h2>
         <p className="mb-3 text-small text-ink-secondary">
-          What the VOO comparison means, and what it leaves out.
+          What the S&amp;P 500 comparison means, and what it leaves out.
         </p>
         <Button onClick={() => setHowSheetOpen(true)}>Read how this is calculated</Button>
         <p className="mt-3 text-small text-ink-muted">Export/restore lands in a later task.</p>

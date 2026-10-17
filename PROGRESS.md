@@ -17,7 +17,7 @@ read it end to end. Rev 3 plan and reasoning: `docs/REV3_ASSESSMENT.md`; order a
 | 35 | Real full re-import and owner acceptance (supersedes 25c) | Opus | - |
 | 36 | Brand palette into tokens | Opus | done |
 | 37 | Logo, icons, sign-in screen | Sonnet | - |
-| 38 | "S&P 500" wording | Haiku | - |
+| 38 | "S&P 500" wording | Haiku | done |
 | 39 | Dashboard facelift | Opus | - |
 | 40 | Release rev 3 | Haiku | - |
 
@@ -183,3 +183,24 @@ Completed:
 Open issues: none.
 
 **Next:** `tasks/codex/38.md` on `gpt-5.6-terra`, effort medium.
+
+## Task 38 - Say "S&P 500" where the owner reads it - 2026-10-17 - Codex
+Status: done.
+
+Built:
+- Replaced user-facing benchmark labels, legends, chart copy, accessibility text and Help prose
+  with “S&P 500”; ticker, engine and API identifiers remain unchanged.
+- The first method explanation in both Help and How this is calculated identifies the benchmark as
+  “S&P 500 (VOO, bought with the same dollars on the same dates)”.
+- Added the wording decision to `docs/SPEC.md`.
+
+Verified:
+- `npm run check` passes: typecheck, lint, 28 test files and 514 tests.
+- `npm run build` passes. Local `/` and `/help` screenshots at 390px and 1280px in light and dark
+  were generated and visually reviewed; labels wrap cleanly and no console errors appeared.
+- `rg -n 'VOO' src/routes src/ui` now finds only comments, the ticker-entry placeholder, and the
+  explicit VOO method references in Help and How this is calculated.
+
+Open issues: none.
+
+**Next:** `tasks/codex/37.md` on `gpt-6-astra`, effort medium.

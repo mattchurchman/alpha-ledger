@@ -333,7 +333,7 @@ export default function StockDetail() {
       },
       {
         key: 'shadow',
-        header: 'VOO outcome',
+        header: 'S&P 500 outcome',
         align: 'right',
         sort: (d) => Number(d.shadowValue),
         render: (d) => money(d.shadowValue),
@@ -348,7 +348,7 @@ export default function StockDetail() {
             value={d.valueAdded}
             format="money"
             size="sm"
-            describe={{ up: 'beat VOO by', down: 'trailed VOO by' }}
+            describe={{ up: 'beat S&P 500 by', down: 'trailed S&P 500 by' }}
           />
         ),
       },
@@ -399,7 +399,7 @@ export default function StockDetail() {
         {back}
         <EmptyState
           title="No comparison yet"
-          body="Import your M1 activity and update market data - once VOO has a stored price history, this fills in from your first transaction onward."
+          body="Import your M1 activity and update market data - once the S&P 500 has a stored price history, this fills in from your first transaction onward."
           action={
             <Button variant="primary" onClick={() => navigate('/import')}>
               Go to Import
@@ -481,19 +481,19 @@ export default function StockDetail() {
         <Card>
           <StatTile
             hero
-            label="Value added vs VOO"
+            label="Value added vs S&P 500"
             value={money(analysis.valueAdded)}
             delta={{
               value: analysis.percentDifference,
               format: 'percent',
-              describe: { up: 'ahead of VOO by', down: 'behind VOO by' },
+              describe: { up: 'ahead of S&P 500 by', down: 'behind S&P 500 by' },
             }}
             footnote={
               closed
-                ? "Closed position. Proceeds plus dividends against VOO's."
+                ? "Closed position. Proceeds plus dividends against the S&P 500's."
                 : account !== null
-                  ? `${account} only: its picks against the same dollars in VOO on the same dates.`
-                  : 'Your picks against the same dollars in VOO on the same dates.'
+                  ? `${account} only: its picks against the same dollars in the S&P 500 on the same dates.`
+                  : 'Your picks against the same dollars in the S&P 500 on the same dates.'
             }
           />
           <div className="mt-5 grid grid-cols-2 gap-5 border-t border-rule pt-4 md:grid-cols-5">
@@ -508,16 +508,16 @@ export default function StockDetail() {
             />
             <StatTile label="Current value" value={moneyCompact(analysis.currentValue)} />
             <StatTile
-              label="VOO equivalent"
+              label="S&P 500 equivalent"
               value={moneyCompact(analysis.shadowValue)}
               footnote={
                 shadowNegative
-                  ? 'This position has paid you back more cash than the same money would be worth in VOO, so its VOO equivalent is below zero.'
+                  ? 'This position has paid you back more cash than the same money would be worth in the S&P 500, so its S&P 500 equivalent is below zero.'
                   : undefined
               }
             />
             <StatTile label="Your IRR" value={percent(analysis.irr, { sign: false })} />
-            <StatTile label="VOO IRR" value={percent(analysis.shadowIrr, { sign: false })} />
+            <StatTile label="S&P 500 IRR" value={percent(analysis.shadowIrr, { sign: false })} />
           </div>
           {hidden && (
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-rule pt-4">
@@ -582,7 +582,7 @@ export default function StockDetail() {
       )}
 
       <section>
-        <SectionHeading>Position versus VOO</SectionHeading>
+        <SectionHeading>Position versus S&amp;P 500</SectionHeading>
         <div className="mb-3">
           <RangeSelector value={range} onChange={setRange} />
         </div>
@@ -592,7 +592,7 @@ export default function StockDetail() {
           benchmark={windowedSeries?.shadow ?? series.shadow}
           markers={markers}
           range={range}
-          title={`${ticker} versus its VOO bucket`}
+          title={`${ticker} versus its S&P 500 bucket`}
           subtitle="Drag across the chart, or focus it and use the arrow keys."
         />
       </section>
@@ -614,7 +614,7 @@ export default function StockDetail() {
             }
           />
           <p className="mt-3 text-small text-ink-muted">
-            Each row is one buy against the same dollars in VOO to the same end point - a sold slice
+            Each row is one buy against the same dollars in the S&amp;P 500 to the same end point - a sold slice
             to its sell date, the rest to today. Dividends are not split across buys, so these
             differences do not sum to the value added above.
           </p>
