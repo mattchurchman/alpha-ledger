@@ -253,3 +253,20 @@ Owner action: approve the four `home-{390,1280}-{light,dark}.png` previews in th
 Future carry-over: embedded chart/card composition and compact performance tables could be used
 on Stock detail in a separately scoped task; no other screen was restyled here.
 **Next:** finish task 39's owner review, then `tasks/codex/35.md`, `gpt-6-astra`, effort high.
+
+## Task 39 verification follow-up - 2026-10-17 - Codex
+Status: partial — checks complete; owner screenshot approval still pending.
+
+- `git fetch origin && git rev-list --left-right --count HEAD...origin/main` confirmed the
+  existing dashboard implementation was already pushed; no source changes were needed.
+- `npm run check` passes: typecheck, lint, 28 test files and 514 tests. `npm run build` passes.
+  The initial sandbox run could not start the local Worker; the permitted rerun passed.
+- `npm run screenshots -- --route / --demo --out /tmp/alpha-ledger-task39-review` passes all
+  interaction and edge-state assertions at 390px and 1280px, light/dark, without browser errors.
+  All four generated screenshots were visually reviewed and contain synthetic data only.
+- `./scripts/codex-models.sh` confirmed `gpt-6-astra` is available. The commit contains only this
+  verification handoff; no private data or generated screenshots are included.
+
+Owner action: approve the four `home-{390,1280}-{light,dark}.png` previews in
+`/tmp/alpha-ledger-task39-review`. Task 40 remains gated on that explicit approval.
+**Next:** finish task 39's owner review, then `tasks/codex/35.md`, `gpt-6-astra`, effort high.
