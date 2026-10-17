@@ -19,7 +19,7 @@ read it end to end. Rev 3 plan and reasoning: `docs/REV3_ASSESSMENT.md`; order a
 | 37 | Logo, icons, sign-in screen | Sonnet | done |
 | 38 | "S&P 500" wording | Haiku | done |
 | 39 | Dashboard facelift | Opus | done — owner approved screenshots |
-| 40 | Release rev 3 | Haiku | partial — release prepared; production deployment approval pending |
+| 40 | Release rev 3 | Haiku | done — deployed and verified; task 35 remains deferred |
 
 ## Rev 3 entries
 
@@ -332,3 +332,25 @@ Status: partial — release checks pass; explicit production deployment approval
 
 **Next:** owner approval for task 40's production deploy, then live verification and release notes.
 Queue recommendation for task 40: `gpt-5.6-terra`, effort medium (verified in the model menu).
+
+## Task 40 production release - 2026-10-17 - Codex
+Status: done. The owner replied "yep" to the explicit production deployment approval request.
+
+- `npx wrangler deploy` deployed Rev 3 to https://alpha-ledger.alpha-ledger.workers.dev.
+  Version ID: `9d779174-1fc9-43e2-9363-86ab19e99ca5`. No remote migration was needed or run.
+- The approved bundle passed `npm run check && npm run build` and the deployment dry run in
+  the verification entry above. After adding the smoke-check script, `npm run check` again
+  passed typecheck, lint, 28 test files and 514 tests.
+- Reproduce live checks with `node scripts/release-smoke.ts https://alpha-ledger.alpha-ledger.workers.dev /tmp/alpha-ledger-rev3-live`.
+  Signed-out session, transactions, export and health requests return 401; deployed brand/icon,
+  manifest and service-worker assets match the repository. No credentials or private data used.
+- Live sign-in and dashboard screenshots passed at 390px and 1280px in light/dark and were
+  visually reviewed. Dashboard responses were intercepted synthetic fixtures; range, table,
+  keyboard, account navigation and missing-data checks passed without browser errors.
+- `scripts/release-smoke.ts` preserves the check; `docs/REV3_START.md` records what shipped.
+  Only verification tooling and documentation changed after deploy; no app logic changed.
+- Task 35's real-data re-import and independent M1 acceptance remain deferred and unverified.
+
+Owner action: remove and re-add the iPhone home-screen app to refresh its cached icon.
+**Next:** no new release task queued. Resume deferred `tasks/codex/35.md` only when the owner is
+ready (`gpt-6-astra`, effort high, as verified by `./scripts/codex-models.sh` in this session).

@@ -33,4 +33,9 @@ brand facelift** (36-39). Why each exists: `docs/REV3_ASSESSMENT.md`. Brand: `do
 - 36 and 39 end with screenshots for you to approve.
 
 ## What shipped
-(Task 40 fills this in.)
+
+- Rev 3 is live at https://alpha-ledger.alpha-ledger.workers.dev; version `9d779174-1fc9-43e2-9363-86ab19e99ca5`.
+- Full-export import planning, remembered decisions and the revised import screen are deployed; task 35's real-data acceptance remains owner-deferred and unverified.
+- The approved palette, logos, sign-in screen, app icons, S&P 500 wording and dashboard facelift are deployed.
+- `npm run check` passes all 514 tests; build and live browser checks pass, with synthetic dashboard data (`scripts/release-smoke.ts`).
+- Remove and re-add the iPhone home-screen app to refresh the cached icon; no database migration was required for this release.
